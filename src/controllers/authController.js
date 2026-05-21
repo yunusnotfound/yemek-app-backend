@@ -366,10 +366,10 @@ exports.appleLogin = async (req, res, next) => {
         return res.status(401).json({ message: 'Geçersiz Apple token' });
       }
 
-      // Convert JWK to PEM
-      const pem = jwkToPem(appleKey);
+      // Import Apple's public key directly from JWK (Node 11.6+)
+      const publicKey = crypto.createPublicKey({ key: appleKey, format: 'jwk' });
 
-      decoded = jwt.verify(identityToken, pem, {
+      decoded = jwt.verify(identityToken, publicKey, {
         algorithms: ['RS256'],
         issuer: 'https://appleid.apple.com',
       });
@@ -437,56 +437,3 @@ exports.appleLogin = async (req, res, next) => {
 };
 
 // Helper: Convert JWK to PEM format
-function jwkToPem(jwk) {
-  const { n, e } = jwk;
-  const modulus = Buffer.from(n, 'base64url');
-  const exponent = Buffer.from(e, 'base64url');
-
-  // Build DER encoding of RSA public key
-  const modulusEncoded = encodeLength(modulus);
-  const exponentEncoded = encodeLength(exponent);
-
-  const sequenceInner = Buffer.concat([
-    Buffer.from([0x02]), modulusEncoded,
-    Buffer.from([0x02]), exponentEncoded,
-  ]);
-
-  const sequenceOuter = Buffer.concat([
-    Buffer.from([0x30]), derLength(sequenceInner.length), sequenceInner,
-  ]);
-
-  // BitString wrapping
-  const bitString = Buffer.concat([
-    Buffer.from([0x00]), sequenceOuter,
-  ]);
-
-  // Algorithm identifier for RSA
-  const algorithmIdentifier = Buffer.from(
-    '300d06092a864886f70d0101010500', 'hex'
-  );
-
-  const publicKeyInfo = Buffer.concat([
-    Buffer.from([0x30]),
-    derLength(algorithmIdentifier.length + 2 + derLength(bitString.length).length + bitString.length),
-    algorithmIdentifier,
-    Buffer.from([0x03]),
-    derLength(bitString.length),
-    bitString,
-  ]);
-
-  return `-----BEGIN PUBLIC KEY-----\n${publicKeyInfo.toString('base64').match(/.{1,64}/g).join('\n')}\n-----END PUBLIC KEY-----`;
-}
-
-function encodeLength(buf) {
-  // Prepend 0x00 if high bit is set (to indicate positive number)
-  if (buf[0] & 0x80) {
-    return Buffer.concat([Buffer.from([0x00]), buf]);
-  }
-  return buf;
-}
-
-function derLength(length) {
-  if (length < 0x80) return Buffer.from([length]);
-  if (length < 0x100) return Buffer.from([0x81, length]);
-  return Buffer.from([0x82, (length >> 8) & 0xff, length & 0xff]);
-}

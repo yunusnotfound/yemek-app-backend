@@ -1,30 +1,16 @@
 import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
 
 class OrdersRemoteDataSource {
   final DioClient _dioClient;
-  final TokenStorage _tokenStorage;
 
-  OrdersRemoteDataSource({
-    required DioClient dioClient,
-    required TokenStorage tokenStorage,
-  }) : _dioClient = dioClient,
-       _tokenStorage = tokenStorage;
-
-  Future<void> _ensureAuth() async {
-    final token = await _tokenStorage.getAccessToken();
-    if (token != null) {
-      _dioClient.setAuthToken(token);
-    }
-  }
+  OrdersRemoteDataSource({required DioClient dioClient}) : _dioClient = dioClient;
 
   Future<Map<String, dynamic>> getMyOrders({
     int page = 1,
     int limit = 10,
   }) async {
     try {
-      await _ensureAuth();
       final response = await _dioClient.dio.get(
         '/orders',
         queryParameters: {'page': page, 'limit': limit},
@@ -37,7 +23,6 @@ class OrdersRemoteDataSource {
 
   Future<Map<String, dynamic>> cancelOrder(String orderId) async {
     try {
-      await _ensureAuth();
       final response = await _dioClient.dio.patch('/orders/$orderId/cancel');
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {

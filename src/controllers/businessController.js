@@ -17,8 +17,8 @@ exports.getAll = async (req, res, next) => {
   try {
     const { city, district, categoryId, search, lat, lng, radius } = req.query;
     const { page, limit, offset } = paginate(req.query);
+    const useGeoFilter = lat && lng && radius;
 
-    // Check cache first
     const cacheKey = `businesses:list:${JSON.stringify(req.query)}`;
     const cached = await cacheService.get(cacheKey);
     if (cached) {
@@ -31,44 +31,44 @@ exports.getAll = async (req, res, next) => {
     if (categoryId) where.categoryId = categoryId;
     if (search) where.name = { [Op.iLike]: `%${search}%` };
 
-    const { count, rows: businesses } = await Business.findAndCountAll({
+    const queryOptions = {
       where,
       include: [
         { model: Category, as: "category", attributes: ["id", "name", "slug"] },
       ],
       order: [["createdAt", "DESC"]],
-      limit,
-      offset,
-    });
+    };
+
+    if (!useGeoFilter) {
+      queryOptions.limit = limit;
+      queryOptions.offset = offset;
+    }
+
+    const { count, rows: businesses } = await Business.findAndCountAll(queryOptions);
 
     let resultBusinesses = businesses;
+    let totalCount = count;
 
-    // Mesafe bazlı filtreleme
-    if (lat && lng && radius) {
+    if (useGeoFilter) {
       const userLat = parseFloat(lat);
       const userLng = parseFloat(lng);
-      const maxRadius = parseFloat(radius); // km
+      const maxRadius = parseFloat(radius);
 
       resultBusinesses = businesses.filter((business) => {
         if (!business.latitude || !business.longitude) return false;
-        const distance = haversineDistance(
-          userLat,
-          userLng,
-          parseFloat(business.latitude),
-          parseFloat(business.longitude),
-        );
+        const distance = haversineDistance(userLat, userLng, parseFloat(business.latitude), parseFloat(business.longitude));
         business.setDataValue("distance", distance);
         return distance <= maxRadius;
       });
 
-      // Mesafeye göre sırala
-      resultBusinesses.sort(
-        (a, b) => a.getDataValue("distance") - b.getDataValue("distance"),
-      );
+      resultBusinesses.sort((a, b) => a.getDataValue("distance") - b.getDataValue("distance"));
+
+      totalCount = resultBusinesses.length;
+      resultBusinesses = resultBusinesses.slice(offset, offset + limit);
     }
 
-    const responseData = paginatedResponse(resultBusinesses, count, page, limit);
-    await cacheService.set(cacheKey, responseData, 300); // 5 min TTL
+    const responseData = paginatedResponse(resultBusinesses, totalCount, page, limit);
+    await cacheService.set(cacheKey, responseData, 300);
     res.json(responseData);
   } catch (error) {
     next(error);

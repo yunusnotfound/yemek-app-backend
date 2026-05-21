@@ -3,7 +3,7 @@ class AppConstants {
   // Use --dart-define=API_BASE_URL=https://api.bitiryemek.com/api for production builds
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:3000/api',
+    defaultValue: 'https://yemek-app-backend-production.up.railway.app/api',
   );
   static const String apiVersion = 'v1';
 

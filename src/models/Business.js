@@ -69,6 +69,14 @@ const Business = sequelize.define('Business', {
     type: DataTypes.ENUM('pending', 'approved', 'rejected'),
     defaultValue: 'pending',
   },
+  approvedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  rejectedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
   paranoid: true,

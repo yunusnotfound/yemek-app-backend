@@ -82,7 +82,7 @@ class BusinessesRemoteDataSource {
     double radius = 5.0,
     int page = 1,
     int limit = 10,
-    bool excludeExpired = false, // Test amaçlı tüm paketleri göster
+    bool excludeExpired = true,
   }) async {
     try {
       final response = await _dioClient.dio.get(

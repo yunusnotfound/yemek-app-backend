@@ -54,6 +54,10 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  emailVerificationExpires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
   googleId: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -91,6 +95,7 @@ User.prototype.toJSON = function () {
   delete values.googleId;
   delete values.appleId;
   delete values.emailVerificationToken;
+  delete values.emailVerificationExpires;
   delete values.passwordResetToken;
   delete values.passwordResetExpires;
   return values;

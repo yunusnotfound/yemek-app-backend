@@ -162,7 +162,7 @@ exports.approveBusiness = async (req, res, next) => {
       return res.status(404).json({ message: 'İşletme bulunamadı' });
     }
 
-    await business.update({ isApproved: true, approvedAt: new Date() });
+    await business.update({ isApproved: true, approvalStatus: 'approved', approvedAt: new Date() });
 
     res.json({
       message: 'İşletme onaylandı',
@@ -181,7 +181,7 @@ exports.rejectBusiness = async (req, res, next) => {
       return res.status(404).json({ message: 'İşletme bulunamadı' });
     }
 
-    await business.update({ isApproved: false, rejectedAt: new Date() });
+    await business.update({ isApproved: false, approvalStatus: 'rejected', rejectedAt: new Date() });
 
     res.json({
       message: 'İşletme reddedildi',

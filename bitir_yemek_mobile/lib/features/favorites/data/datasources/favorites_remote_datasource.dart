@@ -1,30 +1,16 @@
 import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
 
 class FavoritesRemoteDataSource {
   final DioClient _dioClient;
-  final TokenStorage _tokenStorage;
 
-  FavoritesRemoteDataSource({
-    required DioClient dioClient,
-    required TokenStorage tokenStorage,
-  }) : _dioClient = dioClient,
-       _tokenStorage = tokenStorage;
-
-  Future<void> _ensureAuth() async {
-    final token = await _tokenStorage.getAccessToken();
-    if (token != null) {
-      _dioClient.setAuthToken(token);
-    }
-  }
+  FavoritesRemoteDataSource({required DioClient dioClient}) : _dioClient = dioClient;
 
   Future<Map<String, dynamic>> getFavorites({
     int page = 1,
     int limit = 10,
   }) async {
     try {
-      await _ensureAuth();
       final response = await _dioClient.dio.get(
         '/favorites',
         queryParameters: {'page': page, 'limit': limit},
@@ -37,7 +23,6 @@ class FavoritesRemoteDataSource {
 
   Future<Map<String, dynamic>> addFavorite(String businessId) async {
     try {
-      await _ensureAuth();
       final response = await _dioClient.dio.post(
         '/favorites',
         data: {'businessId': businessId},
@@ -50,7 +35,6 @@ class FavoritesRemoteDataSource {
 
   Future<void> removeFavorite(String businessId) async {
     try {
-      await _ensureAuth();
       await _dioClient.dio.delete('/favorites/$businessId');
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -59,7 +43,6 @@ class FavoritesRemoteDataSource {
 
   Future<Map<String, dynamic>> checkFavorite(String businessId) async {
     try {
-      await _ensureAuth();
       final response = await _dioClient.dio.get(
         '/favorites/check/$businessId',
       );

@@ -129,4 +129,7 @@ router.post('/google', authController.googleLogin);
 // Apple Sign-In
 router.post('/apple', authController.appleLogin);
 
+// Logout (revokes refresh token)
+router.post('/logout', authController.logout);
+
 module.exports = router;

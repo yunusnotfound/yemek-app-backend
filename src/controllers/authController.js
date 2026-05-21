@@ -7,6 +7,17 @@ const { User } = require('../models');
 const { generateToken } = require('../utils/helpers');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
 const logger = require('../services/logger');
+const { isRedisAvailable, storeRefreshToken, revokeRefreshToken, isRefreshTokenStored } = require('../services/cacheService');
+
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
+
+const getRefreshTtl = () => {
+  const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+  const match = String(expiresIn).match(/^(\d+)([smhd])$/);
+  if (!match) return 604800;
+  const multipliers = { s: 1, m: 60, h: 3600, d: 86400 };
+  return parseInt(match[1]) * (multipliers[match[2]] || 86400);
+};
 
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
@@ -37,12 +48,14 @@ exports.register = async (req, res, next) => {
     
     logger.info('New user registered', { userId: user.id, email, role });
     
-    // Send verification email
+    // Send verification email (token valid 24 hours)
     const verificationToken = generateToken();
-    await user.update({ emailVerificationToken: verificationToken });
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.update({ emailVerificationToken: verificationToken, emailVerificationExpires: verificationExpires });
     await sendVerificationEmail(email, verificationToken);
-    
+
     const tokens = generateTokens(user);
+    await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());
 
     res.status(201).json({
       message: 'Kayıt başarılı. Lütfen e-postanızı doğrulayın.',
@@ -75,6 +88,7 @@ exports.login = async (req, res, next) => {
     }
 
     const tokens = generateTokens(user);
+    await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());
 
     logger.info('User login successful', { userId: user.id, email });
 
@@ -95,6 +109,16 @@ exports.refreshToken = async (req, res, next) => {
       return res.status(400).json({ message: 'Refresh token gerekli' });
     }
 
+    // If Redis is available, validate token is not revoked and rotate it
+    const tokenHash = hashToken(refreshToken);
+    if (isRedisAvailable()) {
+      const stored = await isRefreshTokenStored(tokenHash);
+      if (!stored) {
+        return res.status(401).json({ message: 'Geçersiz refresh token' });
+      }
+      await revokeRefreshToken(tokenHash);
+    }
+
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     const user = await User.findByPk(decoded.id);
     if (!user) {
@@ -102,6 +126,7 @@ exports.refreshToken = async (req, res, next) => {
     }
 
     const tokens = generateTokens(user);
+    await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());
 
     res.json({
       message: 'Token yenilendi',
@@ -109,6 +134,18 @@ exports.refreshToken = async (req, res, next) => {
     });
   } catch (error) {
     return res.status(401).json({ message: 'Geçersiz refresh token' });
+  }
+};
+
+exports.logout = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      await revokeRefreshToken(hashToken(refreshToken));
+    }
+    res.json({ message: 'Çıkış başarılı' });
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -121,14 +158,20 @@ exports.verifyEmail = async (req, res, next) => {
       return res.status(400).json({ message: 'Token gerekli' });
     }
 
-    const user = await User.findOne({ where: { emailVerificationToken: token } });
+    const user = await User.findOne({
+      where: {
+        emailVerificationToken: token,
+        emailVerificationExpires: { [Op.gt]: new Date() },
+      },
+    });
     if (!user) {
       return res.status(400).json({ message: 'Geçersiz veya süresi dolmuş token' });
     }
 
-    await user.update({ 
-      isEmailVerified: true, 
-      emailVerificationToken: null 
+    await user.update({
+      isEmailVerified: true,
+      emailVerificationToken: null,
+      emailVerificationExpires: null,
     });
 
     res.json({ message: 'E-posta adresiniz başarıyla doğrulandı' });
@@ -152,7 +195,8 @@ exports.resendVerification = async (req, res, next) => {
     }
 
     const verificationToken = generateToken();
-    await user.update({ emailVerificationToken: verificationToken });
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.update({ emailVerificationToken: verificationToken, emailVerificationExpires: verificationExpires });
     await sendVerificationEmail(email, verificationToken);
 
     res.json({ message: 'Doğrulama e-postası tekrar gönderildi' });
@@ -168,7 +212,8 @@ exports.forgotPassword = async (req, res, next) => {
     
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(404).json({ message: 'Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı' });
+      // Return success regardless to prevent email enumeration
+      return res.json({ message: 'Şifre sıfırlama kodu e-posta adresinize gönderildi' });
     }
 
     const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
@@ -248,14 +293,18 @@ exports.googleLogin = async (req, res, next) => {
       return res.status(400).json({ message: 'Google hesabında e-posta bulunamadı' });
     }
 
-    // Find existing user by googleId or email
-    let user = await User.findOne({ where: { googleId } });
+    // Find existing user by googleId or email — include soft-deleted rows
+    let user = await User.findOne({ where: { googleId }, paranoid: false });
 
     if (!user) {
-      user = await User.findOne({ where: { email } });
+      user = await User.findOne({ where: { email }, paranoid: false });
 
       if (user) {
-        // Link Google account to existing user
+        // Restore soft-deleted account and link Google
+        if (user.deletedAt) {
+          await user.restore();
+          logger.info('Restored soft-deleted user via Google login', { userId: user.id, email });
+        }
         await user.update({ googleId, isEmailVerified: true });
         logger.info('Google account linked to existing user', { userId: user.id, email });
       } else {
@@ -270,9 +319,15 @@ exports.googleLogin = async (req, res, next) => {
         });
         logger.info('New user registered via Google', { userId: user.id, email, role: userRole });
       }
+    } else if (user.deletedAt) {
+      // Found by googleId but soft-deleted — restore
+      await user.restore();
+      await user.update({ isEmailVerified: true });
+      logger.info('Restored soft-deleted user via Google login', { userId: user.id, email });
     }
 
     const tokens = generateTokens(user);
+    await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());
 
     logger.info('Google login successful', { userId: user.id, email });
 
@@ -330,16 +385,20 @@ exports.appleLogin = async (req, res, next) => {
       return res.status(400).json({ message: 'Apple kullanıcı kimliği alınamadı' });
     }
 
-    // Find existing user by appleId or email
-    let user = await User.findOne({ where: { appleId } });
+    // Find existing user by appleId or email — include soft-deleted rows
+    let user = await User.findOne({ where: { appleId }, paranoid: false });
 
     if (!user) {
       if (email) {
-        user = await User.findOne({ where: { email } });
+        user = await User.findOne({ where: { email }, paranoid: false });
       }
 
       if (user) {
-        // Link Apple account to existing user
+        // Restore soft-deleted account and link Apple
+        if (user.deletedAt) {
+          await user.restore();
+          logger.info('Restored soft-deleted user via Apple login', { userId: user.id, email });
+        }
         await user.update({ appleId, isEmailVerified: true });
         logger.info('Apple account linked to existing user', { userId: user.id, email });
       } else {
@@ -355,9 +414,15 @@ exports.appleLogin = async (req, res, next) => {
         });
         logger.info('New user registered via Apple', { userId: user.id, email: user.email, role: userRole });
       }
+    } else if (user.deletedAt) {
+      // Found by appleId but soft-deleted — restore
+      await user.restore();
+      await user.update({ isEmailVerified: true });
+      logger.info('Restored soft-deleted user via Apple login', { userId: user.id, email: user.email });
     }
 
     const tokens = generateTokens(user);
+    await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());
 
     logger.info('Apple login successful', { userId: user.id, email: user.email });
 

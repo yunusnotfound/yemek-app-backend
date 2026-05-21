@@ -4,7 +4,7 @@ const logger = require("./services/logger");
 
 const app = require("./app");
 const { sequelize } = require("./models");
-const { startNotificationCleanupJob } = require("./services/cronService");
+const { startNotificationCleanupJob, startRecurringPackagesJob } = require("./services/cronService");
 
 const PORT = process.env.PORT || 3000;
 
@@ -41,6 +41,7 @@ const start = async () => {
 
     // Cron job'ları başlat
     startNotificationCleanupJob();
+    startRecurringPackagesJob();
 
     app.listen(PORT, '0.0.0.0', () => {
       logger.info(`Sunucu port ${PORT} üzerinde çalışıyor (${process.env.NODE_ENV || 'development'})`);

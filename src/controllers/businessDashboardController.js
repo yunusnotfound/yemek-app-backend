@@ -1,7 +1,7 @@
 const { Business, SurprisePackage, Order, User, Review, Category, Notification, sequelize } = require('../models');
 const { Op, Sequelize } = require('sequelize');
 const { paginate, paginatedResponse } = require('../utils/helpers');
-const { sendNotification } = require('../services/notificationService');
+const { notifyOrderStatus } = require('../services/notificationService');
 
 // İşletme Dashboard İstatistikleri
 exports.getDashboardStats = async (req, res, next) => {
@@ -430,38 +430,51 @@ exports.getMyBusinesses = async (req, res, next) => {
       offset,
     });
 
-    // Her işletme için aktif paket sayısı ve onay durumu ekle
-    const businessesWithStats = await Promise.all(
-      businesses.map(async (business) => {
-        const [activePackages, pendingOrders] = await Promise.all([
-          SurprisePackage.count({
-            where: {
-              businessId: business.id,
-              isActive: true,
-              remainingQuantity: { [Op.gt]: 0 },
-            },
-          }),
-          Order.count({
-            where: {
-              status: 'pending',
-            },
-            include: [
-              {
-                model: SurprisePackage,
-                as: 'package',
-                where: { businessId: business.id },
-              },
-            ],
-          }),
-        ]);
+    // Batch queries instead of N+1
+    const businessIds = businesses.map((b) => b.id);
 
-        return {
-          ...business.toJSON(),
-          activePackages,
-          pendingOrders,
-        };
-      })
-    );
+    const [activePackageCounts, pendingPackageRows] = await Promise.all([
+      SurprisePackage.findAll({
+        where: {
+          businessId: { [Op.in]: businessIds },
+          isActive: true,
+          remainingQuantity: { [Op.gt]: 0 },
+        },
+        attributes: ['businessId', [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']],
+        group: ['businessId'],
+        raw: true,
+      }),
+      SurprisePackage.findAll({
+        where: { businessId: { [Op.in]: businessIds } },
+        attributes: ['id', 'businessId'],
+        raw: true,
+      }),
+    ]);
+
+    const activeMap = new Map(activePackageCounts.map((r) => [r.businessId, parseInt(r.count)]));
+    const pkgIdToBizId = new Map(pendingPackageRows.map((r) => [r.id, r.businessId]));
+    const allPkgIds = pendingPackageRows.map((r) => r.id);
+
+    const pendingOrderCounts = allPkgIds.length > 0
+      ? await Order.findAll({
+          where: { packageId: { [Op.in]: allPkgIds }, status: 'pending' },
+          attributes: ['packageId', [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']],
+          group: ['packageId'],
+          raw: true,
+        })
+      : [];
+
+    const pendingMap = new Map();
+    for (const row of pendingOrderCounts) {
+      const bizId = pkgIdToBizId.get(row.packageId);
+      if (bizId) pendingMap.set(bizId, (pendingMap.get(bizId) || 0) + parseInt(row.count));
+    }
+
+    const businessesWithStats = businesses.map((business) => ({
+      ...business.toJSON(),
+      activePackages: activeMap.get(business.id) || 0,
+      pendingOrders: pendingMap.get(business.id) || 0,
+    }));
 
     res.json(paginatedResponse(businessesWithStats, count, page, limit));
   } catch (error) {

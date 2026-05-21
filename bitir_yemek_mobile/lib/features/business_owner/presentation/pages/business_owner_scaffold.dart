@@ -47,7 +47,7 @@ class _BusinessOwnerScaffoldState extends State<BusinessOwnerScaffold> {
   }
 
   Future<void> _loadBusinesses() async {
-    final tokenStorage = SharedPrefsTokenStorage();
+    final tokenStorage = createDefaultTokenStorage();
     final repo = BusinessOwnerRepositoryImpl(
       remoteDataSource: BusinessOwnerRemoteDataSource(
         dioClient: DioClient(tokenStorage: tokenStorage),
@@ -167,7 +167,7 @@ class _BusinessOwnerPanelState extends State<_BusinessOwnerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final tokenStorage = SharedPrefsTokenStorage();
+    final tokenStorage = createDefaultTokenStorage();
     final dioClient = DioClient(tokenStorage: tokenStorage);
     final repository = BusinessOwnerRepositoryImpl(
       remoteDataSource: BusinessOwnerRemoteDataSource(dioClient: dioClient),
@@ -179,18 +179,14 @@ class _BusinessOwnerPanelState extends State<_BusinessOwnerPanel> {
         BlocProvider(create: (_) => OwnerOrdersBloc(repository: repository)),
         BlocProvider(create: (_) => OwnerPackagesBloc(repository: repository)),
         BlocProvider(
-          create: (_) {
-            final ts = SharedPrefsTokenStorage();
-            return ProfileBloc(
-              profileRepository: ProfileRepositoryImpl(
-                remoteDataSource: ProfileRemoteDataSource(
-                  dioClient: DioClient(tokenStorage: ts),
-                  tokenStorage: ts,
-                ),
-                tokenStorage: ts,
+          create: (_) => ProfileBloc(
+            profileRepository: ProfileRepositoryImpl(
+              remoteDataSource: ProfileRemoteDataSource(
+                dioClient: dioClient,
               ),
-            )..add(LoadProfile());
-          },
+              tokenStorage: tokenStorage,
+            ),
+          )..add(LoadProfile()),
         ),
       ],
       child: Scaffold(

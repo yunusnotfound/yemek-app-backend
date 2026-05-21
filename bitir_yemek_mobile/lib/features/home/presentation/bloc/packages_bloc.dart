@@ -27,8 +27,7 @@ class PackagesBloc extends Bloc<PackagesEvent, PackagesState> {
     final result = await _repository.getNearbyPackages(
       latitude: event.latitude,
       longitude: event.longitude,
-      radius:
-          10000, // Use large radius to show all packages regardless of location
+      radius: 50,
       page: 1,
       limit: 10,
     );
@@ -93,8 +92,7 @@ class PackagesBloc extends Bloc<PackagesEvent, PackagesState> {
     final result = await _repository.getNearbyPackages(
       latitude: event.latitude,
       longitude: event.longitude,
-      radius:
-          10000, // Use large radius to show all packages regardless of location
+      radius: 50,
       page: currentState.pagination.page + 1,
       limit: 10,
     );

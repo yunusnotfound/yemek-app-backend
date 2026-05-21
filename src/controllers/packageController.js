@@ -7,8 +7,8 @@ exports.getAll = async (req, res, next) => {
   try {
     const { city, district, categoryId, maxPrice, lat, lng, radius, excludeExpired } = req.query;
     const { page, limit, offset } = paginate(req.query);
+    const useGeoFilter = lat && lng && radius;
 
-    // Check cache first
     const cacheKey = `packages:list:${JSON.stringify(req.query)}`;
     const cached = await cacheService.get(cacheKey);
     if (cached) {
@@ -22,15 +22,14 @@ exports.getAll = async (req, res, next) => {
 
     const packageWhere = { isActive: true, remainingQuantity: { [Op.gt]: 0 } };
     if (maxPrice) packageWhere.discountedPrice = { [Op.lte]: maxPrice };
-    
-    // Süresi geçmiş paketleri filtrele (varsayılan: true)
+
     if (excludeExpired !== 'false') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       packageWhere.pickupDate = { [Op.gte]: today };
     }
 
-    const { count, rows: packages } = await SurprisePackage.findAndCountAll({
+    const queryOptions = {
       where: packageWhere,
       include: [
         {
@@ -42,36 +41,39 @@ exports.getAll = async (req, res, next) => {
         },
       ],
       order: [['pickupDate', 'ASC'], ['pickupStart', 'ASC']],
-      limit,
-      offset,
-    });
+    };
+
+    // When geo-filtering, skip SQL limit/offset — filter in memory then paginate manually
+    if (!useGeoFilter) {
+      queryOptions.limit = limit;
+      queryOptions.offset = offset;
+    }
+
+    const { count, rows: packages } = await SurprisePackage.findAndCountAll(queryOptions);
 
     let resultPackages = packages;
+    let totalCount = count;
 
-    // Mesafe bazlı filtreleme
-    if (lat && lng && radius) {
+    if (useGeoFilter) {
       const userLat = parseFloat(lat);
       const userLng = parseFloat(lng);
-      const maxRadius = parseFloat(radius); // km
+      const maxRadius = parseFloat(radius);
 
       resultPackages = packages.filter(pkg => {
         if (!pkg.business.latitude || !pkg.business.longitude) return false;
-        const distance = haversineDistance(
-          userLat,
-          userLng,
-          parseFloat(pkg.business.latitude),
-          parseFloat(pkg.business.longitude)
-        );
+        const distance = haversineDistance(userLat, userLng, parseFloat(pkg.business.latitude), parseFloat(pkg.business.longitude));
         pkg.business.setDataValue('distance', distance);
         return distance <= maxRadius;
       });
 
-      // Mesafeye göre sırala
       resultPackages.sort((a, b) => a.business.getDataValue('distance') - b.business.getDataValue('distance'));
+
+      totalCount = resultPackages.length;
+      resultPackages = resultPackages.slice(offset, offset + limit);
     }
 
-    const responseData = paginatedResponse(resultPackages, count, page, limit);
-    await cacheService.set(cacheKey, responseData, 300); // 5 min TTL
+    const responseData = paginatedResponse(resultPackages, totalCount, page, limit);
+    await cacheService.set(cacheKey, responseData, 300);
     res.json(responseData);
   } catch (error) {
     next(error);

@@ -1,7 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
 import '../../data/models/reservation_model.dart';
 import '../../domain/repositories/businesses_repository.dart';
 
@@ -10,28 +8,14 @@ part 'reservation_state.dart';
 
 class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
   final BusinessesRepository _repository;
-  final DioClient _dioClient;
-  final TokenStorage _tokenStorage;
 
-  ReservationBloc({
-    required BusinessesRepository repository,
-    required DioClient dioClient,
-    required TokenStorage tokenStorage,
-  }) : _repository = repository,
-       _dioClient = dioClient,
-       _tokenStorage = tokenStorage,
-       super(const ReservationInitial()) {
+  ReservationBloc({required BusinessesRepository repository})
+      : _repository = repository,
+        super(const ReservationInitial()) {
     on<CreateReservation>(_onCreateReservation);
     on<ValidateCoupon>(_onValidateCoupon);
     on<ClearCoupon>(_onClearCoupon);
     on<ResetReservation>(_onResetReservation);
-  }
-
-  Future<void> _ensureAuth() async {
-    final token = await _tokenStorage.getAccessToken();
-    if (token != null) {
-      _dioClient.setAuthToken(token);
-    }
   }
 
   Future<void> _onCreateReservation(
@@ -39,8 +23,6 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
     Emitter<ReservationState> emit,
   ) async {
     emit(const ReservationLoading());
-
-    await _ensureAuth();
 
     final result = await _repository.createReservation(
       packageId: event.packageId,
@@ -65,8 +47,6 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
     Emitter<ReservationState> emit,
   ) async {
     emit(const CouponValidating());
-
-    await _ensureAuth();
 
     final result = await _repository.validateCoupon(code: event.code);
 

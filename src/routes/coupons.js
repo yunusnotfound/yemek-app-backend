@@ -54,7 +54,7 @@ const createCouponSchema = z.object({
  *       404:
  *         description: Geçersiz kupon
  */
-router.post('/validate', validate(validateCouponSchema), couponController.validate);
+router.post('/validate', authenticate, validate(validateCouponSchema), couponController.validate);
 
 /**
  * @swagger

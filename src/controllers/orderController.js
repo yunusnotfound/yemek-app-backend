@@ -259,9 +259,10 @@ exports.cancel = async (req, res, next) => {
     await order.update({ status: 'cancelled' }, { transaction: t });
 
     const pkg = await SurprisePackage.findByPk(order.packageId, { transaction: t });
-    await pkg.update({
-      remainingQuantity: pkg.remainingQuantity + order.quantity,
-    }, { transaction: t });
+    await SurprisePackage.update(
+      { remainingQuantity: sequelize.literal(`"remainingQuantity" + ${order.quantity}`) },
+      { where: { id: order.packageId }, transaction: t }
+    );
 
     await t.commit();
 

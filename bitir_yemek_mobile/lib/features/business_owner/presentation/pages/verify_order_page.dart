@@ -29,7 +29,7 @@ class _VerifyOrderPageState extends State<VerifyOrderPage> {
   void initState() {
     super.initState();
     _codeController = TextEditingController(text: widget.prefillCode ?? '');
-    final tokenStorage = SharedPrefsTokenStorage();
+    final tokenStorage = createDefaultTokenStorage();
     _repository = BusinessOwnerRepositoryImpl(
       remoteDataSource: BusinessOwnerRemoteDataSource(
         dioClient: DioClient(tokenStorage: tokenStorage),

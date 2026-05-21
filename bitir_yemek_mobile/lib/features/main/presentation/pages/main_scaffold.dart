@@ -98,10 +98,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           create: (context) {
             return OrdersBloc(
               repository: OrdersRepositoryImpl(
-                remoteDataSource: OrdersRemoteDataSource(
-                  dioClient: _dioClient,
-                  tokenStorage: _tokenStorage,
-                ),
+                remoteDataSource: OrdersRemoteDataSource(dioClient: _dioClient),
               ),
             );
           },
@@ -111,10 +108,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           create: (context) {
             return FavoritesBloc(
               repository: FavoritesRepositoryImpl(
-                remoteDataSource: FavoritesRemoteDataSource(
-                  dioClient: _dioClient,
-                  tokenStorage: _tokenStorage,
-                ),
+                remoteDataSource: FavoritesRemoteDataSource(dioClient: _dioClient),
               ),
             );
           },
@@ -124,10 +118,7 @@ class _MainScaffoldState extends State<MainScaffold> {
           create: (context) {
             return ProfileBloc(
               profileRepository: ProfileRepositoryImpl(
-                remoteDataSource: ProfileRemoteDataSource(
-                  dioClient: _dioClient,
-                  tokenStorage: _tokenStorage,
-                ),
+                remoteDataSource: ProfileRemoteDataSource(dioClient: _dioClient),
                 tokenStorage: _tokenStorage,
               ),
             )..add(LoadProfile());

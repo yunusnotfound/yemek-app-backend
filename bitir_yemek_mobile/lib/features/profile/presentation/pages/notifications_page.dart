@@ -13,8 +13,8 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
-  final DioClient _dioClient = DioClient();
-  final TokenStorage _tokenStorage = SharedPrefsTokenStorage();
+  late final TokenStorage _tokenStorage = createDefaultTokenStorage();
+  late final DioClient _dioClient = DioClient(tokenStorage: _tokenStorage);
 
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
@@ -33,11 +33,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     });
 
     try {
-      final token = await _tokenStorage.getAccessToken();
-      if (token != null) {
-        _dioClient.setAuthToken(token);
-      }
-
       final response = await _dioClient.dio.get('/notifications');
       final data = response.data as Map<String, dynamic>;
       final items = data['data'] as List<dynamic>? ?? [];

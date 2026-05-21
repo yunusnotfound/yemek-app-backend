@@ -80,4 +80,19 @@ const delPattern = async (pattern) => {
   }
 };
 
-module.exports = { get, set, del, delPattern };
+const isRedisAvailable = () => getRedis() !== null;
+
+const storeRefreshToken = async (tokenHash, userId, ttlSeconds = 604800) => {
+  await set(`rt:${tokenHash}`, { userId }, ttlSeconds);
+};
+
+const revokeRefreshToken = async (tokenHash) => {
+  await del(`rt:${tokenHash}`);
+};
+
+const isRefreshTokenStored = async (tokenHash) => {
+  const val = await get(`rt:${tokenHash}`);
+  return val !== null;
+};
+
+module.exports = { get, set, del, delPattern, isRedisAvailable, storeRefreshToken, revokeRefreshToken, isRefreshTokenStored };

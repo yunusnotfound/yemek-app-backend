@@ -9,6 +9,7 @@ const Favorite = require('./Favorite');
 const Notification = require('./Notification');
 const Coupon = require('./Coupon');
 const BusinessHours = require('./BusinessHours');
+const EmailOtp = require('./EmailOtp');
 
 // User <-> Business
 User.hasMany(Business, { foreignKey: 'ownerId', as: 'businesses' });
@@ -72,4 +73,5 @@ module.exports = {
   Notification,
   Coupon,
   BusinessHours,
+  EmailOtp,
 };

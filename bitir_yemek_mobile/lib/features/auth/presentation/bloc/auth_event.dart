@@ -7,33 +7,30 @@ abstract class AuthEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class LoginRequested extends AuthEvent {
+class OtpRequested extends AuthEvent {
   final String email;
-  final String password;
 
-  const LoginRequested({required this.email, required this.password});
+  const OtpRequested({required this.email});
 
   @override
-  List<Object?> get props => [email, password];
+  List<Object?> get props => [email];
 }
 
-class RegisterRequested extends AuthEvent {
-  final String name;
+class OtpVerifyRequested extends AuthEvent {
   final String email;
-  final String password;
+  final String code;
+  final String? name;
   final String? phone;
-  final String role;
 
-  const RegisterRequested({
-    required this.name,
+  const OtpVerifyRequested({
     required this.email,
-    required this.password,
+    required this.code,
+    this.name,
     this.phone,
-    this.role = 'customer',
   });
 
   @override
-  List<Object?> get props => [name, email, password, phone, role];
+  List<Object?> get props => [email, code, name, phone];
 }
 
 class LogoutRequested extends AuthEvent {
@@ -62,24 +59,3 @@ class AppleSignInRequested extends AuthEvent {
   List<Object?> get props => [role];
 }
 
-class ForgotPasswordRequested extends AuthEvent {
-  final String email;
-
-  const ForgotPasswordRequested({required this.email});
-
-  @override
-  List<Object?> get props => [email];
-}
-
-class ResetPasswordRequested extends AuthEvent {
-  final String token;
-  final String newPassword;
-
-  const ResetPasswordRequested({
-    required this.token,
-    required this.newPassword,
-  });
-
-  @override
-  List<Object?> get props => [token, newPassword];
-}

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
-import 'login_page.dart';
+import 'email_entry_page.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -40,7 +40,7 @@ class _WelcomePageState extends State<WelcomePage> {
   void _goToLogin() {
     Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (context) => const LoginPage()));
+    ).push(MaterialPageRoute(builder: (context) => const EmailEntryPage()));
   }
 
   @override

@@ -13,8 +13,18 @@ if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
 }
 
+// Release signing credentials are read from android/key.properties (never
+// committed). If the file is absent (e.g. local dev / CI without secrets),
+// the release build falls back to debug signing so the project still builds.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
 android {
-    namespace = "com.example.bitir_yemek_mobile"
+    namespace = "com.bitiryemek.mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -40,13 +50,37 @@ android {
         manifestPlaceholders["MAPBOX_ACCESS_TOKEN"] = localProperties.getProperty("MAPBOX_ACCESS_TOKEN", "")
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Configure production signing before Play Store submission
-            // 1. Generate release keystore: keytool -genkey -v -keystore release-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias bitiryemek
-            // 2. Create key.properties file with keystore credentials
-            // 3. Reference signing config here instead of debug
-            signingConfig = signingConfigs.getByName("debug")
+            // Use the real release signing config when key.properties is present;
+            // otherwise fall back to debug signing so local builds still work.
+            // See android/key.properties.example for the required fields and the
+            // keytool command to generate a keystore.
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+
+            // R8 code shrinking + resource shrinking for smaller, obfuscated
+            // release builds. ProGuard keep rules live in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }

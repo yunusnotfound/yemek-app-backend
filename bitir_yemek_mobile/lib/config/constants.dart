@@ -1,9 +1,19 @@
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
   // API Configuration - Environment-aware
-  // Use --dart-define=API_BASE_URL=https://api.bitiryemek.com/api for production builds
+  // Release builds default to the production HTTPS backend (Railway/VPS).
+  // Debug builds default to the local dev backend so `flutter run` works
+  // out of the box without --dart-define. Override either with:
+  //   --dart-define=API_BASE_URL=https://<vps-domain>/api
+  // Local-dev default by platform: iOS simulator -> localhost,
+  // Android emulator -> 10.0.2.2 (host loopback), physical device -> Mac LAN IP.
+  static const String _prodBaseUrl =
+      'https://yemek-app-backend-production.up.railway.app/api';
+  static const String _devBaseUrl = 'http://localhost:3000/api';
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://yemek-app-backend-production.up.railway.app/api',
+    defaultValue: kDebugMode ? _devBaseUrl : _prodBaseUrl,
   );
   static const String apiVersion = 'v1';
 

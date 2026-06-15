@@ -3,9 +3,9 @@ const crypto = require('crypto');
 const axios = require('axios');
 const { Op } = require('sequelize');
 const { OAuth2Client } = require('google-auth-library');
-const { User } = require('../models');
+const { User, EmailOtp } = require('../models');
 const { generateToken } = require('../utils/helpers');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
+const { sendVerificationEmail, sendPasswordResetEmail, sendOtpEmail } = require('../services/emailService');
 const logger = require('../services/logger');
 const { isRedisAvailable, storeRefreshToken, revokeRefreshToken, isRefreshTokenStored } = require('../services/cacheService');
 
@@ -23,13 +23,13 @@ const generateTokens = (user) => {
   const accessToken = jwt.sign(
     { id: user.id, role: user.role },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
   );
 
   const refreshToken = jwt.sign(
     { id: user.id },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN }
+    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
   );
 
   return { accessToken, refreshToken };
@@ -48,10 +48,11 @@ exports.register = async (req, res, next) => {
     
     logger.info('New user registered', { userId: user.id, email, role });
     
-    // Send verification email (token valid 24 hours)
+    // Send verification email (token valid 24 hours). Store only the hash;
+    // the raw token is emailed to the user and never persisted in plaintext.
     const verificationToken = generateToken();
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await user.update({ emailVerificationToken: verificationToken, emailVerificationExpires: verificationExpires });
+    await user.update({ emailVerificationToken: hashToken(verificationToken), emailVerificationExpires: verificationExpires });
     await sendVerificationEmail(email, verificationToken);
 
     const tokens = generateTokens(user);
@@ -102,6 +103,100 @@ exports.login = async (req, res, next) => {
   }
 };
 
+// Passwordless OTP — Step 1: request a login code by email
+exports.requestOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    // Cryptographically secure 6-digit numeric code.
+    const code = crypto.randomInt(100000, 1000000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // One active code per email — drop any previous codes before issuing a new one.
+    await EmailOtp.destroy({ where: { email } });
+    await EmailOtp.create({ email, codeHash: hashToken(code), expiresAt, attempts: 0 });
+
+    await sendOtpEmail(email, code);
+
+    // Tell the client whether this email already has an account so it can decide
+    // whether to collect a name. Acceptable enumeration trade-off for a consumer
+    // login screen; attempts are capped by the auth rate-limiter.
+    const existingUser = await User.findOne({ where: { email } });
+
+    logger.info('OTP requested', { email, isNewUser: !existingUser });
+
+    res.json({
+      message: 'Giriş kodu e-posta adresinize gönderildi',
+      isNewUser: !existingUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Passwordless OTP — Step 2: verify the code, then log in or create the account
+exports.verifyOtp = async (req, res, next) => {
+  try {
+    const { email, code, name, phone } = req.body;
+
+    const otp = await EmailOtp.findOne({ where: { email } });
+    if (!otp || otp.expiresAt < new Date()) {
+      return res.status(400).json({ message: 'Geçersiz veya süresi dolmuş kod' });
+    }
+
+    // Cap brute-force attempts. Count this attempt before comparing.
+    if (otp.attempts >= 5) {
+      await otp.destroy();
+      return res.status(429).json({ message: 'Çok fazla deneme yapıldı. Yeni bir kod isteyin.' });
+    }
+    await otp.increment('attempts');
+
+    if (otp.codeHash !== hashToken(code)) {
+      return res.status(400).json({ message: 'Geçersiz veya süresi dolmuş kod' });
+    }
+
+    // Code is valid — consume it.
+    await otp.destroy();
+
+    // Find existing user (including soft-deleted) or create a new customer.
+    let user = await User.findOne({ where: { email }, paranoid: false });
+    if (user) {
+      if (user.deletedAt) {
+        await user.restore();
+        logger.info('Restored soft-deleted user via OTP login', { userId: user.id, email });
+      }
+      if (!user.isEmailVerified) {
+        await user.update({ isEmailVerified: true });
+      }
+    } else {
+      if (!name) {
+        return res.status(400).json({ message: 'Yeni hesap için ad soyad gerekli' });
+      }
+      user = await User.create({
+        name,
+        email,
+        phone,
+        role: 'customer',
+        isEmailVerified: true,
+      });
+      logger.info('New user registered via OTP', { userId: user.id, email });
+    }
+
+    const tokens = generateTokens(user);
+    await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());
+
+    logger.info('OTP login successful', { userId: user.id, email });
+
+    res.json({
+      message: 'Giriş başarılı',
+      user,
+      ...tokens,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.refreshToken = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
@@ -109,7 +204,10 @@ exports.refreshToken = async (req, res, next) => {
       return res.status(400).json({ message: 'Refresh token gerekli' });
     }
 
-    // If Redis is available, validate token is not revoked and rotate it
+    // Validate token is not revoked and rotate it.
+    // In production we MUST verify against the stored-token list — if Redis is
+    // down we fail closed rather than skipping the revocation check. In
+    // non-production we keep best-effort behaviour for local development.
     const tokenHash = hashToken(refreshToken);
     if (isRedisAvailable()) {
       const stored = await isRefreshTokenStored(tokenHash);
@@ -117,6 +215,9 @@ exports.refreshToken = async (req, res, next) => {
         return res.status(401).json({ message: 'Geçersiz refresh token' });
       }
       await revokeRefreshToken(tokenHash);
+    } else if (process.env.NODE_ENV === 'production') {
+      logger.error('Refresh token check failed closed: Redis unavailable in production');
+      return res.status(401).json({ message: 'Oturum doğrulanamadı' });
     }
 
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
@@ -160,7 +261,7 @@ exports.verifyEmail = async (req, res, next) => {
 
     const user = await User.findOne({
       where: {
-        emailVerificationToken: token,
+        emailVerificationToken: hashToken(token),
         emailVerificationExpires: { [Op.gt]: new Date() },
       },
     });
@@ -196,7 +297,7 @@ exports.resendVerification = async (req, res, next) => {
 
     const verificationToken = generateToken();
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await user.update({ emailVerificationToken: verificationToken, emailVerificationExpires: verificationExpires });
+    await user.update({ emailVerificationToken: hashToken(verificationToken), emailVerificationExpires: verificationExpires });
     await sendVerificationEmail(email, verificationToken);
 
     res.json({ message: 'Doğrulama e-postası tekrar gönderildi' });
@@ -216,12 +317,15 @@ exports.forgotPassword = async (req, res, next) => {
       return res.json({ message: 'Şifre sıfırlama kodu e-posta adresinize gönderildi' });
     }
 
-    const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
-    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    // Cryptographically secure 6-digit numeric code (mobile enters it as a code).
+    const resetToken = crypto.randomInt(100000, 1000000).toString();
+    // Short-lived expiry (15 min) limits brute-force window; the global auth
+    // rate-limiter caps attempts per account. Only the hash is persisted.
+    const resetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    await user.update({ 
-      passwordResetToken: resetToken, 
-      passwordResetExpires: resetExpires 
+    await user.update({
+      passwordResetToken: hashToken(resetToken),
+      passwordResetExpires: resetExpires
     });
 
     await sendPasswordResetEmail(email, resetToken);
@@ -241,11 +345,11 @@ exports.resetPassword = async (req, res, next) => {
       return res.status(400).json({ message: 'Token ve şifre gerekli' });
     }
 
-    const user = await User.findOne({ 
-      where: { 
-        passwordResetToken: token,
+    const user = await User.findOne({
+      where: {
+        passwordResetToken: hashToken(token),
         passwordResetExpires: { [Op.gt]: new Date() }
-      } 
+      }
     });
 
     if (!user) {
@@ -350,6 +454,12 @@ exports.appleLogin = async (req, res, next) => {
       return res.status(400).json({ message: 'Apple identity token gerekli' });
     }
 
+    // Apple audience must be pinned so tokens minted for other apps are rejected.
+    if (!process.env.APPLE_CLIENT_ID) {
+      logger.error('Apple login misconfigured: APPLE_CLIENT_ID is not set');
+      return res.status(500).json({ message: 'Apple ile giriş yapılandırması eksik' });
+    }
+
     // Decode and verify Apple identity token (JWT)
     let decoded;
     try {
@@ -372,6 +482,7 @@ exports.appleLogin = async (req, res, next) => {
       decoded = jwt.verify(identityToken, publicKey, {
         algorithms: ['RS256'],
         issuer: 'https://appleid.apple.com',
+        audience: process.env.APPLE_CLIENT_ID,
       });
     } catch (err) {
       logger.warn('Invalid Apple identity token', { error: err.message });

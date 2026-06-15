@@ -1,21 +1,25 @@
 {
   "name": "bitir-yemek",
   "version": "1.0.0",
-  "description": "",
+  "description": "Bitir Yemek - food waste reduction platform REST API (Node.js/Express, Sequelize/PostgreSQL).",
   "main": "src/server.js",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "db:migrate": "npx sequelize-cli db:migrate",
+    "db:migrate:undo": "npx sequelize-cli db:migrate:undo",
     "db:seed": "npx sequelize-cli db:seed:all",
-    "postinstall": "echo 'Install complete'"
+    "deploy": "npm ci --omit=dev && npm run db:migrate"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
-    "@sendgrid/mail": "^8.1.6",
     "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
@@ -32,8 +36,8 @@
     "node-cron": "^4.2.1",
     "pg": "^8.18.0",
     "pg-hstore": "^2.3.4",
+    "resend": "^4.0.0",
     "sequelize": "^6.37.7",
-    "socket.io": "^4.8.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0",

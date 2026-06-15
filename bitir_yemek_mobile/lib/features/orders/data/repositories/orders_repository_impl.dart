@@ -10,12 +10,28 @@ class OrdersRepositoryImpl implements OrdersRepository {
 
   @override
   Future<OrdersResponse> getMyOrders({int page = 1, int limit = 10}) async {
-    final data = await _remoteDataSource.getMyOrders(page: page, limit: limit);
-    return OrdersResponse.fromJson(data);
+    try {
+      final data = await _remoteDataSource.getMyOrders(
+        page: page,
+        limit: limit,
+      );
+      return OrdersResponse.fromJson(data);
+    } on OrdersException {
+      // Datasource already produces a Turkish, user-facing message.
+      rethrow;
+    } catch (e) {
+      throw OrdersException(message: 'Siparişler yüklenirken bir hata oluştu');
+    }
   }
 
   @override
   Future<void> cancelOrder(String orderId) async {
-    await _remoteDataSource.cancelOrder(orderId);
+    try {
+      await _remoteDataSource.cancelOrder(orderId);
+    } on OrdersException {
+      rethrow;
+    } catch (e) {
+      throw OrdersException(message: 'Sipariş iptal edilirken bir hata oluştu');
+    }
   }
 }

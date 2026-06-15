@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { z } = require('zod');
 const authController = require('../controllers/authController');
 const { validate, validateQuery } = require('../middlewares/validate');
-const { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } = require('../validations/schemas');
+const { registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema, otpRequestSchema, otpVerifySchema } = require('../validations/schemas');
 
 /**
  * @swagger
@@ -114,6 +114,78 @@ router.post('/login', validate(loginSchema), authController.login);
  *         description: Geçersiz refresh token
  */
 router.post('/refresh', authController.refreshToken);
+
+/**
+ * @swagger
+ * /auth/otp/request:
+ *   post:
+ *     summary: E-posta ile giriş kodu (OTP) iste
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "ahmet@example.com"
+ *     responses:
+ *       200:
+ *         description: Kod gönderildi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 isNewUser:
+ *                   type: boolean
+ */
+router.post('/otp/request', validate(otpRequestSchema), authController.requestOtp);
+
+/**
+ * @swagger
+ * /auth/otp/verify:
+ *   post:
+ *     summary: Giriş kodunu (OTP) doğrula ve giriş yap/kayıt ol
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - code
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "ahmet@example.com"
+ *               code:
+ *                 type: string
+ *                 example: "123456"
+ *               name:
+ *                 type: string
+ *                 description: Yeni hesap için gerekli
+ *                 example: "Ahmet Yılmaz"
+ *               phone:
+ *                 type: string
+ *                 example: "5551234567"
+ *     responses:
+ *       200:
+ *         description: Giriş başarılı
+ *       400:
+ *         description: Geçersiz veya süresi dolmuş kod
+ */
+router.post('/otp/verify', validate(otpVerifySchema), authController.verifyOtp);
 
 // Email verification
 router.get('/verify-email', validateQuery(z.object({ token: z.string() })), authController.verifyEmail);

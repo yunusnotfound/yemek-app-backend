@@ -1,23 +1,31 @@
 const crypto = require('crypto');
+const { Op } = require('sequelize');
 const { Order } = require('../models');
 
 const generatePickupCode = async () => {
   const maxAttempts = 10;
   let attempts = 0;
-  
+
   while (attempts < maxAttempts) {
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    
-    // Kodun benzersiz olduğunu kontrol et
-    const existingOrder = await Order.findOne({ where: { pickupCode: code } });
+    // 6 haneli güvenli rastgele kod (100000-999999), personel girişi için sayısal
+    const code = crypto.randomInt(100000, 1000000).toString();
+
+    // Benzersizliği yalnızca aktif (terminal olmayan) siparişlere göre kontrol et.
+    // Tamamlanmış/iptal edilmiş eski siparişlerin kodları yeniden kullanılabilir.
+    const existingOrder = await Order.findOne({
+      where: {
+        pickupCode: code,
+        status: { [Op.in]: ['pending', 'confirmed'] },
+      },
+    });
     if (!existingOrder) {
       return code;
     }
-    
+
     attempts++;
   }
-  
-  // 10 denemeden sonra hata fırlat
+
+  // 10 denemeden sonra hata fırlat (DB unique constraint son güvence olarak kalır)
   throw new Error('Benzersiz teslim alma kodu oluşturulamadı');
 };
 

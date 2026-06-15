@@ -3,7 +3,23 @@ const { Notification, SurprisePackage } = require('../models');
 const { Op } = require('sequelize');
 const logger = require('./logger');
 
-// Runs daily at 3 AM — deletes read notifications older than 30 days
+// Single backend instance (one VPS) — these cron jobs run exactly once per
+// schedule, so no distributed lock is needed.
+const TIMEZONE = 'Europe/Istanbul';
+
+// Returns the current local (Europe/Istanbul) date as a YYYY-MM-DD string and
+// the local day-of-week (0=Sunday..6=Saturday), independent of the server's
+// process timezone (which may be UTC).
+const getIstanbulDateParts = () => {
+  const now = new Date();
+  // en-CA gives ISO-style YYYY-MM-DD; force the Istanbul zone for the local date.
+  const dateStr = now.toLocaleDateString('en-CA', { timeZone: TIMEZONE });
+  const weekdayName = now.toLocaleDateString('en-US', { timeZone: TIMEZONE, weekday: 'short' });
+  const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { dateStr, dayOfWeek: dayMap[weekdayName] };
+};
+
+// Runs daily at 3 AM (Europe/Istanbul) — deletes read notifications older than 30 days
 const startNotificationCleanupJob = () => {
   cron.schedule('0 3 * * *', async () => {
     try {
@@ -21,18 +37,17 @@ const startNotificationCleanupJob = () => {
     } catch (error) {
       logger.error('Bildirim temizleme hatası:', error);
     }
-  });
+  }, { timezone: TIMEZONE });
 
   logger.info('Bildirim temizleme jobu başlatıldı');
 };
 
-// Runs daily at midnight — creates today's instances from recurring package templates
+// Runs daily at midnight (Europe/Istanbul) — creates today's instances from recurring package templates
 const startRecurringPackagesJob = () => {
   cron.schedule('0 0 * * *', async () => {
     try {
-      const today = new Date();
-      const todayStr = today.toISOString().split('T')[0];
-      const dayOfWeek = today.getDay(); // 0=Sunday ... 6=Saturday
+      // Use Istanbul local date so "today" matches Turkey, not UTC.
+      const { dateStr: todayStr, dayOfWeek } = getIstanbulDateParts(); // dayOfWeek: 0=Sunday..6=Saturday
 
       const recurringPackages = await SurprisePackage.findAll({
         where: {
@@ -79,7 +94,7 @@ const startRecurringPackagesJob = () => {
     } catch (error) {
       logger.error('Tekrarlayan paket oluşturma hatası:', error);
     }
-  });
+  }, { timezone: TIMEZONE });
 
   logger.info('Tekrarlayan paket jobu başlatıldı');
 };

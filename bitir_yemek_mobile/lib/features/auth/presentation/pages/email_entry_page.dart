@@ -12,11 +12,12 @@ import '../../../main/presentation/pages/main_scaffold.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../bloc/auth_bloc.dart';
-import 'register_page.dart';
-import 'forgot_password_page.dart';
+import 'otp_verify_page.dart';
 
-class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+/// Entry point of the passwordless flow: the user types their email and
+/// receives a one-time login code. Google/Apple sign-in remain available here.
+class EmailEntryPage extends StatelessWidget {
+  const EmailEntryPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -30,38 +31,32 @@ class LoginPage extends StatelessWidget {
           tokenStorage: tokenStorage,
         ),
       ),
-      child: const LoginView(),
+      child: const EmailEntryView(),
     );
   }
 }
 
-class LoginView extends StatefulWidget {
-  const LoginView({super.key});
+class EmailEntryView extends StatefulWidget {
+  const EmailEntryView({super.key});
 
   @override
-  State<LoginView> createState() => _LoginViewState();
+  State<EmailEntryView> createState() => _EmailEntryViewState();
 }
 
-class _LoginViewState extends State<LoginView> {
+class _EmailEntryViewState extends State<EmailEntryView> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
-  void _onLoginPressed() {
+  void _onContinuePressed() {
     if (_formKey.currentState?.validate() ?? false) {
       context.read<AuthBloc>().add(
-        LoginRequested(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        ),
+        OtpRequested(email: _emailController.text.trim()),
       );
     }
   }
@@ -131,7 +126,17 @@ class _LoginViewState extends State<LoginView> {
       ),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) async {
-          if (state is AuthAuthenticated) {
+          if (state is OtpSent) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => OtpVerifyPage(
+                  email: state.email,
+                  isNewUser: state.isNewUser,
+                ),
+              ),
+            );
+          } else if (state is AuthAuthenticated) {
+            // Reached via Google/Apple sign-in.
             await _navigateAfterLogin(context, state.user.role);
           } else if (state is AuthError) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -152,7 +157,6 @@ class _LoginViewState extends State<LoginView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title
                     Text(
                       'Hoş Geldiniz!',
                       style: AppTypography.h2.copyWith(
@@ -163,9 +167,8 @@ class _LoginViewState extends State<LoginView> {
 
                     SizedBox(height: responsive.padding(AppSpacing.sm)),
 
-                    // Subtitle
                     Text(
-                      'Hesabınıza giriş yaparak devam edin',
+                      'E-posta adresinizi girin, size bir giriş kodu gönderelim',
                       style: AppTypography.bodyMedium.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -178,6 +181,8 @@ class _LoginViewState extends State<LoginView> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       enabled: state is! AuthLoading,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _onContinuePressed(),
                       decoration: const InputDecoration(
                         hintText: 'E-posta adresiniz',
                         prefixIcon: Icon(Icons.email_outlined),
@@ -193,74 +198,16 @@ class _LoginViewState extends State<LoginView> {
                       },
                     ),
 
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Password Field
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      enabled: state is! AuthLoading,
-                      decoration: InputDecoration(
-                        hintText: 'Şifreniz',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: AppColors.textHint,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Şifre gerekli';
-                        }
-                        if (value.length < 8) {
-                          return 'Şifre en az 8 karakter olmalı';
-                        }
-                        return null;
-                      },
-                    ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    // Forgot Password
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const ForgotPasswordPage(),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Şifremi Unuttum',
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-
                     const SizedBox(height: AppSpacing.xl),
 
-                    // Login Button
+                    // Continue Button
                     SizedBox(
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
                         onPressed: state is AuthLoading
                             ? null
-                            : _onLoginPressed,
+                            : _onContinuePressed,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -281,7 +228,7 @@ class _LoginViewState extends State<LoginView> {
                                 ),
                               )
                             : Text(
-                                'Giriş Yap',
+                                'Devam Et',
                                 style: AppTypography.button.copyWith(
                                   color: Colors.white,
                                 ),
@@ -291,55 +238,86 @@ class _LoginViewState extends State<LoginView> {
 
                     const SizedBox(height: AppSpacing.xl),
 
-                    // Divider & Google Sign-In
-                    ...[
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Divider(color: AppColors.textHint),
+                    // Divider & social sign-in
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Divider(color: AppColors.textHint),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                            ),
-                            child: Text(
-                              'veya',
-                              style: AppTypography.bodySmall.copyWith(
-                                color: AppColors.textHint,
-                              ),
+                          child: Text(
+                            'veya',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.textHint,
                             ),
                           ),
-                          const Expanded(
-                            child: Divider(color: AppColors.textHint),
+                        ),
+                        const Expanded(
+                          child: Divider(color: AppColors.textHint),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: AppSpacing.xl),
+
+                    // Google Sign-In Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton.icon(
+                        onPressed: state is AuthLoading
+                            ? null
+                            : () {
+                                context.read<AuthBloc>().add(
+                                  const GoogleSignInRequested(role: 'customer'),
+                                );
+                              },
+                        icon: const Icon(Icons.g_mobiledata, size: 28),
+                        label: Text(
+                          'Google ile Giriş Yap',
+                          style: AppTypography.button.copyWith(
+                            color: AppColors.textPrimary,
                           ),
-                        ],
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.textHint),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.full),
+                          ),
+                        ),
                       ),
+                    ),
 
-                      const SizedBox(height: AppSpacing.xl),
-
-                      // Google Sign-In Button
+                    // Apple Sign-In Button (iOS only)
+                    if (Platform.isIOS) ...[
+                      const SizedBox(height: AppSpacing.md),
                       SizedBox(
                         width: double.infinity,
                         height: 56,
-                        child: OutlinedButton.icon(
+                        child: ElevatedButton.icon(
                           onPressed: state is AuthLoading
                               ? null
                               : () {
                                   context.read<AuthBloc>().add(
-                                    const GoogleSignInRequested(
-                                      role: 'customer',
-                                    ),
+                                    const AppleSignInRequested(role: 'customer'),
                                   );
                                 },
-                          icon: const Icon(Icons.g_mobiledata, size: 28),
+                          icon: const Icon(
+                            Icons.apple,
+                            size: 28,
+                            color: Colors.white,
+                          ),
                           label: Text(
-                            'Google ile Giriş Yap',
+                            'Apple ile Giriş Yap',
                             style: AppTypography.button.copyWith(
-                              color: AppColors.textPrimary,
+                              color: Colors.white,
                             ),
                           ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.textHint),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(
                                 AppRadius.full,
@@ -348,82 +326,7 @@ class _LoginViewState extends State<LoginView> {
                           ),
                         ),
                       ),
-
-                      // Apple Sign-In Button (iOS only)
-                      if (Platform.isIOS) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton.icon(
-                            onPressed: state is AuthLoading
-                                ? null
-                                : () {
-                                    context.read<AuthBloc>().add(
-                                      const AppleSignInRequested(
-                                        role: 'customer',
-                                      ),
-                                    );
-                                  },
-                            icon: const Icon(
-                              Icons.apple,
-                              size: 28,
-                              color: Colors.white,
-                            ),
-                            label: Text(
-                              'Apple ile Giriş Yap',
-                              style: AppTypography.button.copyWith(
-                                color: Colors.white,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.full,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ],
-
-                    const SizedBox(height: AppSpacing.xl),
-
-                    // Register Link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Hesabınız yok mu? ',
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => const RegisterPage(),
-                              ),
-                            );
-                          },
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text(
-                            'Kayıt Ol',
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),

@@ -47,7 +47,9 @@
 	<string>$(MAPBOX_ACCESS_TOKEN)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
+		<!-- Allow cleartext HTTP only to loopback/.local (e.g. http://localhost:3000
+		     during local development). Public HTTPS endpoints are unaffected. -->
+		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
 	<key>NSLocationAlwaysUsageDescription</key>

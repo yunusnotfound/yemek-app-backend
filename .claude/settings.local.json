@@ -1,7 +1,27 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(node --check src/controllers/authController.js)",
+      "Bash(node --check src/validations/schemas.js)",
+      "Bash(node --check src/controllers/packageController.js)",
+      "Bash(node --check src/services/cronService.js)",
+      "Bash(node --check src/controllers/userController.js)",
+      "Bash(echo \"---EXIT: $?---\")",
+      "Bash(npm uninstall *)",
+      "Bash(node --check src/server.js)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('package.json','utf8'\\)\\); console.log\\('package.json valid JSON'\\)\")",
+      "Bash(git -C /Users/celik/Documents/dev/bitir-yemek/bitir_yemek_mobile mv android/app/src/main/kotlin/com/example/bitir_yemek_mobile/MainActivity.kt android/app/src/main/kotlin/com/bitiryemek/mobile/MainActivity.kt)",
+      "Bash(/usr/bin/sed -i '' 's/MARKETING_VERSION = 0\\\\.1;/MARKETING_VERSION = 1.0.0;/g' ios/Runner.xcodeproj/project.pbxproj)",
+      "Bash(flutter analyze *)",
+      "Bash(node --check src/migrations/20240101000021-add-production-indexes-and-pickupcode-constraint.js)",
+      "Bash(NODE_ENV=development node -e \"require\\('dotenv'\\).config\\(\\); const app=require\\('./src/app'\\); console.log\\('app.js requires OK, type:', typeof app\\)\")",
+      "Bash(NODE_ENV=development node -e \"require\\('dotenv'\\).config\\(\\); require\\('./src/services/cronService'\\); require\\('./src/utils/helpers'\\); require\\('./src/migrations/20240101000021-add-production-indexes-and-pickupcode-constraint.js'\\); console.log\\('cron+helpers+migration require OK'\\)\")",
+      "Bash(docker version *)",
+      "Bash(POSTGRES_DB=x POSTGRES_USER=x POSTGRES_PASSWORD=x REDIS_PASSWORD=x docker compose -f docker-compose.yml config --quiet)",
+      "Bash(docker compose *)",
+      "Bash(docker run *)",
+      "Bash(node -e \"require\\('./src/services/emailService'\\); require\\('./src/models'\\); require\\('./src/validations/schemas'\\); require\\('./src/controllers/authController'\\); require\\('./src/routes/auth'\\); console.log\\('OK: all modules load'\\)\")"
     ]
   }
 }

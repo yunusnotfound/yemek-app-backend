@@ -1,4 +1,4 @@
-package com.example.bitir_yemek_mobile
+package com.bitiryemek.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

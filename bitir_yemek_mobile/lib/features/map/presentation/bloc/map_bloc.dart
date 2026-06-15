@@ -77,12 +77,23 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       if (result.isSuccess && result.directions != null) {
         emit(currentState.copyWith(directions: result.directions));
       } else {
-        // On error, preserve current state but clear directions
+        // Surface the failure so the UI can show feedback, then restore the
+        // loaded map (with directions cleared) so markers stay visible.
+        emit(
+          MapError(
+            message: result.error ?? 'Yol tarifi alınamadı',
+            businesses: currentState.businesses,
+          ),
+        );
         emit(currentState.copyWith(clearDirections: true));
       }
     } catch (e) {
-      // On error, preserve current state but don't update directions
-      // The UI can show a snackbar for the error
+      emit(
+        MapError(
+          message: 'Yol tarifi alınırken bir hata oluştu',
+          businesses: currentState.businesses,
+        ),
+      );
       emit(currentState.copyWith(clearDirections: true));
     }
   }

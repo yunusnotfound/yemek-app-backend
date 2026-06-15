@@ -2,14 +2,16 @@ import '../../data/models/user_model.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 
 abstract class AuthRepository {
-  Future<AuthResult> login(String email, String password);
+  /// Request a one-time login code for [email].
+  /// Returns whether the email belongs to a brand-new account.
+  Future<OtpRequestResult> requestOtp(String email);
 
-  Future<AuthResult> register({
-    required String name,
+  /// Verify the OTP [code] for [email]. For new accounts [name] is required.
+  Future<AuthResult> verifyOtp({
     required String email,
-    required String password,
+    required String code,
+    String? name,
     String? phone,
-    String role = 'customer',
   });
 
   Future<void> logout();
@@ -27,8 +29,4 @@ abstract class AuthRepository {
   Future<String?> getSavedUserRole();
 
   Future<UserModel?> getCurrentUser();
-
-  Future<AuthResult> forgotPassword(String email);
-
-  Future<AuthResult> resetPassword(String token, String newPassword);
 }

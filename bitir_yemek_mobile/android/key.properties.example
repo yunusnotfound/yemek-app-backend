@@ -1,0 +1,15 @@
+# Release signing credentials for the Android app.
+#
+# Copy this file to `android/key.properties` and fill in the real values.
+# DO NOT commit android/key.properties or the keystore (.jks) — they are secrets.
+#
+# Generate a release keystore first:
+#   keytool -genkey -v -keystore ~/bitiryemek-release.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias bitiryemek
+#
+# Then point storeFile at that .jks (absolute path recommended).
+
+storeFile=/absolute/path/to/bitiryemek-release.jks
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyAlias=bitiryemek
+keyPassword=YOUR_KEY_PASSWORD

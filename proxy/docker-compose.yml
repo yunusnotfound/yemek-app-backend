@@ -1,0 +1,43 @@
+# Shared reverse proxy (Caddy) for ALL apps on this VPS.
+#
+# This is SHARED INFRASTRUCTURE, not part of any single app. On the server it
+# should live in its own directory (e.g. /srv/proxy), separate from the app
+# repos. It owns ports 80/443 and terminates TLS for every app behind it.
+#
+# Caddy automatically obtains & renews Let's Encrypt certificates for every
+# domain declared in ./Caddyfile (no certbot needed). Apps are reached over the
+# shared external "edge" network by their network alias.
+#
+# One-time setup (see DEPLOYMENT.md):
+#   docker network create edge
+#   # edit ./Caddyfile -> set your email + real domains
+#   docker compose up -d
+#
+# Add a new app later: append a site block to ./Caddyfile, attach that app's
+# container to the "edge" network, then:  docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Persist issued certificates & ACME account across restarts.
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+
+networks:
+  # Shared network that every app's public-facing container also joins.
+  # Created once with: docker network create edge
+  edge:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -196,6 +196,18 @@ const resetPasswordSchema = z.object({
   password: z.string().min(8, "Şifre en az 8 karakter olmalı"),
 });
 
+// Passwordless OTP login/registration
+const otpRequestSchema = z.object({
+  email: z.string().email("Geçerli bir e-posta adresi girin"),
+});
+
+const otpVerifySchema = z.object({
+  email: z.string().email("Geçerli bir e-posta adresi girin"),
+  code: z.string().length(6, "Kod 6 haneli olmalı"),
+  name: z.string().min(2, "Ad soyad en az 2 karakter olmalı").optional(),
+  phone: z.string().optional(),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -213,6 +225,8 @@ module.exports = {
   businessIdParamSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  otpRequestSchema,
+  otpVerifySchema,
   directionsQuerySchema,
   nearbyQuerySchema,
   reverseGeocodeQuerySchema,

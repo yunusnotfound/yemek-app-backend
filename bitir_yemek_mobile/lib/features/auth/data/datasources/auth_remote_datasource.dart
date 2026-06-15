@@ -6,11 +6,13 @@ class AuthRemoteDataSource {
 
   AuthRemoteDataSource({required DioClient dioClient}) : _dioClient = dioClient;
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  /// Request a one-time login code (OTP) for [email].
+  /// Returns `{ message, isNewUser }`.
+  Future<Map<String, dynamic>> requestOtp(String email) async {
     try {
       final response = await _dioClient.dio.post(
-        '/auth/login',
-        data: {'email': email, 'password': password},
+        '/auth/otp/request',
+        data: {'email': email},
       );
 
       return response.data as Map<String, dynamic>;
@@ -19,23 +21,20 @@ class AuthRemoteDataSource {
     }
   }
 
-  Future<Map<String, dynamic>> register({
-    required String name,
+  /// Verify the OTP [code] for [email]. For brand-new accounts [name] is
+  /// required (and [phone] optional). Returns `{ accessToken, refreshToken, user }`.
+  Future<Map<String, dynamic>> verifyOtp({
     required String email,
-    required String password,
+    required String code,
+    String? name,
     String? phone,
-    String role = 'customer',
   }) async {
     try {
-      final data = <String, dynamic>{
-        'name': name,
-        'email': email,
-        'password': password,
-        'role': role,
-      };
+      final data = <String, dynamic>{'email': email, 'code': code};
+      if (name != null && name.isNotEmpty) data['name'] = name;
       if (phone != null && phone.isNotEmpty) data['phone'] = phone;
 
-      final response = await _dioClient.dio.post('/auth/register', data: data);
+      final response = await _dioClient.dio.post('/auth/otp/verify', data: data);
 
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
@@ -94,35 +93,6 @@ class AuthRemoteDataSource {
           if (fullName != null) 'fullName': fullName,
           'role': role,
         },
-      );
-
-      return response.data as Map<String, dynamic>;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> forgotPassword(String email) async {
-    try {
-      final response = await _dioClient.dio.post(
-        '/auth/forgot-password',
-        data: {'email': email},
-      );
-
-      return response.data as Map<String, dynamic>;
-    } on DioException catch (e) {
-      throw _handleDioError(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> resetPassword({
-    required String token,
-    required String password,
-  }) async {
-    try {
-      final response = await _dioClient.dio.post(
-        '/auth/reset-password',
-        data: {'token': token, 'password': password},
       );
 
       return response.data as Map<String, dynamic>;

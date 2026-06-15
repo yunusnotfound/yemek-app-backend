@@ -44,7 +44,7 @@ const Order = sequelize.define('Order', {
     defaultValue: 'pending',
   },
   pickupCode: {
-    type: DataTypes.STRING(4),
+    type: DataTypes.STRING(6),
     allowNull: false,
   },
 }, {

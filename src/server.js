@@ -13,7 +13,7 @@ const dbVars = process.env.DATABASE_URL
   ? []
   : ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
 const requiredEnvVars = [...dbVars, 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
-const recommendedEnvVars = ['SENDGRID_API_KEY', 'SENDGRID_FROM', 'GOOGLE_CLIENT_ID'];
+const recommendedEnvVars = ['RESEND_API_KEY', 'RESEND_FROM', 'GOOGLE_CLIENT_ID'];
 
 const validateEnv = () => {
   const missing = requiredEnvVars.filter(v => !process.env[v]);
@@ -31,6 +31,43 @@ const validateEnv = () => {
   }
 };
 
+let server;
+let isShuttingDown = false;
+
+const shutdown = (signal) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  logger.info(`${signal} alındı, sunucu düzgün şekilde kapatılıyor...`);
+
+  // Asılı kalırsa zorla çık
+  const forceExit = setTimeout(() => {
+    logger.error('Düzgün kapanış zaman aşımına uğradı, zorla çıkılıyor');
+    process.exit(1);
+  }, 10000);
+  forceExit.unref();
+
+  const closeDbAndExit = async () => {
+    try {
+      await sequelize.close();
+      logger.info('Veritabanı bağlantısı kapatıldı');
+    } catch (error) {
+      logger.error('Veritabanı kapatılırken hata:', { error: error.message });
+    } finally {
+      clearTimeout(forceExit);
+      process.exit(0);
+    }
+  };
+
+  if (server) {
+    server.close(() => {
+      logger.info('HTTP sunucusu yeni bağlantıları kabul etmeyi durdurdu');
+      closeDbAndExit();
+    });
+  } else {
+    closeDbAndExit();
+  }
+};
+
 const start = async () => {
   try {
     validateEnv();
@@ -43,7 +80,7 @@ const start = async () => {
     startNotificationCleanupJob();
     startRecurringPackagesJob();
 
-    app.listen(PORT, '0.0.0.0', () => {
+    server = app.listen(PORT, '0.0.0.0', () => {
       logger.info(`Sunucu port ${PORT} üzerinde çalışıyor (${process.env.NODE_ENV || 'development'})`);
     });
   } catch (error) {
@@ -55,11 +92,15 @@ const start = async () => {
 
 start();
 
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', { promise, reason: reason?.message || reason });
+  shutdown('unhandledRejection');
 });
 
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception:', { error: error.message, stack: error.stack });
-  process.exit(1);
+  shutdown('uncaughtException');
 });

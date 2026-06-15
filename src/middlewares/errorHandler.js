@@ -25,9 +25,19 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  res.status(err.statusCode || 500).json({
+  const statusCode = err.statusCode || 500;
+
+  // Production'da 500'lük hatalarda ham mesajı sızdırma; genel mesaj döndür.
+  // 4xx hataları (validation vb.) bilerek mesaj döndürdüğü için korunur.
+  const isProduction = process.env.NODE_ENV === 'production';
+  const message =
+    isProduction && statusCode >= 500
+      ? 'Sunucu hatası'
+      : err.message || 'Sunucu hatası';
+
+  res.status(statusCode).json({
     success: false,
-    message: err.message || 'Sunucu hatası',
+    message,
   });
 };
 

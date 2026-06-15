@@ -28,38 +28,27 @@ class AuthUnauthenticated extends AuthState {
   const AuthUnauthenticated();
 }
 
-class AuthRegistrationSuccess extends AuthState {
-  final String message;
+/// Emitted after a login code has been sent to [email].
+/// [isNewUser] tells the UI whether to collect a name for a new account.
+class OtpSent extends AuthState {
   final String email;
+  final bool isNewUser;
+  final String message;
 
-  const AuthRegistrationSuccess({required this.message, required this.email});
+  const OtpSent({
+    required this.email,
+    required this.isNewUser,
+    required this.message,
+  });
 
   @override
-  List<Object?> get props => [message, email];
+  List<Object?> get props => [email, isNewUser, message];
 }
 
 class AuthError extends AuthState {
   final String message;
 
   const AuthError({required this.message});
-
-  @override
-  List<Object?> get props => [message];
-}
-
-class ForgotPasswordSuccess extends AuthState {
-  final String message;
-
-  const ForgotPasswordSuccess({required this.message});
-
-  @override
-  List<Object?> get props => [message];
-}
-
-class ResetPasswordSuccess extends AuthState {
-  final String message;
-
-  const ResetPasswordSuccess({required this.message});
 
   @override
   List<Object?> get props => [message];

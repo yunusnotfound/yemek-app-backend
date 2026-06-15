@@ -122,8 +122,23 @@ class AuthInterceptor extends Interceptor {
           data: {'refreshToken': refreshToken},
         );
 
-        final newAccessToken = response.data['accessToken'] as String;
-        final newRefreshToken = response.data['refreshToken'] as String;
+        // Parse defensively — a malformed/unexpected refresh response must not
+        // throw a TypeError. Treat missing/non-string tokens as a refresh
+        // failure (forces re-login) instead of crashing the interceptor.
+        final data = response.data;
+        final newAccessToken = (data is Map ? data['accessToken'] : null);
+        final newRefreshToken = (data is Map ? data['refreshToken'] : null);
+
+        if (newAccessToken is! String ||
+            newAccessToken.isEmpty ||
+            newRefreshToken is! String ||
+            newRefreshToken.isEmpty) {
+          await tokenStorage.clearTokens();
+          _refreshAttempts = 0;
+          _rejectAllPending(err);
+          handler.next(err);
+          return;
+        }
 
         await tokenStorage.saveAccessToken(newAccessToken);
         await tokenStorage.saveRefreshToken(newRefreshToken);

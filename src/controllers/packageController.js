@@ -9,7 +9,20 @@ exports.getAll = async (req, res, next) => {
     const { page, limit, offset } = paginate(req.query);
     const useGeoFilter = lat && lng && radius;
 
-    const cacheKey = `packages:list:${JSON.stringify(req.query)}`;
+    // Hard cap on candidate rows fetched for geo-filtering so we never load the
+    // whole active-package table into memory for the JS Haversine pass.
+    const GEO_CANDIDATE_LIMIT = 500;
+
+    // Build a cache key that rounds coordinates to ~3 decimals (~110m precision)
+    // so nearby requests share a cache entry instead of producing a unique key
+    // for every exact coordinate.
+    const cacheKeyParts = { city, district, categoryId, maxPrice, excludeExpired, page, limit };
+    if (useGeoFilter) {
+      cacheKeyParts.lat = parseFloat(lat).toFixed(3);
+      cacheKeyParts.lng = parseFloat(lng).toFixed(3);
+      cacheKeyParts.radius = radius;
+    }
+    const cacheKey = `packages:list:${JSON.stringify(cacheKeyParts)}`;
     const cached = await cacheService.get(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -29,6 +42,23 @@ exports.getAll = async (req, res, next) => {
       packageWhere.pickupDate = { [Op.gte]: today };
     }
 
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    const maxRadius = parseFloat(radius);
+
+    // Bounding-box pre-filter: compute min/max lat & lng from the center + radius
+    // (radius is in km) and push it into SQL so the DB only returns business
+    // candidates inside the box. The precise Haversine filter runs afterwards in JS.
+    if (useGeoFilter) {
+      const latDelta = maxRadius / 111.32; // ~111.32 km per degree of latitude
+      const cosLat = Math.cos((userLat * Math.PI) / 180);
+      // Guard against division by ~0 near the poles (not relevant for Turkey, but safe).
+      const lngDelta = maxRadius / (111.32 * Math.max(Math.abs(cosLat), 1e-6));
+
+      businessWhere.latitude = { [Op.between]: [userLat - latDelta, userLat + latDelta] };
+      businessWhere.longitude = { [Op.between]: [userLng - lngDelta, userLng + lngDelta] };
+    }
+
     const queryOptions = {
       where: packageWhere,
       include: [
@@ -43,8 +73,11 @@ exports.getAll = async (req, res, next) => {
       order: [['pickupDate', 'ASC'], ['pickupStart', 'ASC']],
     };
 
-    // When geo-filtering, skip SQL limit/offset — filter in memory then paginate manually
-    if (!useGeoFilter) {
+    if (useGeoFilter) {
+      // Bounding box already trims the rows in SQL; cap candidates to a sane hard
+      // limit, then Haversine-filter + distance-sort + paginate in memory below.
+      queryOptions.limit = GEO_CANDIDATE_LIMIT;
+    } else {
       queryOptions.limit = limit;
       queryOptions.offset = offset;
     }
@@ -55,10 +88,6 @@ exports.getAll = async (req, res, next) => {
     let totalCount = count;
 
     if (useGeoFilter) {
-      const userLat = parseFloat(lat);
-      const userLng = parseFloat(lng);
-      const maxRadius = parseFloat(radius);
-
       resultPackages = packages.filter(pkg => {
         if (!pkg.business.latitude || !pkg.business.longitude) return false;
         const distance = haversineDistance(userLat, userLng, parseFloat(pkg.business.latitude), parseFloat(pkg.business.longitude));

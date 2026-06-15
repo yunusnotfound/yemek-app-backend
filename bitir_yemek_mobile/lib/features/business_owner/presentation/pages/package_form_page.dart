@@ -483,7 +483,7 @@ class _SubmitButtonState extends State<_SubmitButton> {
   @override
   void initState() {
     super.initState();
-    final tokenStorage = SharedPrefsTokenStorage();
+    final tokenStorage = createDefaultTokenStorage();
     _repository = BusinessOwnerRepositoryImpl(
       remoteDataSource: BusinessOwnerRemoteDataSource(
         dioClient: DioClient(tokenStorage: tokenStorage),

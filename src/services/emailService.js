@@ -1,37 +1,46 @@
-const sgMail = require('@sendgrid/mail');
+const { Resend } = require('resend');
 const logger = require('./logger');
 
-// Configure SendGrid
-if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-}
+// Configure Resend
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+const FROM_ADDRESS = process.env.RESEND_FROM || 'Bitir Yemek <noreply@bitirgitsin.com>';
 
 const sendMail = async (to, subject, html) => {
-  if (!process.env.SENDGRID_API_KEY) {
-    logger.info(`[Email] SendGrid yapılandırılmamış. Konu: ${subject}, Alıcı: ${to}`);
+  if (!resend) {
+    logger.info(`[Email] Resend yapılandırılmamış. Konu: ${subject}, Alıcı: ${to}`);
     return;
   }
 
-  const msg = {
-    to,
-    from: process.env.SENDGRID_FROM || 'noreply@bitiryemek.com',
-    subject,
-    html,
-  };
-
   try {
-    await sgMail.send(msg);
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to,
+      subject,
+      html,
+    });
+    if (error) {
+      throw new Error(typeof error === 'string' ? error : (error.message || JSON.stringify(error)));
+    }
     logger.info(`[Email] Gönderildi. Konu: ${subject}, Alıcı: ${to}`);
   } catch (error) {
     logger.error(`[Email] Gönderilemedi. Konu: ${subject}, Alıcı: ${to}, Hata: ${error.message}`);
-    if (error.response) {
-      logger.error(`[Email] SendGrid yanıtı: ${JSON.stringify(error.response.body)}`);
-    }
     // Provide a user-friendly error message
     const friendlyError = new Error('E-posta gönderilemedi. Lütfen daha sonra tekrar deneyin.');
     friendlyError.statusCode = 502;
     throw friendlyError;
   }
+};
+
+const sendOtpEmail = async (email, code) => {
+  await sendMail(email, 'Bitir Yemek - Giriş Kodu', `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+      <h2 style="color: #FF7043;">Giriş Kodunuz</h2>
+      <p>Bitir Yemek'e giriş yapmak için aşağıdaki kodu uygulamaya girin:</p>
+      <h1 style="letter-spacing: 8px; text-align: center; font-size: 36px; padding: 16px; background: #f5f5f5; border-radius: 8px; color: #333;">${code}</h1>
+      <p style="color: #999; font-size: 12px; margin-top: 24px;">Bu kod 10 dakika geçerlidir. Eğer bu işlemi siz yapmadıysanız bu e-postayı dikkate almayın.</p>
+    </div>
+  `);
 };
 
 const sendVerificationEmail = async (email, token) => {
@@ -74,6 +83,7 @@ const sendOrderStatusEmail = async (email, orderStatus, pickupCode) => {
 
 module.exports = {
   sendMail,
+  sendOtpEmail,
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendOrderStatusEmail,

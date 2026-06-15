@@ -41,11 +41,17 @@ npx sequelize-cli db:migrate:undo
 Copy `.env.example` to `.env`. Required vars:
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` — **or** `DATABASE_URL` (Railway auto-provides)
 - `JWT_SECRET`, `JWT_REFRESH_SECRET` — must be 32+ chars in production
-- Optional: `SENDGRID_API_KEY`, `SENDGRID_FROM`, `GOOGLE_CLIENT_ID`, `REDIS_URL`
+- Optional: `RESEND_API_KEY`, `RESEND_FROM` (Resend sending domain must be verified), `GOOGLE_CLIENT_ID`, `REDIS_URL`
+
+Additional production vars: `CORS_ORIGIN` (comma-separated browser-origin allowlist — required in prod, native apps unaffected), `APPLE_CLIENT_ID` (required for Apple Sign-In; tokens verified against this audience), `ENABLE_SWAGGER` (`/api-docs` is off in prod unless `true`).
 
 SSL for PostgreSQL is **off by default**; set `DB_SSL=true` or include `sslmode=require` in `DATABASE_URL` to enable it.
 
-Redis is optional — the cache layer fails silently if unavailable, so the API works without it.
+Redis is optional for caching, but in **production** refresh-token revocation fails closed (refresh returns 401) when Redis is unavailable — run Redis in prod.
+
+### Deployment
+
+Targets a single Hostinger VPS (Ubuntu) — see `DEPLOYMENT.md` for the full runbook (Docker Compose or PM2). The app runs behind a **shared Caddy reverse proxy** (`proxy/`, auto-TLS via Let's Encrypt) that can front multiple apps on one box; `trust proxy` is set so the rate limiter and `req.ip` rely on `X-Forwarded-*`. The app stack (`docker-compose.yml`: app + postgres + redis) joins the external `edge` network so Caddy reaches it as `bitir-yemek-app:3000`; db/redis stay on the private `bitir-net`. `Dockerfile` provided. Migrations are run **explicitly** on deploy (`npm run db:migrate`); never run `npm run db:seed` in production (demo data with known credentials). `/api/health` is the health-check endpoint (200 up / 503 DB down). Node 20+ (`.nvmrc`, `engines`).
 
 ### Architecture
 
@@ -70,11 +76,18 @@ src/
     cacheService.js  # Redis get/set/del/delPattern (silent no-op if Redis down)
     socketService.js # Socket.IO — rooms: user_{id}, business_{id}
     notificationService.js # DB notifications + Socket.IO push
-    emailService.js  # SendGrid transactional email
-    cronService.js   # Runs daily at 3 AM — deletes 30-day-old read notifications
+    emailService.js  # Resend transactional email (OTP login codes, order status, verification)
+    cronService.js   # Daily jobs (Europe/Istanbul tz): 3 AM purges 30-day-old read notifications; midnight generates today's package instances from recurring templates. Assumes single instance (no distributed lock)
     geocodingService.js # Reverse geocoding
     logger.js        # Winston logger
+  middlewares/errorHandler.js # Global error handler (registered last in app.js)
 ```
+
+> **Routes** registered in `routes/index.js`: `auth`, `users`, `categories`, `businesses`, `packages`, `orders`, `reviews`, `favorites`, `notifications`, `coupons`, `admin`, `maps`, `business-dashboard`.
+
+### Testing & Linting
+
+There is **no backend test suite or linter** — no `npm test`/`npm run lint` scripts, and no ESLint/Prettier config. Don't go looking for them. Verify changes by running the server and hitting endpoints.
 
 ### User Roles
 
@@ -90,19 +103,7 @@ Three roles enforced via `authorize()` middleware:
 - **Business**: Must be approved by admin (`isApproved`) before visible to customers.
 - **Coupon**: `percentage` or `fixed` discount, with `minOrderAmount`, `maxUsage`, and expiry.
 
-### Real-time Events (Socket.IO)
-
-```js
-// Client joins rooms
-socket.emit('join_user', userId)
-socket.emit('join_business', businessId)
-
-// Server emits
-'stock_update'    // broadcast — { packageId, remainingQuantity }
-'order_update'    // user room — order object
-'new_package'     // broadcast — { businessId, package }
-'notification'    // user room — notification object
-```
+> **Note:** Real-time (Socket.IO) was removed — it was dead code (never wired into the HTTP server, no client consumers). Notifications are delivered via `notificationService` (DB rows) only. If you reintroduce realtime, attach an `http.Server` in `server.js` and add a Redis adapter only if scaling past one instance.
 
 ### Swagger API Docs
 
@@ -163,7 +164,7 @@ lib/features/<feature>/
 
 Shared infrastructure in `lib/core/`:
 - `network/dio_client.dart` — Dio instance with `AuthInterceptor` (auto-refreshes JWT on 401, queues concurrent requests during refresh)
-- `storage/token_storage.dart` — Secure storage for access/refresh tokens and user role
+- `storage/token_storage.dart` — `TokenStorage` interface. Use the `createDefaultTokenStorage()` factory, which returns `SecureTokenStorage` (encrypted: Android Keystore via `encryptedSharedPreferences`, iOS Keychain). A legacy `SharedPrefsTokenStorage` (plain, unencrypted) also exists — don't use it for tokens (one stray call remains in `package_form_page.dart`)
 - `services/location_service.dart` — Geolocator wrapper
 
 App-level constants in `lib/config/constants.dart` — all configurable values come from `--dart-define`.
@@ -179,6 +180,8 @@ App-level constants in `lib/config/constants.dart` — all configurable values c
 ### State Management
 
 flutter_bloc throughout. Each feature's BLoC is instantiated in its page/scaffold and disposed automatically. No global BLoC providers — blocs are scoped to their feature tree.
+
+`test/` contains only the default placeholder `widget_test.dart` — there is effectively no test coverage. Lints come from `flutter_lints` defaults (`analysis_options.yaml`).
 
 ### Key Config
 

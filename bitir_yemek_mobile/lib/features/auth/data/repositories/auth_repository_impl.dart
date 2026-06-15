@@ -22,9 +22,34 @@ class AuthRepositoryImpl implements AuthRepository {
        _tokenStorage = tokenStorage;
 
   @override
-  Future<AuthResult> login(String email, String password) async {
+  Future<OtpRequestResult> requestOtp(String email) async {
     try {
-      final response = await _remoteDataSource.login(email, password);
+      final response = await _remoteDataSource.requestOtp(email);
+      final isNewUser = response['isNewUser'] as bool? ?? false;
+      final message =
+          response['message'] as String? ?? 'Giriş kodu gönderildi';
+      return OtpRequestResult.success(isNewUser: isNewUser, message: message);
+    } on AuthException catch (e) {
+      return OtpRequestResult.failure(e.message);
+    } catch (e) {
+      return OtpRequestResult.failure('Bir hata oluştu: $e');
+    }
+  }
+
+  @override
+  Future<AuthResult> verifyOtp({
+    required String email,
+    required String code,
+    String? name,
+    String? phone,
+  }) async {
+    try {
+      final response = await _remoteDataSource.verifyOtp(
+        email: email,
+        code: code,
+        name: name,
+        phone: phone,
+      );
 
       final accessToken = response['accessToken'] as String?;
       final refreshToken = response['refreshToken'] as String?;
@@ -43,35 +68,6 @@ class AuthRepositoryImpl implements AuthRepository {
       await _tokenStorage.saveUserData(jsonEncode(user.toJson()));
 
       return AuthResult.success(user: user);
-    } on AuthException catch (e) {
-      return AuthResult.failure(e.message);
-    } catch (e) {
-      return AuthResult.failure('Bir hata oluştu: $e');
-    }
-  }
-
-  @override
-  Future<AuthResult> register({
-    required String name,
-    required String email,
-    required String password,
-    String? phone,
-    String role = 'customer',
-  }) async {
-    try {
-      final response = await _remoteDataSource.register(
-        name: name,
-        email: email,
-        password: password,
-        phone: phone,
-        role: role,
-      );
-
-      final message =
-          response['message'] as String? ??
-          'Kayıt başarılı! Lütfen e-postanızı doğrulayın.';
-
-      return AuthResult.success(message: message, registeredEmail: email);
     } on AuthException catch (e) {
       return AuthResult.failure(e.message);
     } catch (e) {
@@ -252,36 +248,6 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  @override
-  Future<AuthResult> forgotPassword(String email) async {
-    try {
-      final response = await _remoteDataSource.forgotPassword(email);
-      final message =
-          response['message'] as String? ?? 'Şifre sıfırlama kodu gönderildi';
-      return AuthResult.success(message: message);
-    } on AuthException catch (e) {
-      return AuthResult.failure(e.message);
-    } catch (e) {
-      return AuthResult.failure('Bir hata oluştu: $e');
-    }
-  }
-
-  @override
-  Future<AuthResult> resetPassword(String token, String newPassword) async {
-    try {
-      final response = await _remoteDataSource.resetPassword(
-        token: token,
-        password: newPassword,
-      );
-      final message =
-          response['message'] as String? ?? 'Şifreniz başarıyla değiştirildi';
-      return AuthResult.success(message: message);
-    } on AuthException catch (e) {
-      return AuthResult.failure(e.message);
-    } catch (e) {
-      return AuthResult.failure('Bir hata oluştu: $e');
-    }
-  }
 }
 
 class AuthResult {
@@ -314,5 +280,34 @@ class AuthResult {
 
   factory AuthResult.failure(String error) {
     return AuthResult._(isSuccess: false, error: error);
+  }
+}
+
+class OtpRequestResult {
+  final bool isSuccess;
+  final bool isNewUser;
+  final String? message;
+  final String? error;
+
+  OtpRequestResult._({
+    required this.isSuccess,
+    this.isNewUser = false,
+    this.message,
+    this.error,
+  });
+
+  factory OtpRequestResult.success({
+    required bool isNewUser,
+    String? message,
+  }) {
+    return OtpRequestResult._(
+      isSuccess: true,
+      isNewUser: isNewUser,
+      message: message,
+    );
+  }
+
+  factory OtpRequestResult.failure(String error) {
+    return OtpRequestResult._(isSuccess: false, error: error);
   }
 }

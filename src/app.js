@@ -10,6 +10,11 @@ const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 
+// Tek nginx reverse proxy arkasında çalışıyoruz; express-rate-limit ve req.ip doğru çalışsın
+app.set('trust proxy', 1);
+
+const isProduction = process.env.NODE_ENV === 'production';
+
 // Swagger konfigürasyonu
 const swaggerOptions = {
   definition: {
@@ -49,12 +54,14 @@ const swaggerOptions = {
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  explorer: true,
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'Bitir Yemek API Docs',
-}));
+// Swagger UI - production'da varsayılan olarak kapalı (ENABLE_SWAGGER=true ile açılabilir)
+if (!isProduction || process.env.ENABLE_SWAGGER === 'true') {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Bitir Yemek API Docs',
+  }));
+}
 
 // Security Headers - Helmet
 app.use(helmet({
@@ -69,9 +76,34 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS - mobile app sends requests without Origin header, so allow all
+// CORS - mobil uygulama Origin header göndermez (native), bu yüzden Origin'siz istekler her zaman izinli.
+// CORS_ORIGIN virgülle ayrılmış izin listesi olarak parse edilir.
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: (origin, callback) => {
+    // Origin yok (mobil app, curl, server-to-server) => izin ver
+    if (!origin) {
+      return callback(null, true);
+    }
+    // Geliştirmede izin listesi yoksa tarayıcı isteklerine de izin ver
+    if (!isProduction && allowedOrigins.length === 0) {
+      return callback(null, true);
+    }
+    // Wildcard açıkça verilmişse izin ver
+    if (allowedOrigins.includes('*')) {
+      return callback(null, true);
+    }
+    // İzin listesindeyse izin ver
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    // Aksi halde reddet (production'da CORS_ORIGIN tanımsızsa tarayıcı cross-origin reddedilir)
+    return callback(new Error('CORS policy: origin not allowed'));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,

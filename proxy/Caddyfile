@@ -1,0 +1,47 @@
+# Caddyfile — shared reverse proxy for every app on this VPS.
+# Docs: https://caddyserver.com/docs/caddyfile
+#
+# Caddy auto-provisions & renews TLS for each site address below via Let's
+# Encrypt. Requirements: the domain's DNS A record must point at this VPS, and
+# ports 80/443 must be reachable from the internet.
+{
+	# ACME / Let's Encrypt account email (cert expiry notices). REQUIRED — set this.
+	email you@example.com
+}
+
+# ---------------------------------------------------------------------------
+# Bitir Yemek API
+# Replace api.bitiryemek.com with your real domain.
+# ---------------------------------------------------------------------------
+api.bitiryemek.com {
+	# Upstream = the app's container on the shared "edge" network (alias set in
+	# the app's docker-compose.yml). Caddy adds X-Forwarded-For/Proto/Host by
+	# default, which the app honors via app.set('trust proxy', 1).
+	reverse_proxy bitir-yemek-app:3000
+
+	# multer caps uploads at 5MB; allow a little headroom.
+	request_body {
+		max_size 6MB
+	}
+
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+		# Don't leak the upstream server identity.
+		-Server
+	}
+}
+
+# ---------------------------------------------------------------------------
+# To add another app later: append a block like the one below, attach that
+# app's public container to the "edge" network, then run:
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+#
+# api.app2.com {
+# 	reverse_proxy app2-app:8080
+# }
+# ---------------------------------------------------------------------------

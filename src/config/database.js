@@ -7,20 +7,23 @@ const dbOptions = {
   dialect: 'postgres',
   logging: isProduction ? false : console.log,
   pool: {
-    max: isProduction ? 10 : 20,
+    max: isProduction ? 20 : 20,
     min: isProduction ? 2 : 3,
     acquire: 30000,
-    idle: 30000,
+    idle: 10000,
+  },
+  // Asılı kalan sorgular bağlantıları sonsuza kadar tutmasın
+  dialectOptions: {
+    statement_timeout: 30000,
+    idle_in_transaction_session_timeout: 30000,
   },
 };
 
 // Only add SSL if explicitly required
 if (useSSL) {
-  dbOptions.dialectOptions = {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-    },
+  dbOptions.dialectOptions.ssl = {
+    require: true,
+    rejectUnauthorized: false,
   };
 }
 

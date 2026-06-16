@@ -22,6 +22,9 @@ bitir_yemek_mobile/ios/Secrets.xcconfig
 # Qoder IDE config
 .qoder/
 
+# Claude Code project instructions (kept local, not published)
+CLAUDE.md
+
 # Local Docker compose overrides (e.g. dev-only port bindings)
 docker-compose.override.yml
 

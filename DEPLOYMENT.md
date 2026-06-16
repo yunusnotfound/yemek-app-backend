@@ -176,8 +176,8 @@ GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
 APPLE_CLIENT_ID=com.bitirgitsin.app
 
 # Email + maps
-SENDGRID_API_KEY=SG.xxxx
-SENDGRID_FROM=noreply@bitirgitsin.com
+RESEND_API_KEY=re_xxxx
+RESEND_FROM=Bitir Yemek <noreply@bitirgitsin.com>
 GOOGLE_MAPS_API_KEY=AIza...
 ```
 
@@ -331,8 +331,8 @@ CORS_ORIGIN=https://bitirgitsin.com,https://www.bitirgitsin.com
 ENABLE_SWAGGER=false
 GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
 APPLE_CLIENT_ID=com.bitirgitsin.app
-SENDGRID_API_KEY=SG.xxxx
-SENDGRID_FROM=noreply@bitirgitsin.com
+RESEND_API_KEY=re_xxxx
+RESEND_FROM=Bitir Yemek <noreply@bitirgitsin.com>
 GOOGLE_MAPS_API_KEY=AIza...
 ```
 
@@ -420,8 +420,8 @@ pm2 reload bitir-yemek
 | `ENABLE_SWAGGER` | No | Swagger UI is **off** in production unless this is `true`. Keep off in prod. |
 | `GOOGLE_CLIENT_ID` | Recommended | Google Sign-In client ID. |
 | `APPLE_CLIENT_ID` | Recommended | Apple Sign-In audience/client ID (e.g. `com.bitirgitsin.app`). Required for Apple login to work. |
-| `SENDGRID_API_KEY` | Recommended | SendGrid API key for transactional email. |
-| `SENDGRID_FROM` | Recommended | Verified SendGrid sender address. |
+| `RESEND_API_KEY` | Recommended | Resend API key for transactional email (OTP login codes, order status). |
+| `RESEND_FROM` | Recommended | Sender address (e.g. `Bitir Yemek <noreply@domain>`); the sending domain must be verified in Resend. |
 | `GOOGLE_MAPS_API_KEY` | Recommended | Used by the `/api/maps/*` geocoding/directions endpoints. |
 | `REDIS_URL` | Prod-recommended | Redis connection string. In production, refresh-token revocation fails closed when Redis is down. Compose sets this automatically. |
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Compose only | Consumed by the `db` container and interpolated into the app's `DB_*` in `docker-compose.yml`. |

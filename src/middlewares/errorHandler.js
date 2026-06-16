@@ -10,8 +10,7 @@ const errorHandler = (err, req, res, next) => {
     method: req.method,
   });
 
-  // Report unexpected (5xx) errors to Sentry with request context. Intentional
-  // 4xx responses (validation, conflicts, auth) are deliberate, not noise.
+  // Beklenmeyen (5xx) hataları Sentry'ye gönder; bilinçli 4xx yanıtları gürültü değil.
   if (isSentryEnabled() && (err.statusCode || 500) >= 500) {
     Sentry.withScope((scope) => {
       scope.setTag('method', req.method);

@@ -23,9 +23,7 @@ const getRedis = () => {
         },
         lazyConnect: true,
         maxRetriesPerRequest: 3,
-        // Only negotiate TLS when the URL explicitly asks for it (rediss://).
-        // Managed providers (e.g. Railway) use rediss://; a self-hosted Redis
-        // container speaks plain redis:// and forcing TLS makes connects hang.
+        // TLS yalnızca rediss:// için; düz redis://'e TLS dayatmak bağlantıyı askıda bırakır.
         ...(process.env.REDIS_URL && process.env.REDIS_URL.startsWith('rediss://')
           ? { tls: { rejectUnauthorized: false } }
           : {}),
@@ -87,8 +85,7 @@ const delPattern = async (pattern) => {
 
 const isRedisAvailable = () => getRedis() !== null;
 
-// Bounded health probe: PINGs Redis but never hangs (2s cap). Returns false if
-// Redis is unconfigured, unreachable, or slow — used by /api/health.
+// Redis'i PING'ler ama asla takılmaz (2sn sınır); /api/health kullanır.
 const ping = async () => {
   const client = getRedis();
   if (!client) return false;

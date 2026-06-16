@@ -10,12 +10,10 @@ const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 
-// Tek nginx reverse proxy arkasında çalışıyoruz; express-rate-limit ve req.ip doğru çalışsın
 app.set('trust proxy', 1);
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Swagger konfigürasyonu
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -54,7 +52,6 @@ const swaggerOptions = {
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Swagger UI - production'da varsayılan olarak kapalı (ENABLE_SWAGGER=true ile açılabilir)
 if (!isProduction || process.env.ENABLE_SWAGGER === 'true') {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
     explorer: true,
@@ -63,7 +60,6 @@ if (!isProduction || process.env.ENABLE_SWAGGER === 'true') {
   }));
 }
 
-// Security Headers - Helmet
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -76,8 +72,8 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS - mobil uygulama Origin header göndermez (native), bu yüzden Origin'siz istekler her zaman izinli.
-// CORS_ORIGIN virgülle ayrılmış izin listesi olarak parse edilir.
+// Native uygulamalar Origin göndermez; Origin'siz istekler her zaman izinli.
+// CORS_ORIGIN, tarayıcı istemcileri için virgülle ayrılmış izin listesidir.
 const allowedOrigins = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map((o) => o.trim())
@@ -85,23 +81,18 @@ const allowedOrigins = (process.env.CORS_ORIGIN || '')
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Origin yok (mobil app, curl, server-to-server) => izin ver
     if (!origin) {
       return callback(null, true);
     }
-    // Geliştirmede izin listesi yoksa tarayıcı isteklerine de izin ver
     if (!isProduction && allowedOrigins.length === 0) {
       return callback(null, true);
     }
-    // Wildcard açıkça verilmişse izin ver
     if (allowedOrigins.includes('*')) {
       return callback(null, true);
     }
-    // İzin listesindeyse izin ver
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    // Aksi halde reddet (production'da CORS_ORIGIN tanımsızsa tarayıcı cross-origin reddedilir)
     return callback(new Error('CORS policy: origin not allowed'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -110,16 +101,14 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Rate limit - genel
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 dakika
+  windowMs: 15 * 60 * 1000,
   max: 100,
   message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Rate limit - auth (daha sıkı)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -128,7 +117,6 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Rate limit - business dashboard (orta seviye)
 const businessDashboardLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -141,14 +129,11 @@ app.use(generalLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/business-dashboard', businessDashboardLimiter);
 
-// Body parser
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-// Static file serving for uploads
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Routes
 app.get('/api/health', async (req, res) => {
   const { sequelize } = require('./models');
   const cacheService = require('./services/cacheService');
@@ -163,8 +148,7 @@ app.get('/api/health', async (req, res) => {
 
   const redis = (await cacheService.ping()) ? 'connected' : 'disconnected';
 
-  // DB is always required. Redis only gates health in production, matching the
-  // app's fail-closed refresh-token policy (Redis is optional in local dev).
+  // Redis yalnızca production'da health'i etkiler (fail-closed refresh-token politikası).
   const healthy =
     database === 'connected' && (redis === 'connected' || !isProduction);
 
@@ -179,12 +163,10 @@ app.get('/api/health', async (req, res) => {
 
 app.use('/api', routes);
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: 'Endpoint bulunamadı' });
 });
 
-// Error handler
 app.use(errorHandler);
 
 module.exports = app;

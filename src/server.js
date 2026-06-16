@@ -13,7 +13,6 @@ const { startNotificationCleanupJob, startRecurringPackagesJob } = require("./se
 
 const PORT = process.env.PORT || 3000;
 
-// DB vars are not required if DATABASE_URL is provided (Railway)
 const dbVars = process.env.DATABASE_URL
   ? []
   : ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
@@ -29,7 +28,6 @@ const validateEnv = () => {
       (process.env.JWT_SECRET === 'your_jwt_secret_key_here' || process.env.JWT_SECRET.length < 32)) {
     throw new Error('JWT_SECRET must be a secure value (min 32 chars) in production');
   }
-  // Warn about missing recommended env vars
   const missingRecommended = recommendedEnvVars.filter(v => !process.env[v]);
   if (missingRecommended.length > 0) {
     logger.warn(`Missing recommended environment variables: ${missingRecommended.join(', ')}. Some features may not work.`);
@@ -81,7 +79,6 @@ const start = async () => {
 
     logger.info("Veritabanı bağlantısı hazır");
 
-    // Cron job'ları başlat
     startNotificationCleanupJob();
     startRecurringPackagesJob();
 

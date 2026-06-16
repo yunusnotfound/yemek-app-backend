@@ -1,0 +1,28 @@
+name: DB Migrate (manual)
+
+# Migrations are run deliberately, never automatically on deploy.
+# Trigger this from the GitHub "Actions" tab when a deploy includes new
+# migration files. Take/verify a DB backup first.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Run db:migrate on VPS
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH migrate
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd ~/bitir-yemek
+            docker compose exec -T app npm run db:migrate

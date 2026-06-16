@@ -1,0 +1,51 @@
+name: Deploy
+
+# Push to main -> verify the image builds, then deploy to the VPS over SSH.
+# DB migrations are intentionally NOT run here (see migrate.yml, manual).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Never run two deploys at once.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build-check:
+    name: Build check (Docker image)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the app image (fails the pipeline if the build is broken)
+        run: docker build -t bitir-yemek-app:ci .
+
+  deploy:
+    name: Deploy to VPS
+    needs: build-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd ~/bitir-yemek
+            git pull --ff-only
+            docker compose up -d --build app
+            echo "Waiting for the app to become healthy..."
+            for i in $(seq 1 10); do
+              if curl -fsS https://api.bitirgitsin.com/api/health > /dev/null; then
+                echo "Health OK after deploy"
+                exit 0
+              fi
+              echo "  not healthy yet ($i/10), retrying..."
+              sleep 3
+            done
+            echo "Health check FAILED after deploy"
+            exit 1

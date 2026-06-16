@@ -23,7 +23,12 @@ const getRedis = () => {
         },
         lazyConnect: true,
         maxRetriesPerRequest: 3,
-        ...(process.env.REDIS_URL ? { tls: { rejectUnauthorized: false } } : {}),
+        // Only negotiate TLS when the URL explicitly asks for it (rediss://).
+        // Managed providers (e.g. Railway) use rediss://; a self-hosted Redis
+        // container speaks plain redis:// and forcing TLS makes connects hang.
+        ...(process.env.REDIS_URL && process.env.REDIS_URL.startsWith('rediss://')
+          ? { tls: { rejectUnauthorized: false } }
+          : {}),
       });
 
       redis.on('error', (err) => {

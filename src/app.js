@@ -150,22 +150,31 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // Routes
 app.get('/api/health', async (req, res) => {
+  const { sequelize } = require('./models');
+  const cacheService = require('./services/cacheService');
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  let database = 'connected';
   try {
-    const { sequelize } = require('./models');
     await sequelize.authenticate();
-    res.json({ 
-      status: 'ok', 
-      timestamp: new Date().toISOString(),
-      database: 'connected',
-      uptime: process.uptime()
-    });
   } catch (error) {
-    res.status(503).json({ 
-      status: 'unhealthy', 
-      timestamp: new Date().toISOString(),
-      database: 'disconnected'
-    });
+    database = 'disconnected';
   }
+
+  const redis = (await cacheService.ping()) ? 'connected' : 'disconnected';
+
+  // DB is always required. Redis only gates health in production, matching the
+  // app's fail-closed refresh-token policy (Redis is optional in local dev).
+  const healthy =
+    database === 'connected' && (redis === 'connected' || !isProduction);
+
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'unhealthy',
+    timestamp: new Date().toISOString(),
+    database,
+    redis,
+    uptime: process.uptime(),
+  });
 });
 
 app.use('/api', routes);

@@ -87,6 +87,22 @@ const delPattern = async (pattern) => {
 
 const isRedisAvailable = () => getRedis() !== null;
 
+// Bounded health probe: PINGs Redis but never hangs (2s cap). Returns false if
+// Redis is unconfigured, unreachable, or slow — used by /api/health.
+const ping = async () => {
+  const client = getRedis();
+  if (!client) return false;
+  try {
+    const pong = await Promise.race([
+      client.ping(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('redis ping timeout')), 2000)),
+    ]);
+    return pong === 'PONG';
+  } catch {
+    return false;
+  }
+};
+
 const storeRefreshToken = async (tokenHash, userId, ttlSeconds = 604800) => {
   await set(`rt:${tokenHash}`, { userId }, ttlSeconds);
 };
@@ -100,4 +116,4 @@ const isRefreshTokenStored = async (tokenHash) => {
   return val !== null;
 };
 
-module.exports = { get, set, del, delPattern, isRedisAvailable, storeRefreshToken, revokeRefreshToken, isRefreshTokenStored };
+module.exports = { get, set, del, delPattern, isRedisAvailable, ping, storeRefreshToken, revokeRefreshToken, isRefreshTokenStored };

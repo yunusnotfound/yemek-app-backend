@@ -9,3 +9,21 @@ logs/
 
 # Secrets
 bitir_yemek_mobile/ios/Secrets.xcconfig
+
+# Editor / IDE / tooling
+.vscode/
+.idea/
+*.swp
+*~
+
+# Claude Code local config
+.claude/
+
+# Local Docker compose overrides (e.g. dev-only port bindings)
+docker-compose.override.yml
+
+# Runtime-writable dirs
+uploads/
+
+# Test coverage
+coverage/

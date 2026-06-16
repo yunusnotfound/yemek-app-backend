@@ -1,6 +1,11 @@
 require("dotenv").config();
 
 const logger = require("./services/logger");
+const { Sentry, initSentry, isSentryEnabled } = require("./config/sentry");
+
+if (initSentry()) {
+  logger.info("Sentry hata takibi etkin");
+}
 
 const app = require("./app");
 const { sequelize } = require("./models");
@@ -97,10 +102,12 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', { promise, reason: reason?.message || reason });
+  if (isSentryEnabled()) Sentry.captureException(reason);
   shutdown('unhandledRejection');
 });
 
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception:', { error: error.message, stack: error.stack });
+  if (isSentryEnabled()) Sentry.captureException(error);
   shutdown('uncaughtException');
 });

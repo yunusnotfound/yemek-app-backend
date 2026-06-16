@@ -1,4 +1,5 @@
 const logger = require('../services/logger');
+const { Sentry, isSentryEnabled } = require('../config/sentry');
 
 const errorHandler = (err, req, res, next) => {
   logger.error('Request error', {
@@ -8,6 +9,17 @@ const errorHandler = (err, req, res, next) => {
     path: req.path,
     method: req.method,
   });
+
+  // Report unexpected (5xx) errors to Sentry with request context. Intentional
+  // 4xx responses (validation, conflicts, auth) are deliberate, not noise.
+  if (isSentryEnabled() && (err.statusCode || 500) >= 500) {
+    Sentry.withScope((scope) => {
+      scope.setTag('method', req.method);
+      scope.setTag('path', req.path);
+      if (req.user?.id) scope.setUser({ id: req.user.id });
+      Sentry.captureException(err);
+    });
+  }
 
   if (err.name === 'SequelizeValidationError') {
     const messages = err.errors.map((e) => e.message);

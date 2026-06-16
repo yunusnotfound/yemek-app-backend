@@ -9,7 +9,7 @@ class AppConstants {
   // Local-dev default by platform: iOS simulator -> localhost,
   // Android emulator -> 10.0.2.2 (host loopback), physical device -> Mac LAN IP.
   static const String _prodBaseUrl =
-      'https://yemek-app-backend-production.up.railway.app/api';
+      'https://api.bitirgitsin.com/api';
   static const String _devBaseUrl = 'http://localhost:3000/api';
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',

@@ -24,16 +24,16 @@ const COLUMNS = [
 export function Footer() {
   const year = new Date().getFullYear();
   return (
-    <footer className="border-t border-slate-200 bg-slate-50">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.5fr_1fr_1fr]">
+    <footer className="bg-ink text-cream">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.5fr_1fr_1fr]">
         <div>
-          <Logo />
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-600">
+          <Logo tone="light" />
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-cream/70">
             {SITE.description}
           </p>
           <a
             href={`mailto:${SITE.email}`}
-            className="mt-4 inline-block text-sm font-medium text-brand-700 hover:underline"
+            className="mt-4 inline-block text-sm font-semibold text-brand-400 hover:text-brand-300"
           >
             {SITE.email}
           </a>
@@ -41,13 +41,15 @@ export function Footer() {
 
         {COLUMNS.map((col) => (
           <div key={col.title}>
-            <h3 className="text-sm font-semibold text-slate-900">{col.title}</h3>
+            <h3 className="font-display text-sm font-bold uppercase tracking-wide text-cream">
+              {col.title}
+            </h3>
             <ul className="mt-4 space-y-3">
               {col.links.map((l) => (
                 <li key={l.href}>
                   <Link
                     href={l.href}
-                    className="text-sm text-slate-600 transition-colors hover:text-brand-700"
+                    className="text-sm text-cream/70 transition-colors hover:text-brand-400"
                   >
                     {l.label}
                   </Link>
@@ -58,8 +60,8 @@ export function Footer() {
         ))}
       </div>
 
-      <div className="border-t border-slate-200">
-        <div className="mx-auto max-w-6xl px-4 py-5 text-sm text-slate-500 sm:px-6">
+      <div className="border-t border-white/10">
+        <div className="mx-auto max-w-6xl px-4 py-5 text-sm text-cream/50 sm:px-6">
           © {year} {SITE.name}. Tüm hakları saklıdır.
         </div>
       </div>

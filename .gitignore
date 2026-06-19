@@ -33,3 +33,6 @@ uploads/
 
 # Test coverage
 coverage/
+
+# Playwright MCP geçici çıktıları
+.playwright-mcp/

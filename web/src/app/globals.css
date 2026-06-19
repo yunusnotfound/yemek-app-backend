@@ -1,30 +1,37 @@
 @import "tailwindcss";
 
 @theme {
-  /* Marka rengi — taze yeşil (gıda/sürdürülebilirlik) */
-  --color-brand-50: #f0fdf4;
-  --color-brand-100: #dcfce7;
-  --color-brand-200: #bbf7d0;
-  --color-brand-300: #86efac;
-  --color-brand-400: #4ade80;
-  --color-brand-500: #22c55e;
-  --color-brand-600: #16a34a;
-  --color-brand-700: #15803d;
-  --color-brand-800: #166534;
-  --color-brand-900: #14532d;
+  /* Marka rengi — sıcak turuncu (gıda / iştah) */
+  --color-brand-50: #fff5ec;
+  --color-brand-100: #ffe8d2;
+  --color-brand-200: #ffcfa5;
+  --color-brand-300: #ffb070;
+  --color-brand-400: #ff8a3d;
+  --color-brand-500: #fb6a1b;
+  --color-brand-600: #ea580c;
+  --color-brand-700: #c2410c;
+  --color-brand-800: #9a3412;
+  --color-brand-900: #7c2d12;
 
-  /* Vurgu — sıcak amber */
-  --color-accent-400: #fbbf24;
-  --color-accent-500: #f59e0b;
-  --color-accent-600: #d97706;
+  /* Yüzeyler */
+  --color-cream: #fbf4ec; /* sıcak krem zemin (TGTG kremi muadili) */
+  --color-sand: #f4e9da; /* biraz daha koyu krem (kartlar/ayraçlar) */
+  --color-ink: #241712; /* koyu sıcak kahve — dark full-bleed bölümler + footer */
+  --color-ink-700: #3a261d;
 
+  /* İkincil aksan — altın/amber */
+  --color-gold-400: #f6c453;
+  --color-gold-500: #f2a93b;
+
+  /* Tipografi: başlıklar Korolev (self-hosted), gövde humanist sans */
+  --font-display: var(--font-korolev), "Arial Black", system-ui, sans-serif;
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  --background: #fbf4ec;
+  --foreground: #241712;
 }
 
 html {
@@ -39,4 +46,24 @@ body {
 
 * {
   scrollbar-width: thin;
+}
+
+/* Kategori şeridi (TGTG benzeri kayan bant) */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 32s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
 }

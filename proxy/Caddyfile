@@ -37,6 +37,30 @@ api.bitiryemek.com {
 }
 
 # ---------------------------------------------------------------------------
+# Bitir Yemek — web sitesi + işletme paneli (Next.js)
+# Upstream = web container on the shared "edge" network (alias in docker-compose.yml).
+# The Next.js BFF talks to the API server-side over the edge network, so the
+# browser only ever hits this origin.
+# ---------------------------------------------------------------------------
+bitirgitsin.com, www.bitirgitsin.com {
+	reverse_proxy bitir-yemek-web:3000
+
+	# Görsel yükleme (POST /api/upload, BFF üzerinden) için başlık payı.
+	request_body {
+		max_size 8MB
+	}
+
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+# ---------------------------------------------------------------------------
 # To add another app later: append a block like the one below, attach that
 # app's public container to the "edge" network, then run:
 #   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile

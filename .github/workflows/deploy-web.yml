@@ -1,0 +1,57 @@
+name: Deploy Web
+
+# Push to main affecting the Next.js web app -> verify the image builds, then
+# rebuild & restart only the `web` service on the VPS over SSH.
+# The backend (app) is deployed independently by deploy.yml.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'docker-compose.yml'        # web service definition lives here
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:                 # manual "Run workflow" always deploys
+
+# Never run two web deploys at once.
+concurrency:
+  group: deploy-web-production
+  cancel-in-progress: false
+
+jobs:
+  build-check:
+    name: Build check (web image)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the web image (fails the pipeline if the build is broken)
+        run: docker build -t bitir-yemek-web:ci ./web
+
+  deploy:
+    name: Deploy web to VPS
+    needs: build-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd ~/bitir-yemek
+            git pull --ff-only
+            # Compose passes the NEXT_PUBLIC_MAPBOX_TOKEN build arg from the VPS .env.
+            docker compose up -d --build web
+            echo "Waiting for the web container to respond..."
+            for i in $(seq 1 10); do
+              if docker compose exec -T web wget -q --spider http://127.0.0.1:3000/; then
+                echo "Web OK after deploy"
+                exit 0
+              fi
+              echo "  not ready yet ($i/10), retrying..."
+              sleep 3
+            done
+            echo "Web health check FAILED after deploy"
+            exit 1

@@ -132,7 +132,16 @@ app.use('/api/business-dashboard', businessDashboardLimiter);
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Yüklenen görseller farklı origin'deki web istemcisinden (<img>) yüklenebilsin diye
+// CORP'u cross-origin yap (helmet varsayılanı same-origin).
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  },
+  express.static(path.join(__dirname, '..', 'uploads'))
+);
 
 app.get('/api/health', async (req, res) => {
   const { sequelize } = require('./models');

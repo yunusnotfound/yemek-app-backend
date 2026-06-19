@@ -13,5 +13,6 @@ router.use('/coupons', require('./coupons'));
 router.use('/admin', require('./admin'));
 router.use('/maps', require('./maps'));
 router.use('/business-dashboard', require('./businessDashboard'));
+router.use('/upload', require('./upload'));
 
 module.exports = router;

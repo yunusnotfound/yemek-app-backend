@@ -55,6 +55,31 @@ services:
     expose:
       - "3000"
 
+  # Next.js web sitesi + işletme paneli. Backend'e (BFF) edge ağı üzerinden ulaşır;
+  # db/redis'e doğrudan erişimi yoktur. Caddy bu servise bitir-yemek-web:3000 ile gider.
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        # Tarayıcıya açık değer; build sırasında bundle'a gömülür (boş olabilir).
+        NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN:-}
+    image: bitir-yemek-web:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Sunucu tarafı: Next BFF, API'ye edge ağındaki app alias'ı üzerinden gider.
+      BACKEND_API_URL: http://bitir-yemek-app:3000/api
+    depends_on:
+      - app
+    networks:
+      edge:
+        aliases:
+          - bitir-yemek-web
+    expose:
+      - "3000"
+
   db:
     image: postgres:16-alpine
     restart: unless-stopped

@@ -12,6 +12,7 @@ on:
       - 'LICENSE'
       - '.vscode/**'
       - 'bitir_yemek_mobile/**'   # mobile app — not part of the backend image
+      - 'web/**'                  # Next.js web app — separate image (see deploy-web.yml)
       - 'proxy/**'                # shared Caddy proxy — deployed separately
   workflow_dispatch:              # manual "Run workflow" always deploys
 

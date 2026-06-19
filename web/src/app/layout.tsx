@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { SITE } from "@/lib/config";
+import { CookieConsent } from "@/components/site/CookieConsent";
 
 // Gövde fontu (humanist sans)
 const jakarta = Plus_Jakarta_Sans({
@@ -43,7 +44,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="tr" className={`${jakarta.variable} ${korolev.variable}`}>
-      <body className="font-sans antialiased text-ink">{children}</body>
+      <body className="font-sans antialiased text-ink">
+        {children}
+        <CookieConsent />
+      </body>
     </html>
   );
 }

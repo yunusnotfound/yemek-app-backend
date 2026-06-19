@@ -61,8 +61,11 @@ export function Footer() {
       </div>
 
       <div className="border-t border-white/10">
-        <div className="mx-auto max-w-6xl px-4 py-5 text-sm text-cream/50 sm:px-6">
-          © {year} {SITE.name}. Tüm hakları saklıdır.
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-sm text-cream/50 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <span>© {year} {SITE.name}. Tüm hakları saklıdır.</span>
+          <Link href="/cerez-politikasi" className="hover:text-brand-400">
+            Çerez Politikası
+          </Link>
         </div>
       </div>
     </footer>

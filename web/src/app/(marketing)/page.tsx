@@ -11,12 +11,6 @@ import {
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
 
-const IMPACT = [
-  { value: "1/3", label: "Üretilen gıdanın yaklaşık üçte biri israf oluyor" },
-  { value: "%50+", label: "Sürpriz paketlerde ortalama indirim" },
-  { value: "0₺", label: "İşletme için kurulum ve aylık sabit ücret" },
-];
-
 const CATEGORIES = [
   "FIRIN", "RESTORAN", "MARKET", "KAFE", "PASTANE", "DÖNER",
   "PİZZA", "TATLI", "MANAV", "ŞARKÜTERİ", "KAHVALTI", "SUSHI",
@@ -43,31 +37,89 @@ export default function HomePage() {
   return (
     <>
       {/* ── Hero ───────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 text-white">
-        <ShoppingBag className="pointer-events-none absolute -right-10 -top-10 h-72 w-72 text-white/10" />
-        <Leaf className="pointer-events-none absolute -bottom-16 -left-10 h-64 w-64 text-white/10" />
-        <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
-          <div className="mx-auto max-w-3xl text-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-semibold backdrop-blur">
-              <Leaf className="h-4 w-4" /> Gıda israfını birlikte azaltalım
-            </span>
-            <h1 className={`mt-6 text-5xl leading-[0.92] sm:text-6xl md:text-7xl ${display}`}>
-              İsrafı azalt,
-              <br />
-              <span className="text-ink">lezzeti kurtar.</span>
-            </h1>
-            <p className="mx-auto mt-7 max-w-xl text-lg leading-relaxed text-white/90">
-              Restoran, fırın ve marketlerin gün sonunda kalan lezzetlerini uygun
-              fiyatlı <strong className="font-semibold">sürpriz paketlerle</strong>{" "}
-              satışa sun. Hem bütçene hem gezegene iyi gelir.
-            </p>
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <ButtonLink href="/kayit" variant="light" size="lg" className="w-full sm:w-auto">
-                İşletmeni kaydet <ArrowRight className="h-5 w-5" />
-              </ButtonLink>
-              <ButtonLink href="/nasil-calisir" variant="outlineLight" size="lg" className="w-full sm:w-auto">
-                Nasıl çalışır?
-              </ButtonLink>
+      {/* -mt-16: şeffaf (sticky) navbar'ın arkasına uzanır */}
+      <section className="relative isolate -mt-16 overflow-hidden bg-brand-700 text-white">
+        {/* Lifestyle görsel — web/public/hero.jpg (kendi fotoğrafınla değiştir) */}
+        <img
+          src="/hero.jpg"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        />
+        {/* Turuncu tonlama + metin okunabilirliği için degradeler */}
+        <div className="absolute inset-0 bg-brand-600/40 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-to-b from-brand-700/55 via-brand-700/10 to-brand-800/85" />
+
+        <div className="relative mx-auto flex min-h-[80vh] max-w-6xl flex-col items-center justify-end px-4 pb-20 pt-28 text-center sm:px-6">
+          <h1 className={`text-5xl leading-[0.9] text-cream drop-shadow-md sm:text-6xl md:text-7xl ${display}`}>
+            İsrafı azalt,
+            <br />
+            lezzeti kurtar.
+          </h1>
+          <div className="mt-9 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
+            <ButtonLink href="#" variant="light" size="lg" className="w-full sm:w-auto">
+              Uygulamayı indir
+            </ButtonLink>
+            <ButtonLink href="/isletmeler-icin" variant="outlineLight" size="lg" className="w-full sm:w-auto">
+              İşletmeler için
+            </ButtonLink>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Misyon ─────────────────────────────────────────────────────── */}
+      <section className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28">
+        <p className="text-2xl font-medium leading-snug text-ink sm:text-3xl md:text-4xl">
+          Bitir Yemek, gün sonunda kalan kaliteli lezzetleri uygun fiyatlı sürpriz
+          paketlerle{" "}
+          <span className="relative whitespace-nowrap text-brand-600">
+            kurtaran
+            <svg className="absolute -bottom-1 left-0 w-full" height="6" viewBox="0 0 200 6" preserveAspectRatio="none" aria-hidden>
+              <path d="M0 3 Q 50 6 100 3 T 200 3" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
+            </svg>
+          </span>{" "}
+          bir gıda israfını önleme platformudur.
+        </p>
+        <p className="mx-auto mt-6 max-w-2xl text-base text-ink/60">
+          İşletmenin kaybını gelire, müşterinin bütçesini lezzete çevirir; her
+          kurtarılan paket çöpe gitmeyen gıda demektir.
+        </p>
+      </section>
+
+      {/* ── Neden Bitir Yemek ──────────────────────────────────────────── */}
+      <section className="bg-cream pb-20 sm:pb-28">
+        <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
+          <p className="font-display text-base font-bold uppercase tracking-[0.25em] text-ink">
+            Neden
+          </p>
+          <h2 className={`mt-1 text-5xl text-brand-600 sm:text-6xl ${display}`}>
+            Bitir Yemek?
+          </h2>
+
+          <div className="mt-14 grid items-center gap-x-6 gap-y-12 lg:grid-cols-[1fr_auto_1fr]">
+            {/* Sol değerler */}
+            <div className="flex flex-col gap-y-12 lg:gap-y-28 lg:py-6 lg:text-right">
+              <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
+                Yarım fiyatına lezzet
+              </p>
+              <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
+                İsrafı azaltarak gezegene katkı
+              </p>
+            </div>
+
+            {/* Merkez: sürpriz paket */}
+            <div className="relative mx-auto grid h-60 w-60 place-items-center sm:h-72 sm:w-72">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 shadow-xl" />
+              <ShoppingBag className="relative h-28 w-28 text-cream" strokeWidth={1.5} />
+            </div>
+
+            {/* Sağ değerler */}
+            <div className="flex flex-col gap-y-12 lg:gap-y-28 lg:py-6 lg:text-left">
+              <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
+                Yakınındaki lezzetleri kurtar
+              </p>
+              <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
+                Yeni işletmeler keşfet
+              </p>
             </div>
           </div>
         </div>
@@ -88,34 +140,6 @@ export default function HomePage() {
           ))}
         </div>
       </div>
-
-      {/* ── Misyon ─────────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28">
-        <p className="text-2xl font-medium leading-snug text-ink sm:text-3xl md:text-4xl">
-          Bitir Yemek, gün sonunda kalan kaliteli lezzetleri uygun fiyatlı sürpriz
-          paketlerle{" "}
-          <span className="relative whitespace-nowrap text-brand-600">
-            kurtaran
-            <svg className="absolute -bottom-1 left-0 w-full" height="6" viewBox="0 0 200 6" preserveAspectRatio="none" aria-hidden>
-              <path d="M0 3 Q 50 6 100 3 T 200 3" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
-            </svg>
-          </span>{" "}
-          bir gıda israfını önleme platformudur.
-        </p>
-        <p className="mx-auto mt-6 max-w-2xl text-base text-ink/60">
-          İşletmenin kaybını gelire, müşterinin bütçesini lezzete çevirir; her
-          kurtarılan paket çöpe gitmeyen gıda demektir.
-        </p>
-
-        <div className="mx-auto mt-14 grid max-w-4xl gap-5 sm:grid-cols-3">
-          {IMPACT.map((s) => (
-            <div key={s.label} className="rounded-3xl border border-ink/10 bg-white p-7 text-center shadow-sm">
-              <div className={`text-4xl text-brand-600 ${display}`}>{s.value}</div>
-              <p className="mt-3 text-sm text-ink/60">{s.label}</p>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* ── Nasıl çalışır (koyu bölüm) ─────────────────────────────────── */}
       <section className="bg-ink text-cream">

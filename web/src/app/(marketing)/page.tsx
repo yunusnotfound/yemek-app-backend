@@ -95,9 +95,9 @@ export default function HomePage() {
             Bitir Yemek?
           </h2>
 
-          <div className="mt-14 grid items-center gap-x-6 gap-y-12 lg:grid-cols-[1fr_auto_1fr]">
+          <div className="mt-14 grid items-center gap-x-6 gap-y-12 md:grid-cols-[1fr_auto_1fr]">
             {/* Sol değerler */}
-            <div className="flex flex-col gap-y-12 lg:gap-y-28 lg:py-6 lg:text-right">
+            <div className="flex flex-col gap-y-12 md:gap-y-28 md:py-6 md:text-right">
               <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
                 Yarım fiyatına lezzet
               </p>
@@ -113,7 +113,7 @@ export default function HomePage() {
             </div>
 
             {/* Sağ değerler */}
-            <div className="flex flex-col gap-y-12 lg:gap-y-28 lg:py-6 lg:text-left">
+            <div className="flex flex-col gap-y-12 md:gap-y-28 md:py-6 md:text-left">
               <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
                 Yakınındaki lezzetleri kurtar
               </p>

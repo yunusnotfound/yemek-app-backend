@@ -90,6 +90,40 @@ const orderSchema = z.object({
   couponCode: z.string().optional(),
 });
 
+// iyzico alt üye işyeri (sub-merchant) onboarding
+const ibanRegex = /^TR\d{24}$/;
+const subMerchantSchema = z
+  .object({
+    subMerchantType: z.enum(['PERSONAL', 'PRIVATE_COMPANY', 'LIMITED_OR_JOINT_STOCK_COMPANY']),
+    iban: z
+      .string()
+      .trim()
+      .transform((s) => s.replace(/\s+/g, '').toUpperCase())
+      .refine((v) => ibanRegex.test(v), 'Geçerli bir IBAN girin (TR ile başlamalı)'),
+    gsmNumber: z.string().trim().min(1, 'Telefon numarası gerekli'),
+    contactName: z.string().trim().optional(),
+    contactSurname: z.string().trim().optional(),
+    identityNumber: z.string().trim().optional(),
+    legalCompanyTitle: z.string().trim().optional(),
+    taxOffice: z.string().trim().optional(),
+    taxNumber: z.string().trim().optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.subMerchantType === 'PERSONAL') {
+      if (!d.contactName) ctx.addIssue({ code: 'custom', path: ['contactName'], message: 'Ad gerekli' });
+      if (!d.contactSurname) ctx.addIssue({ code: 'custom', path: ['contactSurname'], message: 'Soyad gerekli' });
+      if (!d.identityNumber || !/^\d{11}$/.test(d.identityNumber)) {
+        ctx.addIssue({ code: 'custom', path: ['identityNumber'], message: '11 haneli TC kimlik no gerekli' });
+      }
+    } else {
+      if (!d.legalCompanyTitle) ctx.addIssue({ code: 'custom', path: ['legalCompanyTitle'], message: 'Şirket ünvanı gerekli' });
+      if (!d.taxOffice) ctx.addIssue({ code: 'custom', path: ['taxOffice'], message: 'Vergi dairesi gerekli' });
+      if (d.subMerchantType === 'LIMITED_OR_JOINT_STOCK_COMPANY' && (!d.taxNumber || !/^\d{10}$/.test(d.taxNumber))) {
+        ctx.addIssue({ code: 'custom', path: ['taxNumber'], message: '10 haneli vergi no gerekli' });
+      }
+    }
+  });
+
 // Review
 const reviewSchema = z.object({
   orderId: z.string().uuid("Geçerli bir sipariş ID girin"),
@@ -182,6 +216,11 @@ const idParamSchema = z.object({
   id: z.string().uuid("Geçerli bir ID girin"),
 });
 
+// Ödeme durumu sorgusu — conversationId = order.id (UUID)
+const conversationIdParamSchema = z.object({
+  conversationId: z.string().uuid("Geçerli bir ID girin"),
+});
+
 const businessIdParamSchema = z.object({
   businessId: z.string().uuid("Geçerli bir işletme ID girin"),
 });
@@ -215,6 +254,7 @@ module.exports = {
   packageSchema,
   packageUpdateSchema,
   orderSchema,
+  subMerchantSchema,
   reviewSchema,
   orderStatusSchema,
   profileUpdateSchema,
@@ -222,6 +262,7 @@ module.exports = {
   packageQuerySchema,
   businessQuerySchema,
   idParamSchema,
+  conversationIdParamSchema,
   businessIdParamSchema,
   forgotPasswordSchema,
   resetPasswordSchema,

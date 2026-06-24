@@ -30,7 +30,10 @@ dependencies:
   # Maps
   mapbox_maps_flutter: ^2.4.0
   url_launcher: ^6.2.5
-  
+
+  # Payments (iyzico checkout form rendered in a WebView)
+  flutter_inappwebview: ^6.0.0
+
   # Auth
   google_sign_in: ^6.2.1
   sign_in_with_apple: ^6.1.4

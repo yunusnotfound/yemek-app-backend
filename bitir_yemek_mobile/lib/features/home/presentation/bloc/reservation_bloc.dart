@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../data/models/reservation_model.dart';
 import '../../domain/repositories/businesses_repository.dart';
+import '../../../payment/data/models/payment_init_model.dart';
 
 part 'reservation_event.dart';
 part 'reservation_state.dart';
@@ -34,6 +35,7 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
       emit(
         ReservationSuccess(
           reservation: result.reservation!,
+          payment: result.payment,
           message: result.message,
         ),
       );

@@ -12,6 +12,7 @@ import '../../../favorites/presentation/bloc/favorites_bloc.dart';
 import '../widgets/package_info_card.dart';
 import '../widgets/reservation_confirm_sheet.dart';
 import 'reservation_success_page.dart';
+import '../../../payment/presentation/pages/payment_page.dart';
 
 class PackageDetailPage extends StatelessWidget {
   final PackageModel package;
@@ -42,15 +43,30 @@ class _PackageDetailView extends StatelessWidget {
       listener: (context, state) {
         if (state is ReservationSuccess) {
           Navigator.of(context).pop(); // Close confirm sheet if open
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (_) => ReservationSuccessPage(
-                reservation: state.reservation,
-                package: package,
-                message: state.message,
+          final payment = state.payment;
+          if (payment != null && payment.required) {
+            // Ücretli sipariş -> önce ödeme ekranı, başarı olunca pickup kodu gösterilir.
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => PaymentPage(
+                  payment: payment,
+                  package: package,
+                  reservation: state.reservation,
+                ),
               ),
-            ),
-          );
+            );
+          } else {
+            // Ücretsiz sipariş -> doğrudan başarı ekranı.
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => ReservationSuccessPage(
+                  reservation: state.reservation,
+                  package: package,
+                  message: state.message,
+                ),
+              ),
+            );
+          }
         } else if (state is ReservationError) {
           Navigator.of(context).pop(); // Close confirm sheet
           ScaffoldMessenger.of(context).showSnackBar(

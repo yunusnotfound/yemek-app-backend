@@ -35,6 +35,7 @@ export function Badge({
 }
 
 const ORDER_TONES: Record<OrderStatus, Tone> = {
+  awaiting_payment: "slate",
   pending: "amber",
   confirmed: "blue",
   picked_up: "green",

@@ -42,6 +42,7 @@ export function formatTime(value: string | null | undefined): string {
 }
 
 const ORDER_STATUS_LABELS: Record<string, string> = {
+  awaiting_payment: "Ödeme bekliyor",
   pending: "Bekliyor",
   confirmed: "Onaylandı",
   picked_up: "Teslim edildi",

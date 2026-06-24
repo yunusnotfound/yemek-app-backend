@@ -82,3 +82,54 @@ export const packageSchema = z
     path: ["discountedPrice"],
   });
 export type PackageInput = z.infer<typeof packageSchema>;
+
+// iyzico alt üye işyeri (ödeme hesabı) onboarding — backend subMerchantSchema'nın aynası.
+const ibanRegex = /^TR\d{24}$/;
+export const subMerchantSchema = z
+  .object({
+    subMerchantType: z.enum([
+      "PERSONAL",
+      "PRIVATE_COMPANY",
+      "LIMITED_OR_JOINT_STOCK_COMPANY",
+    ]),
+    iban: z
+      .string()
+      .transform((s) => s.replace(/\s+/g, "").toUpperCase())
+      .refine((v) => ibanRegex.test(v), "Geçerli bir IBAN girin (TR ile başlamalı)"),
+    gsmNumber: z.string().min(1, "Telefon numarası gerekli"),
+    contactName: z.string().optional(),
+    contactSurname: z.string().optional(),
+    identityNumber: z.string().optional(),
+    legalCompanyTitle: z.string().optional(),
+    taxOffice: z.string().optional(),
+    taxNumber: z.string().optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.subMerchantType === "PERSONAL") {
+      if (!d.contactName)
+        ctx.addIssue({ code: "custom", path: ["contactName"], message: "Ad gerekli" });
+      if (!d.contactSurname)
+        ctx.addIssue({ code: "custom", path: ["contactSurname"], message: "Soyad gerekli" });
+      if (!d.identityNumber || !/^\d{11}$/.test(d.identityNumber))
+        ctx.addIssue({
+          code: "custom",
+          path: ["identityNumber"],
+          message: "11 haneli TC kimlik no gerekli",
+        });
+    } else {
+      if (!d.legalCompanyTitle)
+        ctx.addIssue({
+          code: "custom",
+          path: ["legalCompanyTitle"],
+          message: "Şirket ünvanı gerekli",
+        });
+      if (!d.taxOffice)
+        ctx.addIssue({ code: "custom", path: ["taxOffice"], message: "Vergi dairesi gerekli" });
+      if (
+        d.subMerchantType === "LIMITED_OR_JOINT_STOCK_COMPANY" &&
+        (!d.taxNumber || !/^\d{10}$/.test(d.taxNumber))
+      )
+        ctx.addIssue({ code: "custom", path: ["taxNumber"], message: "10 haneli vergi no gerekli" });
+    }
+  });
+export type SubMerchantInput = z.infer<typeof subMerchantSchema>;

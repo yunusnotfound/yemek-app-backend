@@ -101,12 +101,27 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+// iyzico callback/webhook (sunucudan sunucuya) limit'e takılmamalı; aksi halde
+// ödeme onayları düşebilir. retrieve OTORİTE olduğu için güvenli.
+const isIyzicoServerHook = (req) => req.originalUrl.startsWith('/api/payments/iyzico/');
+
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isIyzicoServerHook,
+});
+
+// Ödeme durumu poll (mobil) için cömert limit; iyzico hook'ları muaf.
+const paymentsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isIyzicoServerHook,
 });
 
 const authLimiter = rateLimit({
@@ -128,6 +143,11 @@ const businessDashboardLimiter = rateLimit({
 app.use(generalLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/business-dashboard', businessDashboardLimiter);
+app.use('/api/payments', paymentsLimiter);
+
+// iyzico webhook imzası için HAM gövde gerekir -> global JSON parser'dan ÖNCE,
+// yalnız bu path'e scoped raw parser.
+app.use('/api/payments/iyzico/webhook', express.raw({ type: '*/*', limit: '50kb' }));
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));

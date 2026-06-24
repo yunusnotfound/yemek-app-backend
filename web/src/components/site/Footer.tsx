@@ -18,7 +18,7 @@ export function Footer() {
       {/* Dev wordmark — genişliği dolduran büyük Korolev */}
       <div className="px-4 pt-14 sm:px-6">
         <p className="select-none text-center font-display font-black uppercase leading-none tracking-tight text-cream text-[clamp(2.5rem,14vw,13rem)]">
-          Bitir Yemek
+          Bitir Gitsin
         </p>
       </div>
 

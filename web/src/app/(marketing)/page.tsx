@@ -69,7 +69,7 @@ export default function HomePage() {
       {/* ── Misyon ─────────────────────────────────────────────────────── */}
       <section className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28">
         <p className="text-2xl font-medium leading-snug text-ink sm:text-3xl md:text-4xl">
-          Bitir Yemek, gün sonunda kalan kaliteli lezzetleri uygun fiyatlı sürpriz
+          Bitir Gitsin, gün sonunda kalan kaliteli lezzetleri uygun fiyatlı sürpriz
           paketlerle{" "}
           <span className="relative whitespace-nowrap text-brand-600">
             kurtaran
@@ -85,14 +85,14 @@ export default function HomePage() {
         </p>
       </section>
 
-      {/* ── Neden Bitir Yemek ──────────────────────────────────────────── */}
+      {/* ── Neden Bitir Gitsin ──────────────────────────────────────────── */}
       <section className="bg-cream pb-20 sm:pb-28">
         <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
           <p className="font-display text-base font-bold uppercase tracking-[0.25em] text-ink">
             Neden
           </p>
           <h2 className={`mt-1 text-5xl text-brand-600 sm:text-6xl ${display}`}>
-            Bitir Yemek?
+            Bitir Gitsin?
           </h2>
 
           <div className="mt-14 grid items-center gap-x-6 gap-y-12 md:grid-cols-[1fr_auto_1fr]">
@@ -167,7 +167,7 @@ export default function HomePage() {
             ))}
           </div>
           <p className="mt-8 text-center text-sm text-cream/50">
-            Müşteri tarafı Bitir Yemek mobil uygulaması üzerinden çalışır.
+            Müşteri tarafı Bitir Gitsin mobil uygulaması üzerinden çalışır.
           </p>
         </div>
       </section>

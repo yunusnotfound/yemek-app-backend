@@ -25,7 +25,7 @@ export function Logo({
           tone === "light" ? "text-white" : "text-ink",
         )}
       >
-        Bitir<span className="text-brand-500">yemek</span>
+        Bitir<span className="text-brand-500">gitsin</span>
       </span>
     </Link>
   );

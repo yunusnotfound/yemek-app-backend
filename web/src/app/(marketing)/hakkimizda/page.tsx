@@ -5,7 +5,7 @@ import { SITE } from "@/lib/config";
 export const metadata: Metadata = {
   title: "Hakkımızda",
   description:
-    "Bitir Yemek'in misyonu: gıda israfını azaltmak, işletmelere değer katmak ve herkese uygun fiyatlı lezzet sunmak.",
+    "Bitir Gitsin'in misyonu: gıda israfını azaltmak, işletmelere değer katmak ve herkese uygun fiyatlı lezzet sunmak.",
 };
 
 const VALUES = [
@@ -44,7 +44,7 @@ export default function AboutPage() {
       <div className="mt-10 space-y-5 text-slate-700">
         <p>
           Bir işletme için satılmayan ürün doğrudan kayıptır; bir tüketici için
-          ise her gün karşılaşılan bir bütçe kalemi. Bitir Yemek bu iki ihtiyacı
+          ise her gün karşılaşılan bir bütçe kalemi. Bitir Gitsin bu iki ihtiyacı
           tek bir basit fikirde birleştirir:{" "}
           <strong>kaybı, paylaşılan bir kazanca çevirmek.</strong>
         </p>

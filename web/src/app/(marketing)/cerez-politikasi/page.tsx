@@ -4,7 +4,7 @@ import { SITE } from "@/lib/config";
 export const metadata: Metadata = {
   title: "Çerez Politikası",
   description:
-    "Bitir Yemek web sitesinde kullanılan çerezler hakkında bilgilendirme.",
+    "Bitir Gitsin web sitesinde kullanılan çerezler hakkında bilgilendirme.",
 };
 
 const COOKIES = [

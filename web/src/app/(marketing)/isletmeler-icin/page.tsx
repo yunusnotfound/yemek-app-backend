@@ -5,7 +5,7 @@ import { ButtonLink } from "@/components/ui/Button";
 export const metadata: Metadata = {
   title: "İşletmeler İçin",
   description:
-    "Bitir Yemek ile satılmayan ürünlerini gelire çevir. Ücretsiz kurulum, kolay panel, gerçek zamanlı sipariş yönetimi.",
+    "Bitir Gitsin ile satılmayan ürünlerini gelire çevir. Ücretsiz kurulum, kolay panel, gerçek zamanlı sipariş yönetimi.",
 };
 
 const REASONS = [
@@ -45,7 +45,7 @@ export default function ForBusinessesPage() {
             Satamadığın ürün, kayıp olmasın
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
-            Bitir Yemek işletme paneliyle fazla ürünlerini sürpriz paketlere
+            Bitir Gitsin işletme paneliyle fazla ürünlerini sürpriz paketlere
             dönüştür, yeni müşterilere ulaş ve israfı azalt.
           </p>
           <div className="mt-8">
@@ -60,7 +60,7 @@ export default function ForBusinessesPage() {
         <div className="grid gap-10 md:grid-cols-2">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">
-              Neden Bitir Yemek?
+              Neden Bitir Gitsin?
             </h2>
             <ul className="mt-6 space-y-4">
               {REASONS.map((r) => (

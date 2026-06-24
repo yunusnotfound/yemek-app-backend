@@ -12,9 +12,9 @@ export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 /** Marka bilgileri (tek kaynak). */
 export const SITE = {
-  name: "Bitir Yemek",
+  name: "Bitir Gitsin",
   tagline: "İsrafı azalt, lezzeti kurtar.",
   description:
-    "Bitir Yemek, restoran ve işletmelerin gün sonunda kalan lezzetlerini uygun fiyatlı sürpriz paketlerle satışa sunmasını sağlayan bir gıda israfını önleme platformudur.",
+    "Bitir Gitsin, restoran ve işletmelerin gün sonunda kalan lezzetlerini uygun fiyatlı sürpriz paketlerle satışa sunmasını sağlayan bir gıda israfını önleme platformudur.",
   email: "iletisim@bitirgitsin.com",
 } as const;

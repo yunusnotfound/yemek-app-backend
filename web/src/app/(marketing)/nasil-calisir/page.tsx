@@ -5,7 +5,7 @@ import { ButtonLink } from "@/components/ui/Button";
 export const metadata: Metadata = {
   title: "Nasıl Çalışır",
   description:
-    "Bitir Yemek müşteriler ve işletmeler için nasıl çalışır? Sürpriz paket akışını adım adım inceleyin.",
+    "Bitir Gitsin müşteriler ve işletmeler için nasıl çalışır? Sürpriz paket akışını adım adım inceleyin.",
 };
 
 const CUSTOMER = [
@@ -29,7 +29,7 @@ export default function HowItWorksPage() {
           Nasıl çalışır?
         </h1>
         <p className="mt-4 text-lg text-slate-600">
-          Bitir Yemek, işletmelerin fazla ürününü müşterilerle buluşturur.
+          Bitir Gitsin, işletmelerin fazla ürününü müşterilerle buluşturur.
           Süreç hem müşteri hem işletme tarafında sade.
         </p>
       </header>
@@ -51,7 +51,7 @@ export default function HowItWorksPage() {
           ))}
         </div>
         <p className="mt-4 text-sm text-slate-500">
-          Müşteri tarafı Bitir Yemek mobil uygulaması üzerinden çalışır.
+          Müşteri tarafı Bitir Gitsin mobil uygulaması üzerinden çalışır.
         </p>
       </section>
 

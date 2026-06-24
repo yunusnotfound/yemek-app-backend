@@ -1,39 +1,47 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
-import '../../../search/presentation/pages/search_page.dart';
-import '../pages/home_page.dart';
 
+/// Modern floating bottom navigation bar.
+/// Yüzen yuvarlak bir çubuk; aktif sekmenin ikonu marka renginde bir highlight
+/// pill içinde gösterilir. Arayüz (currentIndex/onTap) korunur.
 class BottomNavBar extends StatelessWidget {
   final int currentIndex;
-  final Function(int)? onTap;
+  final ValueChanged<int>? onTap;
 
   const BottomNavBar({super.key, required this.currentIndex, this.onTap});
 
+  static const List<_NavItem> _items = [
+    _NavItem('Keşfet', Icons.explore_outlined, Icons.explore),
+    _NavItem('Ara', Icons.search_outlined, Icons.search),
+    _NavItem('Harita', Icons.map_outlined, Icons.map),
+    _NavItem('Sipariş', Icons.inventory_2_outlined, Icons.inventory_2),
+    _NavItem('Favoriler', Icons.favorite_outline, Icons.favorite),
+    _NavItem('Profil', Icons.person_outline, Icons.person),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 10,
-            offset: const Offset(0, -4),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.10),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.explore_outlined, 'Keşfet', 0, context),
-              _buildNavItem(Icons.search, 'Ara', 1, context),
-              _buildNavItem(Icons.map_outlined, 'Harita', 2, context),
-              _buildNavItem(Icons.inventory_2_outlined, 'Sipariş', 3, context),
-              _buildNavItem(Icons.favorite_outline, 'Favoriler', 4, context),
-              _buildNavItem(Icons.person_outline, 'Profil', 5, context),
+              for (int i = 0; i < _items.length; i++)
+                Expanded(child: _buildItem(i)),
             ],
           ),
         ),
@@ -41,86 +49,55 @@ class BottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(
-    IconData icon,
-    String label,
-    int index,
-    BuildContext context,
-  ) {
-    final isSelected = index == currentIndex;
+  Widget _buildItem(int index) {
+    final item = _items[index];
+    final selected = index == currentIndex;
+    final color = selected ? AppColors.primary : AppColors.textHint;
+
     return GestureDetector(
-      onTap: () {
-        if (onTap != null) {
-          onTap!(index);
-        } else {
-          _handleNavigation(index, context);
-        }
-      },
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onTap?.call(index),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: isSelected ? AppColors.primary : AppColors.textHint,
-            size: 24,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+            decoration: BoxDecoration(
+              color: selected
+                  ? AppColors.primary.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppRadius.full),
+            ),
+            child: Icon(
+              selected ? item.activeIcon : item.icon,
+              size: 24,
+              color: color,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
-            label,
-            style: AppTypography.bodySmall.copyWith(
-              color: isSelected ? AppColors.primary : AppColors.textHint,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+            item.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: AppTypography.fontFamily,
+              fontSize: 11,
+              height: 1.0,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: color,
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  void _handleNavigation(int index, BuildContext context) {
-    // TODO: Get current location from a service
-    const latitude = 41.0369;
-    const longitude = 28.9857;
-
-    switch (index) {
-      case 0:
-        // Keşfet - Home
-        if (currentIndex != 0) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) =>
-                  const HomePage(latitude: latitude, longitude: longitude),
-            ),
-          );
-        }
-        break;
-      case 1:
-        // Ara - Search
-        if (currentIndex != 1) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) =>
-                  const SearchPage(latitude: latitude, longitude: longitude),
-            ),
-          );
-        }
-        break;
-      case 2:
-        // Harita - Map
-        // TODO: Navigate to map page
-        break;
-      case 3:
-        // Sipariş - Orders
-        // TODO: Navigate to orders page
-        break;
-      case 4:
-        // Favoriler - Favorites
-        // TODO: Navigate to favorites page
-        break;
-      case 5:
-        // Profil - Profile
-        // TODO: Navigate to profile page
-        break;
-    }
-  }
+class _NavItem {
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
+  const _NavItem(this.label, this.icon, this.activeIcon);
 }

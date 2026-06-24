@@ -3,8 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../../../../config/theme.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart' show createDefaultTokenStorage;
+import '../../../../core/di/service_locator.dart';
 import '../../data/models/package_model.dart';
 import '../../data/repositories/businesses_repository_impl.dart';
 import '../../data/datasources/businesses_remote_datasource.dart';
@@ -21,11 +20,10 @@ class PackageDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dioClient = DioClient(tokenStorage: createDefaultTokenStorage());
     return BlocProvider(
       create: (_) => ReservationBloc(
         repository: BusinessesRepositoryImpl(
-          remoteDataSource: BusinessesRemoteDataSource(dioClient: dioClient),
+          remoteDataSource: BusinessesRemoteDataSource(dioClient: appDioClient),
         ),
       ),
       child: _PackageDetailView(package: package),

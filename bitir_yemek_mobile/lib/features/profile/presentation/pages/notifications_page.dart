@@ -2,8 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../../core/di/service_locator.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -13,8 +12,7 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
-  late final TokenStorage _tokenStorage = createDefaultTokenStorage();
-  late final DioClient _dioClient = DioClient(tokenStorage: _tokenStorage);
+  final _dioClient = appDioClient;
 
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;

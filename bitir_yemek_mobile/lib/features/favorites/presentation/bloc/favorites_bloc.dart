@@ -162,22 +162,35 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
         );
       }
     } else {
-      // Add
+      // Add — optimistik: kalbi anında doldur, tüm favori listesini yeniden
+      // çekme. Eksik alanlar (ad/adres) Favoriler sekmesi açıldığında
+      // LoadFavorites ile tam modele güncellenir. Hata olursa geri alınır.
+      final placeholder = FavoriteModel(
+        id: '',
+        businessId: event.businessId,
+        businessName: '',
+        address: '',
+        city: '',
+        district: '',
+        rating: 0,
+        createdAt: DateTime.now(),
+      );
+      _favorites = [placeholder, ..._favorites];
+      emit(FavoriteAddSuccess(businessId: event.businessId));
+      emit(
+        FavoritesLoaded(
+          favorites: _favorites,
+          hasReachedMax: _hasReachedMax,
+        ),
+      );
+
       try {
         await _repository.addFavorite(event.businessId);
-        emit(FavoriteAddSuccess(businessId: event.businessId));
-        // Refresh to get the full favorite model from server
-        _currentPage = 1;
-        final response = await _repository.getFavorites(page: 1);
-        _favorites = response.favorites;
-        _hasReachedMax = response.page >= response.totalPages;
-        emit(
-          FavoritesLoaded(
-            favorites: _favorites,
-            hasReachedMax: _hasReachedMax,
-          ),
-        );
       } catch (e) {
+        // Sunucu reddetti → optimistik eklemeyi geri al.
+        _favorites = _favorites
+            .where((f) => f.businessId != event.businessId)
+            .toList();
         emit(FavoriteAddError(message: e.toString()));
         emit(
           FavoritesLoaded(

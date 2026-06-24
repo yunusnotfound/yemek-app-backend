@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../config/theme.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../data/datasources/businesses_remote_datasource.dart';
 import '../../data/models/business_detail_model.dart';
 import '../../data/models/package_model.dart';
@@ -36,7 +35,7 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
     super.initState();
     _repository = BusinessesRepositoryImpl(
       remoteDataSource: BusinessesRemoteDataSource(
-        dioClient: DioClient(tokenStorage: createDefaultTokenStorage()),
+        dioClient: appDioClient,
       ),
     );
     _loadDetail();

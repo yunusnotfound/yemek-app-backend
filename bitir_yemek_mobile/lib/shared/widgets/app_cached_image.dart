@@ -80,6 +80,17 @@ class _AppCachedImageState extends State<AppCachedImage> {
       );
     }
 
+    // Görseli belleğe görüntülenen boyutta çöz (tam çözünürlük yerine) — RAM/GC
+    // baskısını azaltır. En boy oranı bozulmasın diye yalnız tek boyut sınırlanır.
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    int? memCacheWidth;
+    int? memCacheHeight;
+    if (widget.width != null) {
+      memCacheWidth = (widget.width! * dpr).round();
+    } else if (widget.height != null) {
+      memCacheHeight = (widget.height! * dpr).round();
+    }
+
     return CachedNetworkImage(
       imageUrl: widget.imageUrl!,
       width: widget.width,
@@ -88,6 +99,8 @@ class _AppCachedImageState extends State<AppCachedImage> {
       useOldImageOnUrlChange: true,
       maxWidthDiskCache: 800,
       maxHeightDiskCache: 600,
+      memCacheWidth: memCacheWidth,
+      memCacheHeight: memCacheHeight,
       fadeInDuration: const Duration(milliseconds: 300),
       imageBuilder: (context, imageProvider) {
         _loaded = true;

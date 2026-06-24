@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/network/dio_client.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../core/services/location_service.dart';
-import '../../../../core/storage/token_storage.dart';
 import '../../data/datasources/business_owner_remote_datasource.dart';
 import '../../data/models/owner_business_model.dart';
 import '../../data/repositories/business_owner_repository_impl.dart';
@@ -37,10 +36,9 @@ class _RegisterBusinessPageState extends State<RegisterBusinessPage> {
   @override
   void initState() {
     super.initState();
-    final tokenStorage = createDefaultTokenStorage();
     _repository = BusinessOwnerRepositoryImpl(
       remoteDataSource: BusinessOwnerRemoteDataSource(
-        dioClient: DioClient(tokenStorage: tokenStorage),
+        dioClient: appDioClient,
       ),
     );
     _loadCategories();

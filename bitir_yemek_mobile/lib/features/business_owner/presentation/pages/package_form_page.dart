@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../data/datasources/business_owner_remote_datasource.dart';
 import '../../data/models/owner_package_model.dart';
 import '../../data/repositories/business_owner_repository_impl.dart';
@@ -483,10 +482,9 @@ class _SubmitButtonState extends State<_SubmitButton> {
   @override
   void initState() {
     super.initState();
-    final tokenStorage = createDefaultTokenStorage();
     _repository = BusinessOwnerRepositoryImpl(
       remoteDataSource: BusinessOwnerRemoteDataSource(
-        dioClient: DioClient(tokenStorage: tokenStorage),
+        dioClient: appDioClient,
       ),
     );
   }

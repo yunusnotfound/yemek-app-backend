@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/shimmer_loader.dart';
 import '../../../home/data/datasources/businesses_remote_datasource.dart';
 import '../../../home/data/repositories/businesses_repository_impl.dart';
@@ -29,7 +28,7 @@ class SearchPage extends StatelessWidget {
       create: (context) => SearchBloc(
         repository: BusinessesRepositoryImpl(
           remoteDataSource: BusinessesRemoteDataSource(
-            dioClient: DioClient(tokenStorage: createDefaultTokenStorage()),
+            dioClient: appDioClient,
           ),
         ),
       )..add(SearchPackages(latitude: latitude, longitude: longitude)),
@@ -180,6 +179,9 @@ class _SearchViewState extends State<SearchView> {
                     }
 
                     return BlocBuilder<FavoritesBloc, FavoritesState>(
+                      // Favori durumu kart içindeki FavoriteButton'da izleniyor;
+                      // liste favori değişiminde rebuild olmaz.
+                      buildWhen: (previous, current) => false,
                       builder: (context, favState) {
                         final favIds = favState is FavoritesLoaded
                             ? favState.favorites

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/shimmer_loader.dart';
 import '../../data/datasources/businesses_remote_datasource.dart';
 import '../../data/models/category_model.dart';
@@ -24,15 +23,13 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokenStorage = createDefaultTokenStorage();
-    final dioClient = DioClient(tokenStorage: tokenStorage);
     return MultiBlocProvider(
       providers: [
         BlocProvider(
           create: (context) => PackagesBloc(
             repository: BusinessesRepositoryImpl(
               remoteDataSource: BusinessesRemoteDataSource(
-                dioClient: dioClient,
+                dioClient: appDioClient,
               ),
             ),
           )..add(LoadNearbyPackages(latitude: latitude, longitude: longitude)),
@@ -41,7 +38,7 @@ class HomePage extends StatelessWidget {
           create: (context) => HomeBloc(
             repository: BusinessesRepositoryImpl(
               remoteDataSource: BusinessesRemoteDataSource(
-                dioClient: dioClient,
+                dioClient: appDioClient,
               ),
             ),
           )..add(LoadCategories()),
@@ -267,10 +264,10 @@ class _HomeViewState extends State<HomeView> {
                     }
 
                     return BlocBuilder<FavoritesBloc, FavoritesState>(
-                      buildWhen: (previous, current) =>
-                          current is FavoritesLoaded ||
-                          current is FavoritesLoadingMore ||
-                          current is FavoritesInitial,
+                      // Favori durumu artık her kartın içindeki FavoriteButton
+                      // tarafından izleniyor; liste favori değişiminde rebuild olmaz
+                      // (yalnız ilgili kalp yeniden çizilir).
+                      buildWhen: (previous, current) => false,
                       builder: (context, favState) {
                         final favIds = favState is FavoritesLoaded
                             ? favState.favorites

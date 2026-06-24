@@ -58,24 +58,12 @@ flutter:
           weight: 100
         - asset: assets/fonts/Korolev Light.otf
           weight: 300
-        - asset: assets/fonts/Korolev Light Italic.otf
-          weight: 300
-          style: italic
         - asset: assets/fonts/Korolev Medium.otf
           weight: 500
-        - asset: assets/fonts/Korolev Medium Italic.otf
-          weight: 500
-          style: italic
         - asset: assets/fonts/Korolev Bold.otf
           weight: 700
-        - asset: assets/fonts/Korolev Bold Italic.otf
-          weight: 700
-          style: italic
         - asset: assets/fonts/Korolev Heavy.otf
           weight: 900
-        - asset: assets/fonts/Korolev Heavy Italic.otf
-          weight: 900
-          style: italic
   
   assets:
     - assets/images/

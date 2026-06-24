@@ -1,6 +1,12 @@
 import 'package:geolocator/geolocator.dart';
 
+/// Konum yardımcıları. Tekil (singleton): `LocationService()` her zaman aynı
+/// örneği döndürür; tekrar tekrar kurulum maliyeti olmaz.
 class LocationService {
+  LocationService._();
+  static final LocationService _instance = LocationService._();
+  factory LocationService() => _instance;
+
   /// Check if location services are enabled
   Future<bool> isLocationServiceEnabled() async {
     return await Geolocator.isLocationServiceEnabled();
@@ -16,7 +22,10 @@ class LocationService {
     return await Geolocator.requestPermission();
   }
 
-  /// Get current position
+  /// Get current position.
+  ///
+  /// Gıda pazaryeri için ~100m hassasiyet yeterli olduğundan `medium` doğruluk
+  /// kullanılır — `high` (tam GPS fix bekleme) açılışı belirgin yavaşlatır.
   Future<Position?> getCurrentPosition() async {
     try {
       // Check if location services are enabled
@@ -41,7 +50,7 @@ class LocationService {
 
       // Get current position
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        desiredAccuracy: LocationAccuracy.medium,
       );
     } catch (e) {
       return null;
@@ -53,15 +62,5 @@ class LocationService {
     final permission = await checkPermission();
     return permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always;
-  }
-
-  /// Stream of position updates
-  Stream<Position> getPositionStream() {
-    return Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 100, // Update every 100 meters
-      ),
-    );
   }
 }

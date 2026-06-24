@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/shimmer_loader.dart';
 import '../../data/datasources/businesses_remote_datasource.dart';
 import '../../data/repositories/businesses_repository_impl.dart';
@@ -29,7 +28,7 @@ class AllPackagesPage extends StatelessWidget {
       create: (context) => PackagesBloc(
         repository: BusinessesRepositoryImpl(
           remoteDataSource: BusinessesRemoteDataSource(
-            dioClient: DioClient(tokenStorage: createDefaultTokenStorage()),
+            dioClient: appDioClient,
           ),
         ),
       )..add(LoadNearbyPackages(latitude: latitude, longitude: longitude)),
@@ -172,10 +171,9 @@ class _AllPackagesViewState extends State<AllPackagesView> {
             }
 
             return BlocBuilder<FavoritesBloc, FavoritesState>(
-              buildWhen: (previous, current) =>
-                  current is FavoritesLoaded ||
-                  current is FavoritesLoadingMore ||
-                  current is FavoritesInitial,
+              // Favori durumu kart içindeki FavoriteButton'da izleniyor;
+              // liste favori değişiminde rebuild olmaz.
+              buildWhen: (previous, current) => false,
               builder: (context, favState) {
                 final favIds = favState is FavoritesLoaded
                     ? favState.favorites.map((f) => f.businessId).toSet()

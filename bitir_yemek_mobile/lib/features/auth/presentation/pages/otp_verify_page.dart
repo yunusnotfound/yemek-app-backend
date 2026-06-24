@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/network/dio_client.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../core/services/location_service.dart';
-import '../../../../core/storage/token_storage.dart';
 import '../../../business_owner/presentation/pages/business_owner_scaffold.dart';
 import '../../../location/presentation/pages/location_permission_page.dart';
 import '../../../main/presentation/pages/main_scaffold.dart';
@@ -26,14 +25,13 @@ class OtpVerifyPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokenStorage = createDefaultTokenStorage();
     return BlocProvider(
       create: (context) => AuthBloc(
         authRepository: AuthRepositoryImpl(
           remoteDataSource: AuthRemoteDataSource(
-            dioClient: DioClient(tokenStorage: tokenStorage),
+            dioClient: appDioClient,
           ),
-          tokenStorage: tokenStorage,
+          tokenStorage: appTokenStorage,
         ),
       ),
       child: OtpVerifyView(email: email, isNewUser: isNewUser),

@@ -1,28 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
-import '../../../home/data/datasources/businesses_remote_datasource.dart';
-import '../../../home/data/repositories/businesses_repository_impl.dart';
-import '../../../home/presentation/bloc/home_bloc.dart';
-import '../../../home/presentation/bloc/packages_bloc.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../home/presentation/pages/home_page.dart';
 import '../../../home/presentation/widgets/bottom_nav_bar.dart';
-import '../../../profile/data/datasources/profile_remote_datasource.dart';
-import '../../../profile/data/repositories/profile_repository_impl.dart';
-import '../../../profile/presentation/bloc/profile_bloc.dart';
-import '../../../profile/presentation/pages/profile_page.dart';
+import '../../../search/presentation/pages/search_page.dart';
+import '../../../map/presentation/pages/map_page.dart';
 import '../../../orders/data/datasources/orders_remote_datasource.dart';
 import '../../../orders/data/repositories/orders_repository_impl.dart';
 import '../../../orders/presentation/bloc/orders_bloc.dart';
 import '../../../orders/presentation/pages/orders_page.dart';
-import '../../../search/presentation/bloc/search_bloc.dart';
-import '../../../search/presentation/pages/search_page.dart';
-import '../../../map/presentation/pages/map_page.dart';
 import '../../../favorites/data/datasources/favorites_remote_datasource.dart';
 import '../../../favorites/data/repositories/favorites_repository_impl.dart';
 import '../../../favorites/presentation/bloc/favorites_bloc.dart';
 import '../../../favorites/presentation/pages/favorites_page.dart';
+import '../../../profile/data/datasources/profile_remote_datasource.dart';
+import '../../../profile/data/repositories/profile_repository_impl.dart';
+import '../../../profile/presentation/bloc/profile_bloc.dart';
+import '../../../profile/presentation/pages/profile_page.dart';
 
 class MainScaffold extends StatefulWidget {
   final double latitude;
@@ -42,152 +36,97 @@ class MainScaffold extends StatefulWidget {
 
 class _MainScaffoldState extends State<MainScaffold> {
   late int _currentIndex;
-  late final TokenStorage _tokenStorage;
-  late final DioClient _dioClient;
+
+  // Yalnızca ziyaret edilen sekmeler kurulur; sonra IndexedStack içinde canlı
+  // kalır (durum korunur). Açılışta tüm sekmelerin ağ isteğini birden tetiklemeyi
+  // önler.
+  final Set<int> _visited = {};
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    // Create shared instances for auth interceptor
-    _tokenStorage = createDefaultTokenStorage();
-    _dioClient = DioClient(tokenStorage: _tokenStorage);
+    _visited.add(_currentIndex);
+  }
+
+  void _onTabSelected(int index) {
+    if (index == _currentIndex && _visited.contains(index)) return;
+    setState(() {
+      _visited.add(index);
+      _currentIndex = index;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Paylaşılan blocs. Home/Search/Packages blocs ilgili sayfaların kendi
+    // içinde sağlanır; burada yalnız sekmeler arası paylaşılanlar var.
     return MultiBlocProvider(
       providers: [
-        // Home Blocs
+        // Favoriler tüm sekmelerde paylaşılır; ana sayfadaki favori rozetleri için
+        // açılışta (HomePage bunu okuduğunda) yüklenir.
         BlocProvider(
-          create: (context) =>
-              PackagesBloc(
-                repository: BusinessesRepositoryImpl(
-                  remoteDataSource: BusinessesRemoteDataSource(
-                    dioClient: _dioClient,
-                  ),
-                ),
-              )..add(
-                LoadNearbyPackages(
-                  latitude: widget.latitude,
-                  longitude: widget.longitude,
-                ),
-              ),
-        ),
-        BlocProvider(
-          create: (context) => HomeBloc(
-            repository: BusinessesRepositoryImpl(
-              remoteDataSource: BusinessesRemoteDataSource(
-                dioClient: _dioClient,
-              ),
+          create: (context) => FavoritesBloc(
+            repository: FavoritesRepositoryImpl(
+              remoteDataSource: FavoritesRemoteDataSource(dioClient: appDioClient),
             ),
-          )..add(LoadCategories()),
+          )..add(const LoadFavorites()),
         ),
-        // Search Bloc
+        // Siparişler — yalnız Sipariş sekmesi açıldığında (OrdersPage.initState) yüklenir.
         BlocProvider(
-          create: (context) => SearchBloc(
-            repository: BusinessesRepositoryImpl(
-              remoteDataSource: BusinessesRemoteDataSource(
-                dioClient: _dioClient,
-              ),
+          create: (context) => OrdersBloc(
+            repository: OrdersRepositoryImpl(
+              remoteDataSource: OrdersRemoteDataSource(dioClient: appDioClient),
             ),
           ),
         ),
-        // Orders Bloc
+        // Profil — yalnız Profil sekmesi ilk kez kurulduğunda yüklenir.
         BlocProvider(
-          create: (context) {
-            return OrdersBloc(
-              repository: OrdersRepositoryImpl(
-                remoteDataSource: OrdersRemoteDataSource(dioClient: _dioClient),
-              ),
-            );
-          },
-        ),
-        // Favorites Bloc
-        BlocProvider(
-          create: (context) {
-            return FavoritesBloc(
-              repository: FavoritesRepositoryImpl(
-                remoteDataSource: FavoritesRemoteDataSource(dioClient: _dioClient),
-              ),
-            );
-          },
-        ),
-        // Profile Bloc
-        BlocProvider(
-          create: (context) {
-            return ProfileBloc(
-              profileRepository: ProfileRepositoryImpl(
-                remoteDataSource: ProfileRemoteDataSource(dioClient: _dioClient),
-                tokenStorage: _tokenStorage,
-              ),
-            )..add(LoadProfile());
-          },
+          create: (context) => ProfileBloc(
+            profileRepository: ProfileRepositoryImpl(
+              remoteDataSource: ProfileRemoteDataSource(dioClient: appDioClient),
+              tokenStorage: appTokenStorage,
+            ),
+          )..add(LoadProfile()),
         ),
       ],
       child: Scaffold(
         body: _buildBody(),
         bottomNavigationBar: BottomNavBar(
           currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
+          onTap: _onTabSelected,
         ),
       ),
     );
   }
 
   Widget _buildBody() {
-    // MapPage uses a native PlatformView (Mapbox GL) that requires being
-    // visible when created. IndexedStack builds all children eagerly which
-    // prevents the GL surface from initialising off-screen.
-    // We show MapPage directly when selected, and keep the other pages in
-    // an IndexedStack so they preserve state across tab switches.
+    // MapPage native PlatformView (Mapbox GL) kullanır ve oluşturulurken görünür
+    // olmalı; bu yüzden IndexedStack'e koymuyoruz, seçilince doğrudan gösteriyoruz.
     if (_currentIndex == 2) {
       return MapPage(
         latitude: widget.latitude,
         longitude: widget.longitude,
-        dioClient: _dioClient,
+        dioClient: appDioClient,
       );
     }
 
-    // Map the visual index to IndexedStack index (0,1 stay the same; 3,4,5 → 2,3,4)
+    // Görsel index → IndexedStack index (0,1 aynı; 3,4,5 → 2,3,4)
     final stackIndex = _currentIndex > 2 ? _currentIndex - 1 : _currentIndex;
 
     return IndexedStack(
       index: stackIndex,
       children: [
-        // 0 - Keşfet (Home)
-        HomePage(latitude: widget.latitude, longitude: widget.longitude),
-        // 1 - Ara (Search)
-        SearchPage(latitude: widget.latitude, longitude: widget.longitude),
-        // 2 - Sipariş (Orders)  [nav index 3]
-        OrdersPage(
-          onNavigateToHome: () {
-            setState(() {
-              _currentIndex = 0;
-            });
-          },
-        ),
-        // 3 - Favoriler (Favorites)  [nav index 4]
-        FavoritesPage(
-          onNavigateToHome: () {
-            setState(() {
-              _currentIndex = 0;
-            });
-          },
-        ),
-        // 4 - Profil (Profile)  [nav index 5]
-        ProfilePage(
-          onTabSwitch: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-        ),
+        _lazy(0, () => HomePage(latitude: widget.latitude, longitude: widget.longitude)),
+        _lazy(1, () => SearchPage(latitude: widget.latitude, longitude: widget.longitude)),
+        _lazy(3, () => OrdersPage(onNavigateToHome: () => _onTabSelected(0))),
+        _lazy(4, () => FavoritesPage(onNavigateToHome: () => _onTabSelected(0))),
+        _lazy(5, () => ProfilePage(onTabSwitch: _onTabSelected)),
       ],
     );
+  }
+
+  Widget _lazy(int navIndex, Widget Function() builder) {
+    return _visited.contains(navIndex) ? builder() : const SizedBox.shrink();
   }
 }

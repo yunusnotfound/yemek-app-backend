@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/network/dio_client.dart';
-import '../../../../core/storage/token_storage.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../profile/data/datasources/profile_remote_datasource.dart';
 import '../../../profile/data/repositories/profile_repository_impl.dart';
 import '../../../profile/presentation/bloc/profile_bloc.dart';
@@ -47,10 +46,9 @@ class _BusinessOwnerScaffoldState extends State<BusinessOwnerScaffold> {
   }
 
   Future<void> _loadBusinesses() async {
-    final tokenStorage = createDefaultTokenStorage();
     final repo = BusinessOwnerRepositoryImpl(
       remoteDataSource: BusinessOwnerRemoteDataSource(
-        dioClient: DioClient(tokenStorage: tokenStorage),
+        dioClient: appDioClient,
       ),
     );
 
@@ -167,10 +165,8 @@ class _BusinessOwnerPanelState extends State<_BusinessOwnerPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final tokenStorage = createDefaultTokenStorage();
-    final dioClient = DioClient(tokenStorage: tokenStorage);
     final repository = BusinessOwnerRepositoryImpl(
-      remoteDataSource: BusinessOwnerRemoteDataSource(dioClient: dioClient),
+      remoteDataSource: BusinessOwnerRemoteDataSource(dioClient: appDioClient),
     );
 
     return MultiBlocProvider(
@@ -182,9 +178,9 @@ class _BusinessOwnerPanelState extends State<_BusinessOwnerPanel> {
           create: (_) => ProfileBloc(
             profileRepository: ProfileRepositoryImpl(
               remoteDataSource: ProfileRemoteDataSource(
-                dioClient: dioClient,
+                dioClient: appDioClient,
               ),
-              tokenStorage: tokenStorage,
+              tokenStorage: appTokenStorage,
             ),
           )..add(LoadProfile()),
         ),

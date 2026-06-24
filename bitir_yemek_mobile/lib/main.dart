@@ -7,8 +7,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'config/constants.dart';
 import 'config/theme.dart';
+import 'core/di/service_locator.dart';
 import 'core/services/location_service.dart';
-import 'core/storage/token_storage.dart';
 import 'features/auth/presentation/pages/welcome_page.dart';
 import 'features/business_owner/presentation/pages/business_owner_scaffold.dart';
 import 'features/location/presentation/pages/location_permission_page.dart';
@@ -96,59 +96,65 @@ class _SplashScreenState extends State<SplashScreen> {
     // must never leave the user stuck on the splash spinner. On error we fall
     // back to the WelcomePage (a safe, always-reachable destination).
     try {
-      final tokenStorage = createDefaultTokenStorage();
-      final accessToken = await tokenStorage.getAccessToken();
+      final locationService = LocationService();
 
-      if (accessToken != null && accessToken.isNotEmpty) {
-        final role = await tokenStorage.getUserRole();
-        final isBusinessOwner = role == 'business_owner';
+      // Birbirinden bağımsız okumaları paralel yürüt — dönen kullanıcıda açılışı
+      // hızlandırır (token, rol ve izin kontrolü ardışık beklemez).
+      final results = await Future.wait([
+        appTokenStorage.getAccessToken(),
+        appTokenStorage.getUserRole(),
+        locationService.hasPermission(),
+      ]);
+      final accessToken = results[0] as String?;
+      final role = results[1] as String?;
+      final hasPermission = results[2] as bool;
 
-        // Token exists — check location permission
-        final locationService = LocationService();
-        final hasPermission = await locationService.hasPermission();
-
-        if (hasPermission) {
-          if (isBusinessOwner) {
-            if (mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const BusinessOwnerScaffold(),
-                ),
-              );
-            }
-            return;
-          }
-
-          final position = await locationService.getCurrentPosition();
-          if (position != null && mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => MainScaffold(
-                  latitude: position.latitude,
-                  longitude: position.longitude,
-                ),
-              ),
-            );
-            return;
-          }
-        }
-
-        // No location permission yet
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) =>
-                  LocationPermissionPage(isBusinessOwner: isBusinessOwner),
-            ),
-          );
-        }
-      } else {
+      if (accessToken == null || accessToken.isEmpty) {
         // No token — show welcome page
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const WelcomePage()),
           );
         }
+        return;
+      }
+
+      final isBusinessOwner = role == 'business_owner';
+
+      if (hasPermission) {
+        if (isBusinessOwner) {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const BusinessOwnerScaffold(),
+              ),
+            );
+          }
+          return;
+        }
+
+        final position = await locationService.getCurrentPosition();
+        if (position != null && mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => MainScaffold(
+                latitude: position.latitude,
+                longitude: position.longitude,
+              ),
+            ),
+          );
+          return;
+        }
+      }
+
+      // No location permission yet (or position unavailable)
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) =>
+                LocationPermissionPage(isBusinessOwner: isBusinessOwner),
+          ),
+        );
       }
     } catch (e, stack) {
       _reportError(e, stack);

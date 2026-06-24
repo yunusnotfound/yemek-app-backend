@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
+import '../../../favorites/presentation/widgets/favorite_button.dart';
 import '../../data/models/package_model.dart';
 
 class PackageCard extends StatelessWidget {
@@ -23,11 +24,7 @@ class PackageCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        child: isHorizontal ? _buildHorizontalCard() : _buildVerticalCard(),
-      ),
+      child: isHorizontal ? _buildHorizontalCard() : _buildVerticalCard(),
     );
   }
 
@@ -168,16 +165,7 @@ class PackageCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    GestureDetector(
-                      onTap: onFavoriteTap,
-                      child: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        size: 22,
-                        color: isFavorite
-                            ? AppColors.error
-                            : AppColors.textHint,
-                      ),
-                    ),
+                    FavoriteButton(businessId: package.business.id),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -339,16 +327,7 @@ class PackageCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      GestureDetector(
-                        onTap: onFavoriteTap,
-                        child: Icon(
-                          isFavorite ? Icons.favorite : Icons.favorite_border,
-                          size: 22,
-                          color: isFavorite
-                              ? AppColors.error
-                              : AppColors.textHint,
-                        ),
-                      ),
+                      FavoriteButton(businessId: package.business.id),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xs),

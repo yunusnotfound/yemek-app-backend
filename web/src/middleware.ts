@@ -11,7 +11,8 @@ export function middleware(req: NextRequest) {
   const hasSession = Boolean(req.cookies.get(REFRESH_COOKIE)?.value);
   const { pathname } = req.nextUrl;
 
-  if (pathname.startsWith("/panel") && !hasSession) {
+  // Oturum yoksa korumalı alanlara erişim engellenir (rol kontrolü backend + admin layout'ta).
+  if ((pathname.startsWith("/panel") || pathname.startsWith("/admin")) && !hasSession) {
     const url = req.nextUrl.clone();
     url.pathname = "/giris";
     url.search = `?next=${encodeURIComponent(pathname)}`;
@@ -29,5 +30,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/panel/:path*", "/giris", "/kayit"],
+  matcher: ["/panel/:path*", "/admin/:path*", "/giris", "/kayit"],
 };

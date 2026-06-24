@@ -1,9 +1,16 @@
 const router = require('express').Router();
 const adminController = require('../controllers/adminController');
+const categoryController = require('../controllers/categoryController');
 const { authenticate } = require('../middlewares/auth');
 const { authorize } = require('../middlewares/role');
-const { validateQuery, validateParams } = require('../middlewares/validate');
-const { paginationSchema, idParamSchema } = require('../validations/schemas');
+const { validate, validateQuery, validateParams } = require('../middlewares/validate');
+const {
+  paginationSchema, idParamSchema, intIdParamSchema,
+  categoryCreateSchema, categoryUpdateSchema, adminUserUpdateSchema,
+  businessActiveSchema, packageActiveSchema, adminOrderRefundSchema,
+  adminUserQuerySchema, adminBusinessQuerySchema, adminOrderQuerySchema,
+  adminPackageQuerySchema, adminReviewQuerySchema, subMerchantQuerySchema, auditQuerySchema,
+} = require('../validations/schemas');
 
 /**
  * @swagger
@@ -54,7 +61,7 @@ router.get('/dashboard', adminController.getDashboardStats);
  *       403:
  *         description: Yetkisiz işlem
  */
-router.get('/users', validateQuery(paginationSchema), adminController.getAllUsers);
+router.get('/users', validateQuery(adminUserQuerySchema), adminController.getAllUsers);
 
 /**
  * @swagger
@@ -118,7 +125,7 @@ router.get('/users/:id', validateParams(idParamSchema), adminController.getUserB
  *       404:
  *         description: Kullanıcı bulunamadı
  */
-router.put('/users/:id', validateParams(idParamSchema), adminController.updateUser);
+router.put('/users/:id', validateParams(idParamSchema), validate(adminUserUpdateSchema), adminController.updateUser);
 
 /**
  * @swagger
@@ -243,6 +250,33 @@ router.patch('/businesses/:id/reject', validateParams(idParamSchema), adminContr
  *       403:
  *         description: Yetkisiz işlem
  */
-router.get('/orders', validateQuery(paginationSchema), adminController.getAllOrders);
+router.get('/orders', validateQuery(adminOrderQuerySchema), adminController.getAllOrders);
+router.get('/orders/:id', validateParams(idParamSchema), adminController.getOrderById);
+router.post('/orders/:id/refund', validateParams(idParamSchema), validate(adminOrderRefundSchema), adminController.refundOrder);
+
+// ── Kategoriler (CRUD) ──────────────────────────────────────────────────────
+router.post('/categories', validate(categoryCreateSchema), categoryController.create);
+router.put('/categories/:id', validateParams(intIdParamSchema), validate(categoryUpdateSchema), categoryController.update);
+router.delete('/categories/:id', validateParams(intIdParamSchema), categoryController.remove);
+
+// ── İşletmeler (tümü / detay / aktiflik) ────────────────────────────────────
+router.get('/businesses', validateQuery(adminBusinessQuerySchema), adminController.getAllBusinesses);
+router.get('/businesses/:id', validateParams(idParamSchema), adminController.getBusinessById);
+router.patch('/businesses/:id/active', validateParams(idParamSchema), validate(businessActiveSchema), adminController.setBusinessActive);
+
+// ── Paketler (moderasyon) ───────────────────────────────────────────────────
+router.get('/packages', validateQuery(adminPackageQuerySchema), adminController.getAllPackages);
+router.patch('/packages/:id/active', validateParams(idParamSchema), validate(packageActiveSchema), adminController.setPackageActive);
+
+// ── Değerlendirmeler (moderasyon) ───────────────────────────────────────────
+router.get('/reviews', validateQuery(adminReviewQuerySchema), adminController.getAllReviews);
+router.delete('/reviews/:id', validateParams(idParamSchema), adminController.deleteReview);
+
+// ── Ödeme / Mutabakat gözetimi ──────────────────────────────────────────────
+router.get('/settlement/summary', adminController.getSettlementSummary);
+router.get('/sub-merchants', validateQuery(subMerchantQuerySchema), adminController.getSubMerchants);
+
+// ── Denetim kaydı ───────────────────────────────────────────────────────────
+router.get('/audit-log', validateQuery(auditQuerySchema), adminController.getAuditLog);
 
 module.exports = router;

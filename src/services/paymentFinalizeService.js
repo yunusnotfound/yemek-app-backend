@@ -101,7 +101,8 @@ const finalize = async ({ token, conversationId, retrieveResult, source = 'callb
           paidPrice,
           paymentId: result.paymentId,
           paymentTransactionId,
-          settlementStatus: 'held',
+          // Submerchant varsa fon havuzda (held -> pickup'ta approval); düz tahsilatta settlement yok.
+          settlementStatus: order.subMerchantKey ? 'held' : 'none',
           paidAt: new Date(),
           paymentError: null,
         },

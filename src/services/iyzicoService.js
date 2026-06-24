@@ -45,6 +45,20 @@ const initializeCheckoutForm = async ({ order, user, business, pkg, categoryName
   const { name, surname } = splitName(user.name);
   const price = formatPrice(order.finalPrice);
 
+  // Pazaryeri kalemi: yalnız submerchant varsa kırılım (subMerchantKey/Price) gönder.
+  // submerchant yoksa düz tahsilat (test modu) — kalem submerchant alanları taşımaz.
+  const basketItem = {
+    id: pkg.id,
+    name: pkg.title,
+    category1: categoryName || 'Gıda',
+    itemType: Iyzipay.BASKET_ITEM_TYPE.PHYSICAL,
+    price,
+  };
+  if (order.subMerchantKey) {
+    basketItem.subMerchantKey = order.subMerchantKey;
+    basketItem.subMerchantPrice = formatPrice(order.subMerchantPrice);
+  }
+
   const request = {
     locale: Iyzipay.LOCALE.TR,
     conversationId: order.id,
@@ -82,17 +96,7 @@ const initializeCheckoutForm = async ({ order, user, business, pkg, categoryName
       address: business.address || 'Adres',
       zipCode: '34000',
     },
-    basketItems: [
-      {
-        id: pkg.id,
-        name: pkg.title,
-        category1: categoryName || 'Gıda',
-        itemType: Iyzipay.BASKET_ITEM_TYPE.PHYSICAL,
-        price,
-        subMerchantKey: order.subMerchantKey,
-        subMerchantPrice: formatPrice(order.subMerchantPrice),
-      },
-    ],
+    basketItems: [basketItem],
   };
 
   const result = await call('checkoutFormInitialize', 'create', request);

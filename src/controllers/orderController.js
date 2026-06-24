@@ -114,16 +114,21 @@ exports.create = async (req, res, next) => {
       return res.status(404).json({ message: 'İşletme bulunamadı' });
     }
 
-    // Ücretli sipariş, işletmenin iyzico alt üye işyeri kaydı tamamlanmadan alınamaz.
-    if (!isFree && (!business.subMerchantKey || business.subMerchantStatus !== 'active')) {
+    // Ücretli sipariş normalde işletmenin alt üye işyeri (sub-merchant) kaydı tamamlanmadan alınamaz.
+    // TEST modu (IYZICO_TEST_DIRECT_CHARGE=true): Pazaryeri aktif olmadan ödeme AKIŞINI denemek için
+    // submerchant olmadan DÜZ tahsilat yapılır (komisyon split + approval YOK). Prod'da kapalı tutun.
+    const hasSubMerchant = Boolean(business.subMerchantKey) && business.subMerchantStatus === 'active';
+    const allowDirectCharge = process.env.IYZICO_TEST_DIRECT_CHARGE === 'true';
+    if (!isFree && !hasSubMerchant && !allowDirectCharge) {
       await t.rollback();
       return res.status(400).json({ message: 'İşletme henüz ödeme almaya hazır değil' });
     }
 
-    // Komisyon kırılımı (yalnız ücretli siparişlerde)
-    const subMerchantPrice = isFree ? null : Number(iyzicoService.calcSubMerchantPrice(finalPrice));
+    const useMarketplace = !isFree && hasSubMerchant;
+    // Komisyon kırılımı yalnız gerçek pazaryeri (submerchant) ödemelerinde.
+    const subMerchantPrice = useMarketplace ? Number(iyzicoService.calcSubMerchantPrice(finalPrice)) : null;
     const commissionAmount =
-      isFree || subMerchantPrice == null ? 0 : Number((finalPrice - subMerchantPrice).toFixed(2));
+      useMarketplace && subMerchantPrice != null ? Number((finalPrice - subMerchantPrice).toFixed(2)) : 0;
 
     // id'yi önceden üret -> conversationId = order.id
     const orderId = uuidv4();
@@ -151,7 +156,7 @@ exports.create = async (req, res, next) => {
           paidPrice: isFree ? 0 : null,
           paidAt: isFree ? new Date() : null,
           settlementStatus: 'none',
-          subMerchantKey: isFree ? null : business.subMerchantKey,
+          subMerchantKey: useMarketplace ? business.subMerchantKey : null,
           subMerchantPrice,
           commissionAmount,
           paymentHoldExpiresAt: isFree ? null : new Date(Date.now() + HOLD_MINUTES * 60 * 1000),

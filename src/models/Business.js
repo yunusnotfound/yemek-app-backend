@@ -77,6 +77,58 @@ const Business = sequelize.define('Business', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+
+  // --- iyzico Pazaryeri (alt üye işyeri / sub-merchant) ---
+  // createSubMerchant sonrası dönen anahtar; ödeme kırılımında bu işletmeyi tanımlar.
+  subMerchantKey: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  subMerchantType: {
+    type: DataTypes.ENUM('PERSONAL', 'PRIVATE_COMPANY', 'LIMITED_OR_JOINT_STOCK_COMPANY'),
+    allowNull: true,
+  },
+  // KVKK: iban / identityNumber hassas veridir, loglanmaz.
+  iban: {
+    type: DataTypes.STRING(34),
+    allowNull: true,
+  },
+  legalCompanyTitle: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  taxOffice: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  taxNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  identityNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  contactName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  contactSurname: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  gsmNumber: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  subMerchantStatus: {
+    type: DataTypes.ENUM('none', 'active', 'error'),
+    defaultValue: 'none',
+  },
+  subMerchantError: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+  },
 }, {
   timestamps: true,
   paranoid: true,

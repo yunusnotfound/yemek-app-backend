@@ -4,10 +4,12 @@ import type {
   Business,
   Category,
   DashboardResponse,
+  EarningsResponse,
   Order,
   OrderStatus,
   Paginated,
   PackageWithStats,
+  SubMerchantSummary,
   SurprisePackage,
   Review,
   User,
@@ -73,6 +75,18 @@ export function verifyOrder(businessId: string, pickupCode: string) {
   return proxyFetch<{ message: string; order: Order }>(
     `/business-dashboard/${businessId}/verify-order`,
     { method: "POST", body: JSON.stringify({ pickupCode }) },
+  );
+}
+
+// ── Ödemeler (iyzico Pazaryeri) ────────────────────────────────────────────────
+export function getEarnings(businessId: string) {
+  return proxyFetch<EarningsResponse>(`/business-dashboard/${businessId}/earnings`);
+}
+
+export function upsertSubMerchant(businessId: string, input: Record<string, unknown>) {
+  return proxyFetch<{ message: string; submerchant: SubMerchantSummary }>(
+    `/business-dashboard/${businessId}/submerchant`,
+    { method: "POST", body: JSON.stringify(input) },
   );
 }
 

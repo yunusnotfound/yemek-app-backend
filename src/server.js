@@ -9,7 +9,12 @@ if (initSentry()) {
 
 const app = require("./app");
 const { sequelize } = require("./models");
-const { startNotificationCleanupJob, startRecurringPackagesJob } = require("./services/cronService");
+const {
+  startNotificationCleanupJob,
+  startRecurringPackagesJob,
+  startPaymentReaperJob,
+  startApprovalRetryJob,
+} = require("./services/cronService");
 
 const PORT = process.env.PORT || 3000;
 
@@ -17,7 +22,11 @@ const dbVars = process.env.DATABASE_URL
   ? []
   : ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
 const requiredEnvVars = [...dbVars, 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
-const recommendedEnvVars = ['RESEND_API_KEY', 'RESEND_FROM', 'GOOGLE_CLIENT_ID'];
+const recommendedEnvVars = [
+  'RESEND_API_KEY', 'RESEND_FROM', 'GOOGLE_CLIENT_ID',
+  // iyzico ödeme — eksikse ödemeler çalışmaz (uyarı, fatal değil).
+  'IYZICO_API_KEY', 'IYZICO_SECRET_KEY', 'IYZICO_CALLBACK_URL',
+];
 
 const validateEnv = () => {
   const missing = requiredEnvVars.filter(v => !process.env[v]);
@@ -81,6 +90,8 @@ const start = async () => {
 
     startNotificationCleanupJob();
     startRecurringPackagesJob();
+    startPaymentReaperJob();
+    startApprovalRetryJob();
 
     server = app.listen(PORT, '0.0.0.0', () => {
       logger.info(`Sunucu port ${PORT} üzerinde çalışıyor (${process.env.NODE_ENV || 'development'})`);

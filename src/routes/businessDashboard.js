@@ -3,7 +3,7 @@ const businessDashboardController = require('../controllers/businessDashboardCon
 const { authenticate } = require('../middlewares/auth');
 const { authorize } = require('../middlewares/role');
 const { validateQuery, validateParams, validate } = require('../middlewares/validate');
-const { paginationSchema, businessIdParamSchema } = require('../validations/schemas');
+const { paginationSchema, businessIdParamSchema, subMerchantSchema } = require('../validations/schemas');
 const { z } = require('zod');
 
 /**
@@ -196,5 +196,49 @@ const verifyOrderSchema = z.object({
  *         description: Sipariş bulunamadı
  */
 router.post('/:businessId/verify-order', validateParams(businessIdParamSchema), validate(verifyOrderSchema), businessDashboardController.verifyOrderByPickupCode);
+
+/**
+ * @swagger
+ * /business-dashboard/{businessId}/submerchant:
+ *   post:
+ *     summary: iyzico alt üye işyeri (ödeme hesabı) oluştur/güncelle
+ *     tags: [Business Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: businessId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Ödeme hesabı kaydedildi
+ *       400:
+ *         description: Doğrulama / iyzico hatası
+ */
+router.post('/:businessId/submerchant', validateParams(businessIdParamSchema), validate(subMerchantSchema), businessDashboardController.upsertSubMerchant);
+
+/**
+ * @swagger
+ * /business-dashboard/{businessId}/earnings:
+ *   get:
+ *     summary: İşletme kazanç özeti (satış, komisyon, net, onay durumu)
+ *     tags: [Business Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: businessId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: Kazanç özeti
+ */
+router.get('/:businessId/earnings', validateParams(businessIdParamSchema), businessDashboardController.getEarnings);
 
 module.exports = router;

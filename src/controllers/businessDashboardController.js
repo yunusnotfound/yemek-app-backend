@@ -1,14 +1,22 @@
 const { Business, SurprisePackage, Order, User, Review, Category, Notification, sequelize } = require('../models');
 const { Op, Sequelize } = require('sequelize');
 const { paginate, paginatedResponse } = require('../utils/helpers');
-const { notifyOrderStatus } = require('../services/notificationService');
+const iyzicoService = require('../services/iyzicoService');
+const settlementService = require('../services/settlementService');
+const logger = require('../services/logger');
+
+// IBAN'ı panelde maskeli göster (KVKK) — yalnız son 4 hane.
+const maskIban = (iban) => {
+  if (!iban) return null;
+  const s = String(iban);
+  return s.length > 8 ? `${s.slice(0, 6)}••••${s.slice(-4)}` : s;
+};
 
 // İşletme Dashboard İstatistikleri
 exports.getDashboardStats = async (req, res, next) => {
   try {
     const { businessId } = req.params;
 
-    // İşletmenin sahibi mi kontrol et
     const business = await Business.findOne({
       where: { id: businessId, ownerId: req.user.id },
     });
@@ -20,23 +28,18 @@ exports.getDashboardStats = async (req, res, next) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
     const thisWeekStart = new Date(today);
     thisWeekStart.setDate(thisWeekStart.getDate() - 7);
 
     const thisMonthStart = new Date(today);
     thisMonthStart.setMonth(thisMonthStart.getMonth() - 1);
 
-    // İşletmeye ait paket ID'lerini al
     const packages = await SurprisePackage.findAll({
       where: { businessId },
       attributes: ['id'],
     });
     const packageIds = packages.map((p) => p.id);
 
-    // Paket yoksa boş istatistik döndür
     if (packageIds.length === 0) {
       return res.json({
         stats: {
@@ -55,7 +58,9 @@ exports.getDashboardStats = async (req, res, next) => {
       });
     }
 
-    // İstatistikleri hesapla
+    // Yalnız ödenmiş (paid) siparişler gelire/sayıma dahil — awaiting_payment sızmaz.
+    const paidBase = { packageId: { [Op.in]: packageIds }, paymentStatus: 'paid' };
+
     const [
       totalPackages,
       activePackages,
@@ -68,87 +73,47 @@ exports.getDashboardStats = async (req, res, next) => {
       weeklyRevenue,
       monthlyRevenue,
     ] = await Promise.all([
-      // Toplam paket sayısı
       SurprisePackage.count({ where: { businessId } }),
 
-      // Aktif paket sayısı
       SurprisePackage.count({
-        where: {
-          businessId,
-          isActive: true,
-          remainingQuantity: { [Op.gt]: 0 },
-        },
+        where: { businessId, isActive: true, remainingQuantity: { [Op.gt]: 0 } },
       }),
 
-      // Bugünkü siparişler
       Order.count({
-        where: {
-          packageId: { [Op.in]: packageIds },
-          createdAt: { [Op.gte]: today },
-          status: { [Op.ne]: 'cancelled' },
-        },
+        where: { ...paidBase, createdAt: { [Op.gte]: today }, status: { [Op.ne]: 'cancelled' } },
       }),
 
-      // Bugünkü kazanç
       Order.sum('totalPrice', {
-        where: {
-          packageId: { [Op.in]: packageIds },
-          createdAt: { [Op.gte]: today },
-          status: { [Op.ne]: 'cancelled' },
-        },
+        where: { ...paidBase, createdAt: { [Op.gte]: today }, status: { [Op.ne]: 'cancelled' } },
       }),
 
-      // Bekleyen siparişler
       Order.count({
-        where: {
-          packageId: { [Op.in]: packageIds },
-          status: 'pending',
-        },
+        where: { ...paidBase, status: 'pending' },
       }),
 
-      // Toplam sipariş
       Order.count({
-        where: {
-          packageId: { [Op.in]: packageIds },
-          status: { [Op.ne]: 'cancelled' },
-        },
+        where: { ...paidBase, status: { [Op.ne]: 'cancelled' } },
       }),
 
-      // Toplam kazanç
       Order.sum('totalPrice', {
-        where: {
-          packageId: { [Op.in]: packageIds },
-          status: { [Op.ne]: 'cancelled' },
-        },
+        where: { ...paidBase, status: { [Op.ne]: 'cancelled' } },
       }),
 
-      // Ortalama puan
       Review.findOne({
         where: { businessId },
         attributes: [[Sequelize.fn('AVG', Sequelize.col('rating')), 'avgRating']],
         raw: true,
       }),
 
-      // Haftalık kazanç
       Order.sum('totalPrice', {
-        where: {
-          packageId: { [Op.in]: packageIds },
-          createdAt: { [Op.gte]: thisWeekStart },
-          status: { [Op.ne]: 'cancelled' },
-        },
+        where: { ...paidBase, createdAt: { [Op.gte]: thisWeekStart }, status: { [Op.ne]: 'cancelled' } },
       }),
 
-      // Aylık kazanç
       Order.sum('totalPrice', {
-        where: {
-          packageId: { [Op.in]: packageIds },
-          createdAt: { [Op.gte]: thisMonthStart },
-          status: { [Op.ne]: 'cancelled' },
-        },
+        where: { ...paidBase, createdAt: { [Op.gte]: thisMonthStart }, status: { [Op.ne]: 'cancelled' } },
       }),
     ]);
 
-    // Günlük sipariş grafiği için son 7 gün
     const last7Days = [];
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
@@ -160,10 +125,9 @@ exports.getDashboardStats = async (req, res, next) => {
     const endDate = new Date(today);
     endDate.setDate(endDate.getDate() + 1);
 
-    // Single aggregated query to get daily stats (fixes N+1)
     const dailyStatsRaw = await Order.findAll({
       where: {
-        packageId: { [Op.in]: packageIds },
+        ...paidBase,
         createdAt: { [Op.gte]: startDate, [Op.lt]: endDate },
         status: { [Op.ne]: 'cancelled' },
       },
@@ -176,9 +140,8 @@ exports.getDashboardStats = async (req, res, next) => {
       raw: true,
     });
 
-    // Map results to fill in zeros for days with no orders
-    const statsMap = new Map(dailyStatsRaw.map(s => [s.date, s]));
-    const dailyStats = last7Days.map(date => {
+    const statsMap = new Map(dailyStatsRaw.map((s) => [s.date, s]));
+    const dailyStats = last7Days.map((date) => {
       const dateStr = date.toISOString().split('T')[0];
       const stat = statsMap.get(dateStr);
       return {
@@ -210,13 +173,13 @@ exports.getDashboardStats = async (req, res, next) => {
   }
 };
 
-// İşletmenin siparişlerini getir
+// İşletmenin siparişlerini getir (yalnız ödenmiş/iade — awaiting_payment gösterilmez)
 exports.getBusinessOrders = async (req, res, next) => {
   try {
     const { businessId } = req.params;
-    const { status, page, limit, offset } = paginate(req.query);
+    const { page, limit, offset } = paginate(req.query);
+    const statusFilter = req.query.status; // paginate status döndürmez -> query'den al
 
-    // İşletmenin sahibi mi kontrol et
     const business = await Business.findOne({
       where: { id: businessId, ownerId: req.user.id },
     });
@@ -225,20 +188,22 @@ exports.getBusinessOrders = async (req, res, next) => {
       return res.status(404).json({ message: 'İşletme bulunamadı veya yetkiniz yok' });
     }
 
-    // İşletmeye ait paket ID'lerini al
     const packages = await SurprisePackage.findAll({
       where: { businessId },
       attributes: ['id'],
     });
     const packageIds = packages.map((p) => p.id);
 
-    // Paket yoksa boş liste döndür
     if (packageIds.length === 0) {
       return res.json(paginatedResponse([], 0, page, limit));
     }
 
-    const where = { packageId: { [Op.in]: packageIds } };
-    if (status) where.status = status;
+    // paymentStatus IN (paid, refunded, partially_refunded) -> ödenmemiş hold'ları dışlar.
+    const where = {
+      packageId: { [Op.in]: packageIds },
+      paymentStatus: { [Op.in]: ['paid', 'refunded', 'partially_refunded'] },
+    };
+    if (statusFilter) where.status = statusFilter;
 
     const { count, rows: orders } = await Order.findAndCountAll({
       where,
@@ -267,7 +232,6 @@ exports.getBusinessPackages = async (req, res, next) => {
     const { businessId } = req.params;
     const { page, limit, offset } = paginate(req.query);
 
-    // İşletmenin sahibi mi kontrol et
     const business = await Business.findOne({
       where: { id: businessId, ownerId: req.user.id },
     });
@@ -282,7 +246,8 @@ exports.getBusinessPackages = async (req, res, next) => {
         {
           model: Order,
           as: 'orders',
-          where: { status: { [Op.ne]: 'cancelled' } },
+          // Satış istatistiği yalnız ödenmiş & iptal olmayan siparişlerden.
+          where: { paymentStatus: 'paid', status: { [Op.ne]: 'cancelled' } },
           required: false,
           attributes: ['id', 'status', 'totalPrice'],
         },
@@ -292,7 +257,6 @@ exports.getBusinessPackages = async (req, res, next) => {
       offset,
     });
 
-    // Her paket için satış istatistikleri ekle
     const packagesWithStats = packages.map((pkg) => {
       const pkgData = pkg.toJSON();
       const soldQuantity = pkgData.orders?.length || 0;
@@ -318,7 +282,6 @@ exports.getBusinessReviews = async (req, res, next) => {
     const { businessId } = req.params;
     const { page, limit, offset } = paginate(req.query);
 
-    // İşletmenin sahibi mi kontrol et
     const business = await Business.findOne({
       where: { id: businessId, ownerId: req.user.id },
     });
@@ -344,13 +307,12 @@ exports.getBusinessReviews = async (req, res, next) => {
   }
 };
 
-// QR Kod ile sipariş doğrulama
+// QR Kod ile sipariş doğrulama -> teslim al + satıcı fonlarını serbest bırak (iyzico approval)
 exports.verifyOrderByPickupCode = async (req, res, next) => {
   try {
     const { businessId } = req.params;
     const { pickupCode } = req.body;
 
-    // İşletmenin sahibi mi kontrol et
     const business = await Business.findOne({
       where: { id: businessId, ownerId: req.user.id },
     });
@@ -359,19 +321,18 @@ exports.verifyOrderByPickupCode = async (req, res, next) => {
       return res.status(404).json({ message: 'İşletme bulunamadı veya yetkiniz yok' });
     }
 
-    // İşletmeye ait paket ID'lerini al
     const packages = await SurprisePackage.findAll({
       where: { businessId },
       attributes: ['id'],
     });
     const packageIds = packages.map((p) => p.id);
 
-    // Siparişi bul
     const order = await Order.findOne({
       where: {
         packageId: { [Op.in]: packageIds },
         pickupCode,
         status: { [Op.in]: ['pending', 'confirmed'] },
+        paymentStatus: 'paid', // ödenmemiş hold asla teslim edilemez
       },
       include: [
         {
@@ -387,10 +348,19 @@ exports.verifyOrderByPickupCode = async (req, res, next) => {
       return res.status(404).json({ message: 'Sipariş bulunamadı veya kod hatalı' });
     }
 
-    // Siparişi teslim alındı olarak işaretle
-    await order.update({ status: 'picked_up' });
+    // Koşullu (status guard) -> eşzamanlı değişime karşı idempotent
+    const [n] = await Order.update(
+      { status: 'picked_up' },
+      { where: { id: order.id, status: order.status } }
+    );
+    if (n === 0) {
+      return res.status(409).json({ message: 'Sipariş durumu değişmiş, tekrar deneyin' });
+    }
 
-    // Müşteriye bildirim gönder
+    // Teslim edildi -> satıcı fonlarını serbest bırak (best-effort; başarısızsa retry cron dener)
+    await order.reload();
+    await settlementService.approveOnPickup(order);
+
     await Notification.create({
       userId: order.userId,
       title: 'Sipariş Teslim Alındı',
@@ -430,7 +400,6 @@ exports.getMyBusinesses = async (req, res, next) => {
       offset,
     });
 
-    // Batch queries instead of N+1
     const businessIds = businesses.map((b) => b.id);
 
     const [activePackageCounts, pendingPackageRows] = await Promise.all([
@@ -457,7 +426,7 @@ exports.getMyBusinesses = async (req, res, next) => {
 
     const pendingOrderCounts = allPkgIds.length > 0
       ? await Order.findAll({
-          where: { packageId: { [Op.in]: allPkgIds }, status: 'pending' },
+          where: { packageId: { [Op.in]: allPkgIds }, status: 'pending', paymentStatus: 'paid' },
           attributes: ['packageId', [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']],
           group: ['packageId'],
           raw: true,
@@ -477,6 +446,130 @@ exports.getMyBusinesses = async (req, res, next) => {
     }));
 
     res.json(paginatedResponse(businessesWithStats, count, page, limit));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// --- iyzico Pazaryeri: alt üye işyeri onboarding + kazanç görünümü ---
+
+// POST /business-dashboard/:businessId/submerchant — alt üye işyeri oluştur/güncelle
+exports.upsertSubMerchant = async (req, res, next) => {
+  try {
+    const { businessId } = req.params;
+    const business = await Business.findOne({
+      where: { id: businessId, ownerId: req.user.id },
+      include: [{ model: User, as: 'owner', attributes: ['email'] }],
+    });
+
+    if (!business) {
+      return res.status(404).json({ message: 'İşletme bulunamadı veya yetkiniz yok' });
+    }
+    if (!iyzicoService.isConfigured()) {
+      return res.status(503).json({ message: 'Ödeme sağlayıcı yapılandırılmamış' });
+    }
+
+    const {
+      subMerchantType, iban, gsmNumber, contactName, contactSurname,
+      identityNumber, legalCompanyTitle, taxOffice, taxNumber,
+    } = req.body;
+
+    // Alanları yaz (iyzico request builder bunları okur)
+    business.subMerchantType = subMerchantType;
+    business.iban = iban;
+    business.gsmNumber = gsmNumber;
+    business.contactName = contactName || null;
+    business.contactSurname = contactSurname || null;
+    business.identityNumber = identityNumber || null;
+    business.legalCompanyTitle = legalCompanyTitle || null;
+    business.taxOffice = taxOffice || null;
+    business.taxNumber = taxNumber || null;
+
+    try {
+      if (business.subMerchantKey) {
+        await iyzicoService.updateSubMerchant(business);
+      } else {
+        const result = await iyzicoService.createSubMerchant(business);
+        if (result.subMerchantKey) business.subMerchantKey = result.subMerchantKey;
+      }
+      business.subMerchantStatus = 'active';
+      business.subMerchantError = null;
+      await business.save();
+      return res.json({
+        message: 'Ödeme hesabı kaydedildi',
+        submerchant: {
+          status: 'active',
+          hasKey: Boolean(business.subMerchantKey),
+          type: business.subMerchantType,
+          iban: maskIban(business.iban),
+        },
+      });
+    } catch (e) {
+      business.subMerchantStatus = 'error';
+      business.subMerchantError = String(e.message).slice(0, 500);
+      await business.save();
+      logger.error(`[submerchant] kayıt hatası (business ${business.id}): ${e.message}`);
+      return res.status(400).json({ message: e.message || 'Ödeme hesabı kaydedilemedi' });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /business-dashboard/:businessId/earnings — kazanç özeti (orders'tan türetilir)
+exports.getEarnings = async (req, res, next) => {
+  try {
+    const { businessId } = req.params;
+    const business = await Business.findOne({ where: { id: businessId, ownerId: req.user.id } });
+
+    if (!business) {
+      return res.status(404).json({ message: 'İşletme bulunamadı veya yetkiniz yok' });
+    }
+
+    const submerchant = {
+      status: business.subMerchantStatus || 'none',
+      hasKey: Boolean(business.subMerchantKey),
+      type: business.subMerchantType,
+      iban: maskIban(business.iban),
+      error: business.subMerchantError,
+    };
+
+    const packages = await SurprisePackage.findAll({ where: { businessId }, attributes: ['id'] });
+    const packageIds = packages.map((p) => p.id);
+
+    if (packageIds.length === 0) {
+      return res.json({
+        submerchant,
+        earnings: { totalSales: 0, commission: 0, netHeld: 0, netApproved: 0, refunded: 0, currency: 'TRY' },
+      });
+    }
+
+    const paidBase = { packageId: { [Op.in]: packageIds }, paymentStatus: 'paid' };
+
+    const [totalSales, commission, netHeld, netApproved, refunded] = await Promise.all([
+      Order.sum('paidPrice', { where: paidBase }),
+      Order.sum('commissionAmount', { where: paidBase }),
+      // Teslim bekleyen (henüz onaylanmamış) satıcı payı
+      Order.sum('subMerchantPrice', { where: { ...paidBase, settlementStatus: 'held' } }),
+      // Onaylanan -> iyzico öder
+      Order.sum('subMerchantPrice', { where: { ...paidBase, settlementStatus: 'approved' } }),
+      Order.sum('refundAmount', {
+        where: { packageId: { [Op.in]: packageIds }, paymentStatus: { [Op.in]: ['refunded', 'partially_refunded'] } },
+      }),
+    ]);
+
+    res.json({
+      submerchant,
+      earnings: {
+        totalSales: totalSales || 0,
+        commission: commission || 0,
+        netHeld: netHeld || 0,
+        netApproved: netApproved || 0,
+        refunded: refunded || 0,
+        currency: 'TRY',
+        commissionRate: iyzicoService.COMMISSION_RATE,
+      },
+    });
   } catch (error) {
     next(error);
   }

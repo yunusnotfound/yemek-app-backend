@@ -6,6 +6,7 @@ import '../models/package_model.dart';
 import '../models/reservation_model.dart';
 import '../../domain/repositories/businesses_repository.dart';
 import '../../../../core/services/cache_service.dart';
+import '../../../payment/data/models/payment_init_model.dart';
 
 class BusinessesRepositoryImpl implements BusinessesRepository {
   final BusinessesRemoteDataSource _remoteDataSource;
@@ -244,9 +245,12 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
       _cache.invalidatePattern('packages:');
 
       final reservation = ReservationModel.fromJson(orderData);
+      final paymentData = response['payment'] as Map<String, dynamic>?;
+      final payment = paymentData != null ? PaymentInit.fromJson(paymentData) : null;
       return ReservationResult.success(
         reservation: reservation,
         message: response['message'] as String?,
+        payment: payment,
       );
     } on BusinessesException catch (e) {
       return ReservationResult.failure(e.message);
@@ -296,23 +300,27 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
 class ReservationResult {
   final bool isSuccess;
   final ReservationModel? reservation;
+  final PaymentInit? payment;
   final String? message;
   final String? error;
 
   ReservationResult._({
     required this.isSuccess,
     this.reservation,
+    this.payment,
     this.message,
     this.error,
   });
 
   factory ReservationResult.success({
     required ReservationModel reservation,
+    PaymentInit? payment,
     String? message,
   }) {
     return ReservationResult._(
       isSuccess: true,
       reservation: reservation,
+      payment: payment,
       message: message,
     );
   }

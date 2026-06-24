@@ -9,6 +9,7 @@ class ReservationModel extends Equatable {
   final double finalPrice;
   final String pickupCode;
   final String status;
+  final String paymentStatus;
   final String? couponId;
 
   ReservationModel({
@@ -20,6 +21,7 @@ class ReservationModel extends Equatable {
     required this.finalPrice,
     required this.pickupCode,
     required this.status,
+    this.paymentStatus = 'unpaid',
     this.couponId,
   });
 
@@ -33,6 +35,7 @@ class ReservationModel extends Equatable {
     finalPrice,
     pickupCode,
     status,
+    paymentStatus,
     couponId,
   ];
 
@@ -46,6 +49,7 @@ class ReservationModel extends Equatable {
       finalPrice: _parseDouble(json['finalPrice']),
       pickupCode: json['pickupCode'] as String? ?? '',
       status: json['status'] as String? ?? 'pending',
+      paymentStatus: json['paymentStatus'] as String? ?? 'unpaid',
       couponId: json['couponId'] as String?,
     );
   }

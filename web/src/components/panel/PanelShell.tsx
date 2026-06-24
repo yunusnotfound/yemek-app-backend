@@ -9,6 +9,7 @@ import {
   Package,
   ShoppingBag,
   Star,
+  Wallet,
   LogOut,
   Menu,
   MailWarning,
@@ -25,6 +26,7 @@ const NAV = [
   { href: "/panel/isletme", label: "İşletmem", icon: Store },
   { href: "/panel/paketler", label: "Paketler", icon: Package },
   { href: "/panel/siparisler", label: "Siparişler", icon: ShoppingBag },
+  { href: "/panel/odemeler", label: "Ödemeler", icon: Wallet },
   { href: "/panel/degerlendirmeler", label: "Değerlendirmeler", icon: Star },
 ];
 

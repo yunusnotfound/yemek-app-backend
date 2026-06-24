@@ -1,7 +1,10 @@
 const cron = require('node-cron');
-const { Notification, SurprisePackage } = require('../models');
+const { Notification, SurprisePackage, Order } = require('../models');
 const { Op } = require('sequelize');
 const logger = require('./logger');
+const iyzicoService = require('./iyzicoService');
+const paymentFinalizeService = require('./paymentFinalizeService');
+const settlementService = require('./settlementService');
 
 // Single backend instance (one VPS) — these cron jobs run exactly once per
 // schedule, so no distributed lock is needed.
@@ -99,4 +102,75 @@ const startRecurringPackagesJob = () => {
   logger.info('Tekrarlayan paket jobu başlatıldı');
 };
 
-module.exports = { startNotificationCleanupJob, startRecurringPackagesJob };
+// Her 2 dakikada bir — süresi dolan ödenmemiş hold'ları temizle.
+// Serbest bırakmadan ÖNCE iyzico'dan kontrol et (kayıp callback yedeği): ödenmişse finalize et.
+const startPaymentReaperJob = () => {
+  cron.schedule('*/2 * * * *', async () => {
+    try {
+      if (!iyzicoService.isConfigured()) return;
+
+      const expired = await Order.findAll({
+        where: {
+          status: 'awaiting_payment',
+          paymentHoldExpiresAt: { [Op.lt]: new Date() },
+        },
+        limit: 100,
+        order: [['paymentHoldExpiresAt', 'ASC']],
+      });
+
+      let released = 0;
+      let recovered = 0;
+      for (const order of expired) {
+        try {
+          // Kayıp callback yedeği: iyzico'da gerçekten ödenmiş mi?
+          if (order.paymentToken) {
+            const r = await paymentFinalizeService.finalize({
+              token: order.paymentToken,
+              conversationId: order.conversationId,
+              source: 'reaper',
+              ip: '0.0.0.0',
+            });
+            if (r.outcome === 'paid' || r.outcome === 'already_paid') {
+              recovered++;
+              continue;
+            }
+          }
+          // Ödenmemiş -> hold'u serbest bırak (sonradan ödeme gelirse finalize otomatik iade eder).
+          const ok = await paymentFinalizeService.expireUnpaidHold(order.id);
+          if (ok) released++;
+        } catch (e) {
+          logger.error(`[reaper] sipariş ${order.id} işlenemedi: ${e.message}`);
+        }
+      }
+
+      if (released || recovered) {
+        logger.info(`[reaper] ${released} hold serbest bırakıldı, ${recovered} kurtarıldı`);
+      }
+    } catch (error) {
+      logger.error('Ödeme reaper hatası:', error);
+    }
+  }, { timezone: TIMEZONE });
+
+  logger.info('Ödeme reaper jobu başlatıldı');
+};
+
+// Her 15 dakikada bir — teslim edilmiş ama onaylanamamış (held) satıcı fonlarını tekrar onayla.
+const startApprovalRetryJob = () => {
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      if (!iyzicoService.isConfigured()) return;
+      await settlementService.retryHeldApprovals();
+    } catch (error) {
+      logger.error('Approval retry hatası:', error);
+    }
+  }, { timezone: TIMEZONE });
+
+  logger.info('Approval retry jobu başlatıldı');
+};
+
+module.exports = {
+  startNotificationCleanupJob,
+  startRecurringPackagesJob,
+  startPaymentReaperJob,
+  startApprovalRetryJob,
+};

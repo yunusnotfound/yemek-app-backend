@@ -17,12 +17,13 @@ class ReservationLoading extends ReservationState {
 
 class ReservationSuccess extends ReservationState {
   final ReservationModel reservation;
+  final PaymentInit? payment;
   final String? message;
 
-  const ReservationSuccess({required this.reservation, this.message});
+  const ReservationSuccess({required this.reservation, this.payment, this.message});
 
   @override
-  List<Object?> get props => [reservation, message];
+  List<Object?> get props => [reservation, payment, message];
 }
 
 class ReservationError extends ReservationState {

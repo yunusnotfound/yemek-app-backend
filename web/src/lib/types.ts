@@ -2,9 +2,31 @@
 
 export type Role = "customer" | "business_owner" | "admin";
 
-export type OrderStatus = "pending" | "confirmed" | "picked_up" | "cancelled";
+export type OrderStatus =
+  | "awaiting_payment"
+  | "pending"
+  | "confirmed"
+  | "picked_up"
+  | "cancelled";
+
+export type PaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "paid"
+  | "failed"
+  | "refunded"
+  | "partially_refunded";
+
+export type SettlementStatus = "none" | "held" | "approved" | "disapproved" | "refunded";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
+
+export type SubMerchantType =
+  | "PERSONAL"
+  | "PRIVATE_COMPANY"
+  | "LIMITED_OR_JOINT_STOCK_COMPANY";
+
+export type SubMerchantStatus = "none" | "active" | "error";
 
 export interface User {
   id: string;
@@ -43,6 +65,9 @@ export interface Business {
   isApproved: boolean;
   approvalStatus?: ApprovalStatus;
   category?: Category;
+  // iyzico alt üye işyeri (sub-merchant)
+  subMerchantStatus?: SubMerchantStatus;
+  subMerchantType?: SubMerchantType | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -88,6 +113,9 @@ export interface Order {
   finalPrice: number;
   discountAmount: number;
   status: OrderStatus;
+  paymentStatus?: PaymentStatus;
+  settlementStatus?: SettlementStatus;
+  paidPrice?: number | null;
   pickupCode: string;
   createdAt: string;
   package?: Pick<
@@ -141,6 +169,31 @@ export interface Pagination {
 export interface Paginated<T> {
   data: T[];
   pagination: Pagination;
+}
+
+/** İşletmenin iyzico alt üye işyeri (ödeme hesabı) özeti. */
+export interface SubMerchantSummary {
+  status: SubMerchantStatus;
+  hasKey: boolean;
+  type?: SubMerchantType | null;
+  iban?: string | null; // maskeli
+  error?: string | null;
+}
+
+/** Kazanç özeti (orders'tan türetilir). */
+export interface Earnings {
+  totalSales: number;
+  commission: number;
+  netHeld: number; // teslim bekleyen (henüz onaylanmamış)
+  netApproved: number; // onaylandı -> iyzico öder
+  refunded: number;
+  currency: string;
+  commissionRate?: number;
+}
+
+export interface EarningsResponse {
+  submerchant: SubMerchantSummary;
+  earnings: Earnings;
 }
 
 /** Backend kimlik doğrulama yanıtı (login/register). */

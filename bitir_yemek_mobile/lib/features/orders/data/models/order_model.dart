@@ -9,6 +9,7 @@ class OrderModel extends Equatable {
   final double finalPrice;
   final String pickupCode;
   final String status;
+  final String paymentStatus;
   final String? couponId;
   final DateTime createdAt;
   final OrderPackageModel? package;
@@ -22,6 +23,7 @@ class OrderModel extends Equatable {
     required this.finalPrice,
     required this.pickupCode,
     required this.status,
+    this.paymentStatus = 'unpaid',
     this.couponId,
     required this.createdAt,
     this.package,
@@ -37,6 +39,7 @@ class OrderModel extends Equatable {
       finalPrice: _parseDouble(json['finalPrice']),
       pickupCode: json['pickupCode'] as String? ?? '',
       status: json['status'] as String? ?? 'pending',
+      paymentStatus: json['paymentStatus'] as String? ?? 'unpaid',
       couponId: json['couponId'] as String?,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
@@ -57,11 +60,13 @@ class OrderModel extends Equatable {
     finalPrice,
     pickupCode,
     status,
+    paymentStatus,
     couponId,
     createdAt,
     package,
   ];
 
+  bool get isAwaitingPayment => status == 'awaiting_payment';
   bool get isActive => status == 'pending' || status == 'confirmed';
   bool get isCompleted => status == 'picked_up';
   bool get isCancelled => status == 'cancelled';
@@ -69,6 +74,8 @@ class OrderModel extends Equatable {
 
   String get statusText {
     switch (status) {
+      case 'awaiting_payment':
+        return 'Ödeme Bekliyor';
       case 'pending':
         return 'Onay Bekliyor';
       case 'confirmed':

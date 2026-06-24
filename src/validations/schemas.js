@@ -247,8 +247,97 @@ const otpVerifySchema = z.object({
   phone: z.string().optional(),
 });
 
+// --- Admin paneli ---
+const pageLimit = {
+  page: z.string().regex(/^\d+$/).transform(Number).optional(),
+  limit: z.string().regex(/^\d+$/).transform(Number).optional(),
+};
+
+// Category.id INTEGER (UUID değil)
+const intIdParamSchema = z.object({
+  id: z.string().regex(/^\d+$/, "Geçerli bir ID girin").transform(Number),
+});
+
+const categoryCreateSchema = z.object({
+  name: z.string().min(1, "Kategori adı gerekli"),
+  slug: z.string().min(1).optional(),
+});
+const categoryUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  slug: z.string().min(1).optional(),
+});
+
+const adminUserUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  phone: z.string().optional(),
+  role: z.enum(["customer", "business_owner", "admin"]).optional(),
+  isEmailVerified: z.boolean().optional(),
+});
+
+const businessActiveSchema = z.object({ isActive: z.boolean() });
+const packageActiveSchema = z.object({ isActive: z.boolean() });
+const adminOrderRefundSchema = z.object({ reason: z.string().max(500).optional() });
+
+const adminUserQuerySchema = z.object({
+  ...pageLimit,
+  search: z.string().optional(),
+  role: z.enum(["customer", "business_owner", "admin"]).optional(),
+});
+const adminBusinessQuerySchema = z.object({
+  ...pageLimit,
+  search: z.string().optional(),
+  city: z.string().optional(),
+  approvalStatus: z.enum(["pending", "approved", "rejected"]).optional(),
+  isActive: z.enum(["true", "false"]).optional(),
+  subMerchantStatus: z.enum(["none", "active", "error"]).optional(),
+});
+const adminOrderQuerySchema = z.object({
+  ...pageLimit,
+  status: z.enum(["awaiting_payment", "pending", "confirmed", "picked_up", "cancelled"]).optional(),
+  paymentStatus: z.enum(["unpaid", "pending", "paid", "failed", "refunded", "partially_refunded"]).optional(),
+  businessId: z.string().uuid().optional(),
+  search: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+});
+const adminPackageQuerySchema = z.object({
+  ...pageLimit,
+  businessId: z.string().uuid().optional(),
+  isActive: z.enum(["true", "false"]).optional(),
+  search: z.string().optional(),
+});
+const adminReviewQuerySchema = z.object({
+  ...pageLimit,
+  businessId: z.string().uuid().optional(),
+  minRating: z.string().regex(/^[1-5]$/).transform(Number).optional(),
+});
+const subMerchantQuerySchema = z.object({
+  ...pageLimit,
+  subMerchantStatus: z.enum(["none", "active", "error"]).optional(),
+});
+const auditQuerySchema = z.object({
+  ...pageLimit,
+  action: z.string().optional(),
+  targetType: z.string().optional(),
+  adminId: z.string().uuid().optional(),
+});
+
 module.exports = {
   registerSchema,
+  intIdParamSchema,
+  categoryCreateSchema,
+  categoryUpdateSchema,
+  adminUserUpdateSchema,
+  businessActiveSchema,
+  packageActiveSchema,
+  adminOrderRefundSchema,
+  adminUserQuerySchema,
+  adminBusinessQuerySchema,
+  adminOrderQuerySchema,
+  adminPackageQuerySchema,
+  adminReviewQuerySchema,
+  subMerchantQuerySchema,
+  auditQuerySchema,
   loginSchema,
   businessSchema,
   packageSchema,

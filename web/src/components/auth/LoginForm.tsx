@@ -30,11 +30,17 @@ export function LoginForm({ next }: { next?: string }) {
     setFormError(null);
     setNeedsVerify(false);
     try {
-      await apiFetch("/api/auth/login", {
+      const data = await apiFetch<{ user: { role: string } }>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify(values),
       });
-      window.location.assign(next && next.startsWith("/") ? next : "/panel");
+      // next varsa (ör. /admin'e yönlendirilmişti) ona git; yoksa role göre.
+      const dest = next && next.startsWith("/")
+        ? next
+        : data?.user?.role === "admin"
+          ? "/admin"
+          : "/panel";
+      window.location.assign(dest);
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         setNeedsVerify(true);

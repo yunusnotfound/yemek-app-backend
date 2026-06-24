@@ -68,6 +68,7 @@ export interface Business {
   // iyzico alt üye işyeri (sub-merchant)
   subMerchantStatus?: SubMerchantStatus;
   subMerchantType?: SubMerchantType | null;
+  subMerchantError?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -116,6 +117,14 @@ export interface Order {
   paymentStatus?: PaymentStatus;
   settlementStatus?: SettlementStatus;
   paidPrice?: number | null;
+  commissionAmount?: number | null;
+  subMerchantPrice?: number | null;
+  refundAmount?: number | null;
+  paymentTransactionId?: string | null;
+  paymentId?: string | null;
+  conversationId?: string | null;
+  paidAt?: string | null;
+  couponId?: string | null;
   pickupCode: string;
   createdAt: string;
   package?: Pick<
@@ -194,6 +203,77 @@ export interface Earnings {
 export interface EarningsResponse {
   submerchant: SubMerchantSummary;
   earnings: Earnings;
+}
+
+// ── Admin paneli ───────────────────────────────────────────────────────────
+export interface AdminStats {
+  totalUsers: number;
+  totalBusinesses: number;
+  totalOrders: number;
+  totalPackages: number;
+  pendingBusinesses: number;
+  activeBusinesses: number;
+  todayOrders: number;
+  todayRevenue: number;
+  gmv: number;
+  commissionTotal: number;
+  refundedTotal: number;
+  customers: number;
+  businessOwners: number;
+  admins: number;
+}
+
+export interface SettlementSummary {
+  gmv: number;
+  commission: number;
+  refunded: number;
+  held: number;
+  approved: number;
+  heldCount: number;
+  approvedCount: number;
+}
+
+export type CouponType = "percentage" | "fixed";
+export interface Coupon {
+  id: string;
+  code: string;
+  discountType: CouponType;
+  discountValue: number;
+  minOrderAmount: number;
+  maxUsage: number;
+  currentUsage: number;
+  expiresAt: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SubMerchantRow {
+  id: string;
+  name: string;
+  city: string;
+  subMerchantStatus: SubMerchantStatus;
+  subMerchantType?: SubMerchantType | null;
+  iban?: string | null; // maskeli
+  subMerchantError?: string | null;
+  hasKey: boolean;
+  updatedAt: string;
+}
+
+export interface BusinessAdminDetail {
+  business: Business & { owner?: Pick<User, "id" | "name" | "email" | "phone">; iban?: string | null };
+  stats: { packageCount: number; orderCount: number; gmv: number; commission: number };
+}
+
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  targetType?: string | null;
+  targetId?: string | null;
+  metadata?: Record<string, unknown> | null;
+  ip?: string | null;
+  createdAt: string;
+  admin?: Pick<User, "id" | "name" | "email">;
 }
 
 /** Backend kimlik doğrulama yanıtı (login/register). */

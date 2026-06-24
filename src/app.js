@@ -140,9 +140,18 @@ const businessDashboardLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(generalLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/business-dashboard', businessDashboardLimiter);
+app.use('/api/admin', adminLimiter);
 app.use('/api/payments', paymentsLimiter);
 
 // iyzico webhook imzası için HAM gövde gerekir -> global JSON parser'dan ÖNCE,

@@ -10,6 +10,7 @@ const Notification = require('./Notification');
 const Coupon = require('./Coupon');
 const BusinessHours = require('./BusinessHours');
 const EmailOtp = require('./EmailOtp');
+const AdminAuditLog = require('./AdminAuditLog');
 
 // User <-> Business
 User.hasMany(Business, { foreignKey: 'ownerId', as: 'businesses' });
@@ -61,6 +62,10 @@ Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Business.hasMany(BusinessHours, { foreignKey: 'businessId', as: 'workingHours' });
 BusinessHours.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
 
+// User <-> AdminAuditLog (admin işlem denetimi)
+User.hasMany(AdminAuditLog, { foreignKey: 'adminId', as: 'auditLogs' });
+AdminAuditLog.belongsTo(User, { foreignKey: 'adminId', as: 'admin' });
+
 module.exports = {
   sequelize,
   User,
@@ -74,4 +79,5 @@ module.exports = {
   Coupon,
   BusinessHours,
   EmailOtp,
+  AdminAuditLog,
 };

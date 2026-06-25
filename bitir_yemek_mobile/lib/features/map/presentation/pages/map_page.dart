@@ -73,6 +73,11 @@ class _MapPageContentState extends State<_MapPageContent> {
 
   void _onMapCreated(MapboxMap controller) {
     _mapController = controller;
+    // Harita alt kısmındaki "mapbox" logosunu ve (i) attribution butonunu gizle.
+    controller.logo.updateSettings(LogoSettings(enabled: false));
+    controller.attribution.updateSettings(AttributionSettings(enabled: false));
+    // Üst kısımdaki ölçek çubuğunu (scale bar) gizle.
+    controller.scaleBar.updateSettings(ScaleBarSettings(enabled: false));
     _initAnnotationManagers();
   }
 

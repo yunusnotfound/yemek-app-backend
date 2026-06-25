@@ -107,10 +107,13 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
     String? categoryId,
     int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
   }) async {
     final cacheKey = "packages:list:cat${categoryId ?? ''}:p$page:l$limit";
 
-    final cached = _cache.get<Map<String, dynamic>>(cacheKey);
+    final cached = forceRefresh
+        ? null
+        : _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) {
       final packagesResponse = PackagesResponse.fromJson(cached);
       return PackagesResult.success(
@@ -147,11 +150,15 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
     double radius = 5.0,
     int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
+    String? categoryId,
   }) async {
     final cacheKey =
-        'packages:nearby:${latitude.toStringAsFixed(4)}:${longitude.toStringAsFixed(4)}:r$radius:p$page:l$limit';
+        'packages:nearby:${latitude.toStringAsFixed(4)}:${longitude.toStringAsFixed(4)}:r$radius:c${categoryId ?? ''}:p$page:l$limit';
 
-    final cached = _cache.get<Map<String, dynamic>>(cacheKey);
+    final cached = forceRefresh
+        ? null
+        : _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) {
       final packagesResponse = PackagesResponse.fromJson(cached);
       return PackagesResult.success(
@@ -167,6 +174,7 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
         radius: radius,
         page: page,
         limit: limit,
+        categoryId: categoryId,
       );
 
       _cache.set(cacheKey, response);
@@ -184,10 +192,12 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
   }
 
   @override
-  Future<CategoriesResult> getCategories() async {
+  Future<CategoriesResult> getCategories({bool forceRefresh = false}) async {
     const cacheKey = 'categories:all';
 
-    final cached = _cache.get<Map<String, dynamic>>(cacheKey);
+    final cached = forceRefresh
+        ? null
+        : _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) {
       final categoriesData = cached['categories'] ?? cached['data'];
       if (categoriesData != null) {

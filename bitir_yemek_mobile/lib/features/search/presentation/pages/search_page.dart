@@ -178,29 +178,33 @@ class _SearchViewState extends State<SearchView> {
                       return _buildEmptyState();
                     }
 
-                    return BlocBuilder<FavoritesBloc, FavoritesState>(
-                      // Favori durumu kart içindeki FavoriteButton'da izleniyor;
-                      // liste favori değişiminde rebuild olmaz.
-                      buildWhen: (previous, current) => false,
-                      builder: (context, favState) {
-                        final favIds = favState is FavoritesLoaded
-                            ? favState.favorites
-                                  .map((f) => f.businessId)
-                                  .toSet()
-                            : favState is FavoritesLoadingMore
-                            ? favState.favorites
-                                  .map((f) => f.businessId)
-                                  .toSet()
-                            : <String>{};
-
-                        return RefreshIndicator(
+                    // Favori durumu kart içindeki FavoriteButton'da izleniyor;
+                    // liste favori değişiminde rebuild olmaz.
+                    return RefreshIndicator(
                           onRefresh: () async {
-                            context.read<SearchBloc>().add(
+                            final searchBloc = context.read<SearchBloc>();
+                            searchBloc.add(
                               SearchPackages(
                                 latitude: widget.latitude,
                                 longitude: widget.longitude,
+                                query: _searchController.text.trim().isEmpty
+                                    ? null
+                                    : _searchController.text.trim(),
+                                forceRefresh: true,
                               ),
                             );
+                            // Spinner, sonuç gelene kadar dönsün. Taze veri
+                            // öncekiyle aynıysa bloc yinelenen state'i bastırıp
+                            // emit etmeyebilir; timeout ile spinner takılmasın.
+                            await searchBloc.stream
+                                .firstWhere(
+                                  (s) =>
+                                      s is SearchLoaded || s is SearchError,
+                                )
+                                .timeout(
+                                  const Duration(seconds: 8),
+                                  onTimeout: () => searchBloc.state,
+                                );
                           },
                           color: AppColors.primary,
                           child: ListView.builder(
@@ -229,16 +233,6 @@ class _SearchViewState extends State<SearchView> {
                                 child: PackageCard(
                                   package: packages[index],
                                   isHorizontal: false,
-                                  isFavorite: favIds.contains(
-                                    packages[index].business.id,
-                                  ),
-                                  onFavoriteTap: () {
-                                    context.read<FavoritesBloc>().add(
-                                      ToggleFavorite(
-                                        businessId: packages[index].business.id,
-                                      ),
-                                    );
-                                  },
                                   onTap: () {
                                     final favBloc = context
                                         .read<FavoritesBloc>();
@@ -258,8 +252,6 @@ class _SearchViewState extends State<SearchView> {
                             },
                           ),
                         );
-                      },
-                    );
                   }
 
                   return const SizedBox.shrink();

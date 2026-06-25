@@ -83,18 +83,24 @@ class BusinessesRemoteDataSource {
     int page = 1,
     int limit = 10,
     bool excludeExpired = true,
+    String? categoryId,
   }) async {
     try {
+      final queryParams = <String, dynamic>{
+        'lat': latitude,
+        'lng': longitude,
+        'radius': radius,
+        'page': page,
+        'limit': limit,
+        'excludeExpired': excludeExpired.toString(),
+      };
+      // Backend /packages, lat/lng/radius ile categoryId'yi birlikte destekler;
+      // böylece kategori filtresi de konuma duyarlı (yakındaki) kalır.
+      if (categoryId != null) queryParams['categoryId'] = categoryId;
+
       final response = await _dioClient.dio.get(
         '/packages',
-        queryParameters: {
-          'lat': latitude,
-          'lng': longitude,
-          'radius': radius,
-          'page': page,
-          'limit': limit,
-          'excludeExpired': excludeExpired.toString(),
-        },
+        queryParameters: queryParams,
       );
 
       return response.data as Map<String, dynamic>;

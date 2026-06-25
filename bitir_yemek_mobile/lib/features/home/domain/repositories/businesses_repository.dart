@@ -20,6 +20,7 @@ abstract class BusinessesRepository {
     String? categoryId,
     int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
   });
 
   Future<PackagesResult> getNearbyPackages({
@@ -28,9 +29,11 @@ abstract class BusinessesRepository {
     double radius = 5.0,
     int page = 1,
     int limit = 10,
+    bool forceRefresh = false,
+    String? categoryId,
   });
 
-  Future<CategoriesResult> getCategories();
+  Future<CategoriesResult> getCategories({bool forceRefresh = false});
 
   Future<ReservationResult> createReservation({
     required String packageId,

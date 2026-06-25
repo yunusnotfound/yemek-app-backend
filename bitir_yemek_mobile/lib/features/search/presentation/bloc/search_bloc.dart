@@ -41,7 +41,10 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
     SearchPackages event,
     Emitter<SearchState> emit,
   ) async {
-    emit(SearchLoading());
+    // Pull-to-refresh sırasında mevcut liste görünür kalsın (shimmer'a düşmesin).
+    if (!event.forceRefresh) {
+      emit(SearchLoading());
+    }
 
     try {
       final result = await _repository.getNearbyPackages(
@@ -50,6 +53,7 @@ class SearchBloc extends Bloc<SearchEvent, SearchState> {
         radius: 50.0, // Daha geniş arama
         page: 1,
         limit: 20,
+        forceRefresh: event.forceRefresh,
       );
 
       if (result.isSuccess) {

@@ -13,6 +13,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     : _repository = repository,
       super(HomeInitial()) {
     on<LoadCategories>(_onLoadCategories);
+    on<RefreshCategories>(_onRefreshCategories);
   }
 
   Future<void> _onLoadCategories(
@@ -20,9 +21,24 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     Emitter<HomeState> emit,
   ) async {
     emit(HomeLoading());
+    await _fetchCategories(emit);
+  }
 
+  Future<void> _onRefreshCategories(
+    RefreshCategories event,
+    Emitter<HomeState> emit,
+  ) async {
+    // HomeLoading emit etmiyoruz: pull-to-refresh sırasında kategori şeridi
+    // kaybolup geri gelmesin. Cache bypass ile taze veri çekilir.
+    await _fetchCategories(emit, forceRefresh: true);
+  }
+
+  Future<void> _fetchCategories(
+    Emitter<HomeState> emit, {
+    bool forceRefresh = false,
+  }) async {
     try {
-      final result = await _repository.getCategories();
+      final result = await _repository.getCategories(forceRefresh: forceRefresh);
 
       if (result.isSuccess &&
           result.categories != null &&
@@ -32,11 +48,14 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
         final categories = [allCategory, ...result.categories!];
 
         emit(HomeLoaded(categories: categories));
-      } else {
+      } else if (state is! HomeLoaded) {
+        // Refresh sırasında mevcut kategoriler varsa onları koru.
         emit(HomeError(message: result.error ?? 'Kategoriler yüklenemedi'));
       }
     } catch (e) {
-      emit(HomeError(message: 'Kategoriler yüklenirken hata: $e'));
+      if (state is! HomeLoaded) {
+        emit(HomeError(message: 'Kategoriler yüklenirken hata: $e'));
+      }
     }
   }
 }

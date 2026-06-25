@@ -13,15 +13,25 @@ class SearchPackages extends SearchEvent {
   final String? query;
   final SortOrder sortOrder;
 
+  /// Pull-to-refresh: cache'i bypass ederek taze veri çeker.
+  final bool forceRefresh;
+
   const SearchPackages({
     required this.latitude,
     required this.longitude,
     this.query,
     this.sortOrder = SortOrder.distance,
+    this.forceRefresh = false,
   });
 
   @override
-  List<Object?> get props => [latitude, longitude, query, sortOrder];
+  List<Object?> get props => [
+    latitude,
+    longitude,
+    query,
+    sortOrder,
+    forceRefresh,
+  ];
 }
 
 class LoadMoreSearchResults extends SearchEvent {

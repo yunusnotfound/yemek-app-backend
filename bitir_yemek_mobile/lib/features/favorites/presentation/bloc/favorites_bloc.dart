@@ -186,6 +186,22 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
 
       try {
         await _repository.addFavorite(event.businessId);
+        // Başarılı: placeholder yerine gerçek modeli getir (ad/adres dolu olsun).
+        // Sessiz refetch — Loading emit etmiyoruz, kalp zaten optimistik dolu.
+        try {
+          _currentPage = 1;
+          final response = await _repository.getFavorites(page: 1);
+          _favorites = response.favorites;
+          _hasReachedMax = response.page >= response.totalPages;
+          emit(
+            FavoritesLoaded(
+              favorites: _favorites,
+              hasReachedMax: _hasReachedMax,
+            ),
+          );
+        } catch (_) {
+          // Refetch başarısızsa optimistik (placeholder) liste kalır; sorun değil.
+        }
       } catch (e) {
         // Sunucu reddetti → optimistik eklemeyi geri al.
         _favorites = _favorites

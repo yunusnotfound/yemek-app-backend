@@ -158,15 +158,9 @@ class _PackageDetailView extends StatelessWidget {
           BlocBuilder<FavoritesBloc, FavoritesState>(
             bloc: favBloc,
             builder: (context, favState) {
-              final isFav = favState is FavoritesLoaded
-                  ? favState.favorites.any(
-                      (f) => f.businessId == package.business.id,
-                    )
-                  : favState is FavoritesLoadingMore
-                  ? favState.favorites.any(
-                      (f) => f.businessId == package.business.id,
-                    )
-                  : false;
+              // Bloc'un her zaman güncel olan listesinden oku; araya giren
+              // marker state'lerde (Add/RemoveSuccess) kalp titremesin.
+              final isFav = favBloc!.isFavorite(package.business.id);
 
               return GestureDetector(
                 onTap: () {

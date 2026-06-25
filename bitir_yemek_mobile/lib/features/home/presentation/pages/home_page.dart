@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
@@ -64,6 +65,9 @@ class _HomeViewState extends State<HomeView> {
   int _selectedCategoryIndex = 0;
   List<CategoryModel> _categories = [];
 
+  /// Seçili kategori id'si (null = "Hepsi"). Pull-to-refresh bunu kullanır.
+  String? _currentCategoryId;
+
   @override
   void initState() {
     super.initState();
@@ -104,6 +108,7 @@ class _HomeViewState extends State<HomeView> {
     final categoryId = _categories[index].id == 0
         ? null
         : _categories[index].id.toString();
+    _currentCategoryId = categoryId;
 
     if (categoryId == null) {
       context.read<PackagesBloc>().add(
@@ -263,30 +268,26 @@ class _HomeViewState extends State<HomeView> {
                       return _buildEmptyState();
                     }
 
-                    return BlocBuilder<FavoritesBloc, FavoritesState>(
-                      // Favori durumu artık her kartın içindeki FavoriteButton
-                      // tarafından izleniyor; liste favori değişiminde rebuild olmaz
-                      // (yalnız ilgili kalp yeniden çizilir).
-                      buildWhen: (previous, current) => false,
-                      builder: (context, favState) {
-                        final favIds = favState is FavoritesLoaded
-                            ? favState.favorites
-                                  .map((f) => f.businessId)
-                                  .toSet()
-                            : favState is FavoritesLoadingMore
-                            ? favState.favorites
-                                  .map((f) => f.businessId)
-                                  .toSet()
-                            : <String>{};
-
-                        return RefreshIndicator(
+                    // Favori durumu her kartın içindeki FavoriteButton
+                    // tarafından izleniyor; liste favori değişiminde rebuild
+                    // olmaz (yalnız ilgili kalp yeniden çizilir).
+                    return RefreshIndicator(
                           onRefresh: () async {
+                            context.read<HomeBloc>().add(
+                              const RefreshCategories(),
+                            );
+                            // Spinner, paketler oturana kadar dönsün. onDone,
+                            // veri değişmese bile tamamlanır (state bastırılsa da).
+                            final done = Completer<void>();
                             context.read<PackagesBloc>().add(
-                              LoadNearbyPackages(
+                              RefreshPackages(
                                 latitude: widget.latitude,
                                 longitude: widget.longitude,
+                                categoryId: _currentCategoryId,
+                                onDone: done,
                               ),
                             );
+                            await done.future;
                           },
                           color: AppColors.primary,
                           child: CustomScrollView(
@@ -364,17 +365,6 @@ class _HomeViewState extends State<HomeView> {
                                         child: PackageCard(
                                           package: packages[index],
                                           isHorizontal: true,
-                                          isFavorite: favIds.contains(
-                                            packages[index].business.id,
-                                          ),
-                                          onFavoriteTap: () {
-                                            context.read<FavoritesBloc>().add(
-                                              ToggleFavorite(
-                                                businessId:
-                                                    packages[index].business.id,
-                                              ),
-                                            );
-                                          },
                                           onTap: () {
                                             final favBloc = context
                                                 .read<FavoritesBloc>();
@@ -478,17 +468,6 @@ class _HomeViewState extends State<HomeView> {
                                       child: PackageCard(
                                         package: packages[index],
                                         isHorizontal: false,
-                                        isFavorite: favIds.contains(
-                                          packages[index].business.id,
-                                        ),
-                                        onFavoriteTap: () {
-                                          context.read<FavoritesBloc>().add(
-                                            ToggleFavorite(
-                                              businessId:
-                                                  packages[index].business.id,
-                                            ),
-                                          );
-                                        },
                                         onTap: () {
                                           final favBloc = context
                                               .read<FavoritesBloc>();
@@ -512,8 +491,6 @@ class _HomeViewState extends State<HomeView> {
                             ],
                           ),
                         );
-                      },
-                    );
                   }
 
                   return const SizedBox.shrink();
@@ -560,10 +537,12 @@ class _HomeViewState extends State<HomeView> {
           const SizedBox(height: AppSpacing.xl),
           ElevatedButton.icon(
             onPressed: () {
+              context.read<HomeBloc>().add(const RefreshCategories());
               context.read<PackagesBloc>().add(
-                LoadNearbyPackages(
+                RefreshPackages(
                   latitude: widget.latitude,
                   longitude: widget.longitude,
+                  categoryId: _currentCategoryId,
                 ),
               );
             },

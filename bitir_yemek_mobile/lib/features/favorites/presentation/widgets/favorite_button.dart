@@ -13,17 +13,16 @@ class FavoriteButton extends StatelessWidget {
 
   const FavoriteButton({super.key, required this.businessId, this.size = 22});
 
-  bool _isFav(FavoritesState state) =>
-      state is FavoritesLoaded &&
-      state.favorites.any((f) => f.businessId == businessId);
-
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<FavoritesBloc, FavoritesState>(
-      buildWhen: (prev, curr) =>
-          curr is FavoritesLoaded && _isFav(prev) != _isFav(curr),
-      builder: (context, state) {
-        final isFav = _isFav(state);
+    // Favori durumunu bloc'un her zaman güncel olan _favorites listesinden
+    // (isFavorite getter) okuyoruz. BlocSelector her emit'te yeniden hesaplar
+    // ama yalnız bu işletmenin boolean değeri değiştiğinde rebuild eder; araya
+    // giren marker state'ler (FavoriteAddSuccess/RemoveSuccess) değeri bozmaz,
+    // böylece ekleme ve çıkarma anında yansır.
+    return BlocSelector<FavoritesBloc, FavoritesState, bool>(
+      selector: (_) => context.read<FavoritesBloc>().isFavorite(businessId),
+      builder: (context, isFav) {
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => context

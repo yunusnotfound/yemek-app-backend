@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../config/theme.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../home/data/models/business_model.dart';
+import '../../../home/presentation/pages/business_detail_page.dart';
 import '../../data/datasources/map_remote_datasource.dart';
 import '../../data/repositories/map_repository_impl.dart';
 import '../bloc/map_bloc.dart';
@@ -566,7 +567,14 @@ class _MapPageContentState extends State<_MapPageContent> {
   }
 
   void _onViewDetails(BusinessModel business) {
-    debugPrint('View details tapped for ${business.name}');
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BusinessDetailPage(
+          businessId: business.id,
+          businessName: business.name,
+        ),
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------

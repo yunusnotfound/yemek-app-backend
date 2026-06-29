@@ -1,5 +1,6 @@
 import '../datasources/map_remote_datasource.dart';
 import '../../../home/data/models/business_model.dart';
+import '../../../home/data/models/package_model.dart';
 import '../../domain/repositories/map_repository.dart';
 
 class MapRepositoryImpl implements MapRepository {
@@ -51,6 +52,18 @@ class MapRepositoryImpl implements MapRepository {
       return DirectionsResult.failure('Bir hata oluştu: $e');
     }
   }
+
+  @override
+  Future<BusinessPackagesResult> getBusinessPackages(String businessId) async {
+    try {
+      final packages = await _remoteDataSource.getBusinessPackages(businessId);
+      return BusinessPackagesResult.success(packages: packages);
+    } on MapException catch (e) {
+      return BusinessPackagesResult.failure(e.message);
+    } catch (e) {
+      return BusinessPackagesResult.failure('Bir hata oluştu: $e');
+    }
+  }
 }
 
 class MapBusinessesResult {
@@ -68,6 +81,28 @@ class MapBusinessesResult {
 
   factory MapBusinessesResult.failure(String error) {
     return MapBusinessesResult._(isSuccess: false, error: error);
+  }
+}
+
+class BusinessPackagesResult {
+  final bool isSuccess;
+  final List<PackageModel>? packages;
+  final String? error;
+
+  BusinessPackagesResult._({
+    required this.isSuccess,
+    this.packages,
+    this.error,
+  });
+
+  factory BusinessPackagesResult.success({
+    required List<PackageModel> packages,
+  }) {
+    return BusinessPackagesResult._(isSuccess: true, packages: packages);
+  }
+
+  factory BusinessPackagesResult.failure(String error) {
+    return BusinessPackagesResult._(isSuccess: false, error: error);
   }
 }
 

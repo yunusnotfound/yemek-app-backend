@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../config/constants.dart';
 import '../../../home/data/models/business_model.dart';
+import '../../../home/data/models/package_model.dart';
 
 class MapRemoteDataSource {
   final DioClient _dioClient;
@@ -33,6 +34,34 @@ class MapRemoteDataSource {
 
       return businessesData
           .map((e) => BusinessModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  /// İşletme detayını çekip aktif paketlerini döndürür (GET /businesses/:id).
+  /// PackageModel.fromJson iç içe `business` beklediğinden, her pakete parent
+  /// işletmeyi (packages alanı çıkarılmış) enjekte ederiz.
+  Future<List<PackageModel>> getBusinessPackages(String businessId) async {
+    try {
+      final response = await _dioClient.dio.get('/businesses/$businessId');
+
+      final data = response.data as Map<String, dynamic>;
+      final businessJson = data['business'] as Map<String, dynamic>?;
+      if (businessJson == null) return [];
+
+      final pkgs = (businessJson['packages'] as List<dynamic>?) ?? const [];
+      final businessForPkg = Map<String, dynamic>.of(businessJson)
+        ..remove('packages');
+
+      return pkgs
+          .map(
+            (p) => PackageModel.fromJson({
+              ...p as Map<String, dynamic>,
+              'business': businessForPkg,
+            }),
+          )
           .toList();
     } on DioException catch (e) {
       throw _handleDioError(e);

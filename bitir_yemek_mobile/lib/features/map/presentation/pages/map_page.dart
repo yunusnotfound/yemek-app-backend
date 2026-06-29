@@ -711,6 +711,8 @@ class _MapPageContentState extends State<_MapPageContent> {
                   bottom: 0,
                   child: BusinessMapCard(
                     business: state.selectedBusiness!,
+                    package: state.selectedPackage,
+                    packageLoading: state.packageLoading,
                     directions: state.directions,
                     onClose: _onCloseCard,
                     onNavigate: () => _onNavigate(state.selectedBusiness!),
@@ -777,7 +779,8 @@ class _MapPageContentState extends State<_MapPageContent> {
 
   double _getFabBottomOffset(MapState state) {
     if (state is MapLoaded && state.selectedBusiness != null) {
-      return 260;
+      // Genişletilmiş TGTG kartının üstünde kal.
+      return 430 + MediaQuery.of(context).padding.bottom;
     }
     return 110 + MediaQuery.of(context).padding.bottom;
   }

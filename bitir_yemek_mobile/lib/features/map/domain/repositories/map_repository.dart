@@ -13,4 +13,6 @@ abstract class MapRepository {
     required double destLat,
     required double destLng,
   });
+
+  Future<BusinessPackagesResult> getBusinessPackages(String businessId);
 }

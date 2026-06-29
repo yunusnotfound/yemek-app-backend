@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'map_event.dart';
 import 'map_state.dart';
 import '../../domain/repositories/map_repository.dart';
+import '../../../home/data/models/package_model.dart';
 
 class MapBloc extends Bloc<MapEvent, MapState> {
   final MapRepository _repository;
@@ -44,9 +45,56 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     Emitter<MapState> emit,
   ) async {
     final currentState = state;
-    if (currentState is MapLoaded) {
-      emit(currentState.copyWith(selectedBusiness: event.business));
+    if (currentState is! MapLoaded) return;
+
+    // Kartı hemen aç; paket yüklenirken iskelet göster.
+    emit(
+      currentState.copyWith(
+        selectedBusiness: event.business,
+        clearPackage: true,
+        packageLoading: true,
+      ),
+    );
+
+    final result = await _repository.getBusinessPackages(event.business.id);
+
+    // Kullanıcı bu sırada başka işletme seçtiyse eski sonucu yazma.
+    final latest = state;
+    if (latest is! MapLoaded ||
+        latest.selectedBusiness?.id != event.business.id) {
+      return;
     }
+
+    if (result.isSuccess && result.packages != null) {
+      emit(
+        latest.copyWith(
+          selectedPackage: _pickRepresentativePackage(result.packages!),
+          packageLoading: false,
+        ),
+      );
+    } else {
+      emit(latest.copyWith(packageLoading: false));
+    }
+  }
+
+  /// pickupDate >= bugün olan paketlerden (pickupDate, pickupStart)'a göre
+  /// en yakın olanı seçer; yoksa null.
+  PackageModel? _pickRepresentativePackage(List<PackageModel> packages) {
+    final today = DateTime.now();
+    final todayStr =
+        '${today.year.toString().padLeft(4, '0')}-'
+        '${today.month.toString().padLeft(2, '0')}-'
+        '${today.day.toString().padLeft(2, '0')}';
+
+    final upcoming =
+        packages.where((p) => p.pickupDate.compareTo(todayStr) >= 0).toList()
+          ..sort((a, b) {
+            final dateCmp = a.pickupDate.compareTo(b.pickupDate);
+            if (dateCmp != 0) return dateCmp;
+            return a.pickupStart.compareTo(b.pickupStart);
+          });
+
+    return upcoming.isNotEmpty ? upcoming.first : null;
   }
 
   Future<void> _onClearSelection(

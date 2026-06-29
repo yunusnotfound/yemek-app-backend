@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -60,30 +59,28 @@ class _MapPageContent extends StatefulWidget {
 }
 
 class _MapPageContentState extends State<_MapPageContent> {
-  // Style source/layer kimlikleri.
-  static const String _sourceId = 'businesses-source';
-  static const String _unclusteredLayerId = 'businesses-unclustered';
-  static const String _clusterLayerId = 'businesses-clusters';
-  static const String _clusterCountLayerId = 'businesses-cluster-count';
-
-  // Marka renkleri (badge/cluster için teal — AppColors.primary turuncu olduğundan kullanılmıyor).
+  // Marka renkleri (badge için teal — AppColors.primary turuncu olduğundan kullanılmıyor).
   static const int _tealColor = 0xFF0E5A4F;
+  static const int _iconSize = 120;
 
   MapboxMap? _mapController;
   PointAnnotationManager? _pointAnnotationManager;
   PolylineAnnotationManager? _polylineAnnotationManager;
   PolylineAnnotation? _currentPolyline;
+  Cancelable? _tapCancelable;
 
-  final Map<String, BusinessModel> _businessById = {};
+  final Map<String, BusinessModel> _annotationIdToBusiness = {};
+  final List<PointAnnotation> _businessAnnotations = [];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  bool _styleLoaded = false;
-  bool _layersAdded = false;
-  bool _settingUp = false;
+  bool _markersLoaded = false;
+  bool _loadingMarkers = false;
+  bool _cameraFitted = false;
 
   @override
   void dispose() {
+    _tapCancelable?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -102,11 +99,6 @@ class _MapPageContentState extends State<_MapPageContent> {
     _initAnnotationManagers();
   }
 
-  void _onStyleLoaded(StyleLoadedEventData _) {
-    _styleLoaded = true;
-    _setupMarkers();
-  }
-
   Future<void> _initAnnotationManagers() async {
     if (_mapController == null) return;
     try {
@@ -114,190 +106,139 @@ class _MapPageContentState extends State<_MapPageContent> {
           .createPointAnnotationManager();
       _polylineAnnotationManager = await _mapController!.annotations
           .createPolylineAnnotationManager();
-      await _addCurrentLocationMarker();
+
+      _tapCancelable = _pointAnnotationManager!.tapEvents(
+        onTap: (PointAnnotation annotation) => _onAnnotationTapped(annotation),
+      );
+
+      _loadMarkers();
     } catch (e) {
       debugPrint('Error creating annotation manager: $e');
     }
   }
 
   // ---------------------------------------------------------------------------
-  // Business markers — GeoJSON source + clustering
+  // Business markers (PointAnnotation)
   // ---------------------------------------------------------------------------
 
-  List<BusinessModel> get _visibleBusinesses {
+  List<BusinessModel> get _allBusinesses {
     final state = context.read<MapBloc>().state;
-    final all = state is MapLoaded
-        ? state.businesses
-        : (state is MapError ? state.businesses : const <BusinessModel>[]);
+    if (state is MapLoaded) return state.businesses;
+    if (state is MapError) return state.businesses;
+    return const [];
+  }
+
+  List<BusinessModel> get _visibleBusinesses {
+    final all = _allBusinesses;
     if (_searchQuery.isEmpty) return all;
     final q = _searchQuery.toLowerCase();
     return all.where((b) => b.name.toLowerCase().contains(q)).toList();
   }
 
-  Future<void> _setupMarkers() async {
-    if (_mapController == null || !_styleLoaded || _layersAdded || _settingUp) {
-      return;
-    }
+  /// İlk yüklemede tüm marker'ları kurar ve kamerayı çerçeveler.
+  Future<void> _loadMarkers() async {
+    if (_pointAnnotationManager == null || _loadingMarkers) return;
     final state = context.read<MapBloc>().state;
     if (state is! MapLoaded || state.businesses.isEmpty) return;
 
-    _settingUp = true;
-    try {
-      final style = _mapController!.style;
-      _businessById.clear();
+    await _renderBusinessMarkers(_visibleBusinesses);
+    _markersLoaded = true;
 
-      // 1) Her işletme için logolu (badge'li) marker görselini kaydet.
-      //    Ağ logoları paralel yüklenir; render + kayıt sırayla yapılır.
+    if (!_cameraFitted) {
+      _cameraFitted = true;
+      await _fitCameraToMarkers(state.businesses);
+    }
+  }
+
+  /// Verilen işletmeler için marker'ları (logo + rozet) oluşturur.
+  /// Önce mevcut işletme marker'larını ve kullanıcı konumunu temizler, yeniden çizer.
+  Future<void> _renderBusinessMarkers(List<BusinessModel> businesses) async {
+    final manager = _pointAnnotationManager;
+    if (manager == null || _loadingMarkers) return;
+    _loadingMarkers = true;
+
+    try {
+      await manager.deleteAll();
+      _businessAnnotations.clear();
+      _annotationIdToBusiness.clear();
+
+      // Kullanıcı konumu marker'ı.
+      await _addCurrentLocationMarker();
+
+      // Ağ logoları paralel yüklenir; render + create sırayla yapılır.
       final logos = await Future.wait(
-        state.businesses.map((b) => _loadNetworkImage(b.imageUrl)),
+        businesses.map((b) => _loadNetworkImage(b.imageUrl)),
       );
-      for (var i = 0; i < state.businesses.length; i++) {
-        final business = state.businesses[i];
-        _businessById[business.id] = business;
+      for (var i = 0; i < businesses.length; i++) {
+        final business = businesses[i];
         try {
-          final bytes = await _createLogoMarkerIcon(business, logos[i]);
-          await style.addStyleImage(
-            'marker_${business.id}',
-            2.5,
-            MbxImage(width: _iconSize, height: _iconSize, data: bytes),
-            false,
-            const [],
-            const [],
-            null,
+          final iconBytes = await _createLogoMarkerIcon(business, logos[i]);
+          final annotation = await manager.create(
+            PointAnnotationOptions(
+              geometry: Point(
+                coordinates: Position(business.longitude, business.latitude),
+              ),
+              image: iconBytes,
+              iconSize: 0.85,
+              iconAnchor: IconAnchor.CENTER,
+            ),
           );
+          _businessAnnotations.add(annotation);
+          _annotationIdToBusiness[annotation.id] = business;
         } catch (e) {
           debugPrint('Error creating marker for ${business.name}: $e');
         }
       }
-
-      // 2) Cluster özellikli GeoJSON source ekle.
-      if (!await style.styleSourceExists(_sourceId)) {
-        final sourceJson = jsonEncode({
-          'type': 'geojson',
-          'cluster': true,
-          'clusterRadius': 50,
-          'clusterMaxZoom': 14,
-          'data': _featureCollection(_visibleBusinesses),
-        });
-        await style.addStyleSource(_sourceId, sourceJson);
-      }
-
-      // 3) Katmanlar: kümelenmemiş semboller + küme dairesi + küme sayısı.
-      if (!await style.styleLayerExists(_unclusteredLayerId)) {
-        await style.addStyleLayer(
-          jsonEncode({
-            'id': _unclusteredLayerId,
-            'type': 'symbol',
-            'source': _sourceId,
-            'slot': 'top',
-            'filter': ['!', ['has', 'point_count']],
-            'layout': {
-              'icon-image': ['get', 'icon'],
-              'icon-size': 1.0,
-              'icon-allow-overlap': true,
-              'icon-anchor': 'center',
-            },
-          }),
-          null,
-        );
-      }
-      if (!await style.styleLayerExists(_clusterLayerId)) {
-        await style.addStyleLayer(
-          jsonEncode({
-            'id': _clusterLayerId,
-            'type': 'circle',
-            'source': _sourceId,
-            'slot': 'top',
-            'filter': ['has', 'point_count'],
-            'paint': {
-              'circle-color': '#0E5A4F',
-              'circle-radius': [
-                'step',
-                ['get', 'point_count'],
-                20,
-                10,
-                26,
-                30,
-                32,
-              ],
-              'circle-stroke-width': 4,
-              'circle-stroke-color': '#FFFFFF',
-            },
-          }),
-          null,
-        );
-      }
-      if (!await style.styleLayerExists(_clusterCountLayerId)) {
-        await style.addStyleLayer(
-          jsonEncode({
-            'id': _clusterCountLayerId,
-            'type': 'symbol',
-            'source': _sourceId,
-            'slot': 'top',
-            'filter': ['has', 'point_count'],
-            'layout': {
-              'text-field': ['get', 'point_count_abbreviated'],
-              'text-size': 15,
-              'text-allow-overlap': true,
-            },
-            'paint': {'text-color': '#FFFFFF'},
-          }),
-          null,
-        );
-      }
-
-      _layersAdded = true;
     } catch (e) {
-      debugPrint('Error setting up markers: $e');
+      debugPrint('Error rendering markers: $e');
     } finally {
-      _settingUp = false;
+      _loadingMarkers = false;
     }
   }
 
-  /// Arama sonucu değişince sadece source verisini güncelle (görselleri tekrar kurmadan).
-  Future<void> _refreshSourceData() async {
-    if (_mapController == null || !_layersAdded) return;
+  Future<void> _fitCameraToMarkers(List<BusinessModel> businesses) async {
+    if (_mapController == null || businesses.isEmpty) return;
     try {
-      await _mapController!.style.setStyleSourceProperty(
-        _sourceId,
-        'data',
-        _featureCollection(_visibleBusinesses),
+      final points = <Point>[
+        Point(coordinates: Position(widget.longitude, widget.latitude)),
+        ...businesses.map(
+          (b) => Point(coordinates: Position(b.longitude, b.latitude)),
+        ),
+      ];
+      final camera = await _mapController!.cameraForCoordinatesPadding(
+        points,
+        CameraOptions(),
+        MbxEdgeInsets(top: 140, left: 60, bottom: 200, right: 60),
+        16.0, // maxZoom — tek işletme kullanıcıya çok yakınsa aşırı zoom'u engeller
+        null,
       );
+      await _mapController!.flyTo(camera, MapAnimationOptions(duration: 700));
     } catch (e) {
-      debugPrint('Error refreshing source data: $e');
+      debugPrint('Error fitting camera: $e');
     }
   }
 
-  Map<String, dynamic> _featureCollection(List<BusinessModel> list) {
-    return {
-      'type': 'FeatureCollection',
-      'features': list
-          .map(
-            (b) => {
-              'type': 'Feature',
-              'geometry': {
-                'type': 'Point',
-                'coordinates': [b.longitude, b.latitude],
-              },
-              'properties': {
-                'businessId': b.id,
-                'icon': 'marker_${b.id}',
-                'packageCount': b.packageCount,
-              },
-            },
-          )
-          .toList(),
-    };
+  void _onAnnotationTapped(PointAnnotation annotation) {
+    final business = _annotationIdToBusiness[annotation.id];
+    if (business == null) return; // kullanıcı konumu marker'ı vb.
+
+    context.read<MapBloc>().add(SelectBusiness(business: business));
+    context.read<MapBloc>().add(
+      RequestDirections(
+        originLat: widget.latitude,
+        originLng: widget.longitude,
+        destLat: business.latitude,
+        destLng: business.longitude,
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
   // Icon rendering
   // ---------------------------------------------------------------------------
 
-  static const int _iconSize = 120;
-
   /// İşletme logosunu beyaz daire içine çizer; köşeye teal paket-sayısı rozeti basar.
-  /// Logo yoksa baş-harf fallback kullanır. Ham RGBA bayt döndürür (MbxImage için).
+  /// Logo yoksa baş-harf fallback kullanır. PNG bayt döndürür (PointAnnotation için).
   Future<Uint8List> _createLogoMarkerIcon(
     BusinessModel business,
     ui.Image? logo,
@@ -322,12 +263,11 @@ class _MapPageContentState extends State<_MapPageContent> {
     canvas.drawCircle(center, radius, Paint()..color = Colors.white);
 
     if (logo != null) {
-      // Logoyu daireye (cover) çiz.
       canvas.save();
       canvas.clipPath(
         Path()..addOval(Rect.fromCircle(center: center, radius: radius - 3)),
       );
-      final src = _coverSrcRect(logo, radius * 2);
+      final src = _coverSrcRect(logo);
       canvas.drawImageRect(
         logo,
         src,
@@ -336,7 +276,6 @@ class _MapPageContentState extends State<_MapPageContent> {
       );
       canvas.restore();
     } else {
-      // Fallback: marka renkli daire + baş harf.
       canvas.drawCircle(
         center,
         radius - 3,
@@ -355,10 +294,7 @@ class _MapPageContentState extends State<_MapPageContent> {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(
-        canvas,
-        center.translate(-tp.width / 2, -tp.height / 2),
-      );
+      tp.paint(canvas, center.translate(-tp.width / 2, -tp.height / 2));
     }
 
     // Beyaz kenarlık halkası.
@@ -373,7 +309,7 @@ class _MapPageContentState extends State<_MapPageContent> {
 
     // Paket-sayısı rozeti (sağ üst).
     if (business.packageCount > 0) {
-      final badgeCenter = const Offset(size - 30, 30);
+      const badgeCenter = Offset(size - 30, 30);
       const badgeRadius = 22.0;
       canvas.drawCircle(
         badgeCenter,
@@ -399,22 +335,17 @@ class _MapPageContentState extends State<_MapPageContent> {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(
-        canvas,
-        badgeCenter.translate(-tp.width / 2, -tp.height / 2),
-      );
+      tp.paint(canvas, badgeCenter.translate(-tp.width / 2, -tp.height / 2));
     }
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(_iconSize, _iconSize);
-    final byteData = await image.toByteData(
-      format: ui.ImageByteFormat.rawRgba,
-    );
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     return byteData!.buffer.asUint8List();
   }
 
   /// Logoyu kareye "cover" şeklinde sığdırmak için kaynak dikdörtgeni hesaplar.
-  Rect _coverSrcRect(ui.Image image, double targetSize) {
+  Rect _coverSrcRect(ui.Image image) {
     final w = image.width.toDouble();
     final h = image.height.toDouble();
     final side = w < h ? w : h;
@@ -476,7 +407,7 @@ class _MapPageContentState extends State<_MapPageContent> {
     const size = 200.0;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, size, size));
-    final center = const Offset(size / 2, size / 2);
+    const center = Offset(size / 2, size / 2);
 
     final pulsePaint = Paint()
       ..shader = RadialGradient(
@@ -539,94 +470,7 @@ class _MapPageContentState extends State<_MapPageContent> {
   // Interactions
   // ---------------------------------------------------------------------------
 
-  Future<void> _onMapTap(MapContentGestureContext gestureContext) async {
-    if (_mapController == null || !_layersAdded) return;
-
-    List<QueriedRenderedFeature?> features;
-    try {
-      features = await _mapController!.queryRenderedFeatures(
-        RenderedQueryGeometry.fromScreenCoordinate(
-          gestureContext.touchPosition,
-        ),
-        RenderedQueryOptions(
-          layerIds: [_unclusteredLayerId, _clusterLayerId],
-          filter: null,
-        ),
-      );
-    } catch (e) {
-      debugPrint('queryRenderedFeatures error: $e');
-      return;
-    }
-
-    Map<String?, Object?>? hit;
-    for (final f in features) {
-      if (f != null) {
-        hit = f.queriedFeature.feature;
-        break;
-      }
-    }
-
-    if (hit == null) {
-      _clearSelectionIfAny();
-      return;
-    }
-
-    final props = hit['properties'];
-    final propMap = props is Map ? props : const {};
-
-    if (propMap['cluster'] == true || propMap.containsKey('point_count')) {
-      await _zoomToCluster(hit);
-      return;
-    }
-
-    final businessId = propMap['businessId'];
-    final business = _businessById[businessId];
-    if (business == null) {
-      _clearSelectionIfAny();
-      return;
-    }
-
-    if (!mounted) return;
-    context.read<MapBloc>().add(SelectBusiness(business: business));
-    context.read<MapBloc>().add(
-      RequestDirections(
-        originLat: widget.latitude,
-        originLng: widget.longitude,
-        destLat: business.latitude,
-        destLng: business.longitude,
-      ),
-    );
-  }
-
-  Future<void> _zoomToCluster(Map<String?, Object?> clusterFeature) async {
-    try {
-      final ext = await _mapController!.getGeoJsonClusterExpansionZoom(
-        _sourceId,
-        clusterFeature,
-      );
-      final zoom = double.tryParse(ext.value ?? '') ?? 14.0;
-      final geom = clusterFeature['geometry'];
-      final coords = geom is Map ? geom['coordinates'] as List? : null;
-      if (coords != null && coords.length >= 2) {
-        await _mapController!.flyTo(
-          CameraOptions(
-            center: Point(
-              coordinates: Position(
-                (coords[0] as num).toDouble(),
-                (coords[1] as num).toDouble(),
-              ),
-            ),
-            zoom: zoom + 0.5,
-          ),
-          MapAnimationOptions(duration: 600),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error zooming to cluster: $e');
-    }
-  }
-
-  void _clearSelectionIfAny() {
+  void _onMapTap(MapContentGestureContext _) {
     final state = context.read<MapBloc>().state;
     if (state is MapLoaded && state.selectedBusiness != null) {
       context.read<MapBloc>().add(const ClearSelection());
@@ -635,7 +479,7 @@ class _MapPageContentState extends State<_MapPageContent> {
 
   void _onSearchChanged(String value) {
     setState(() => _searchQuery = value);
-    _refreshSourceData();
+    _renderBusinessMarkers(_visibleBusinesses);
   }
 
   Future<void> _goToMyLocation() async {
@@ -693,8 +537,8 @@ class _MapPageContentState extends State<_MapPageContent> {
       body: BlocConsumer<MapBloc, MapState>(
         listener: (context, state) {
           if (state is MapLoaded) {
-            if (!_layersAdded) {
-              _setupMarkers();
+            if (!_markersLoaded) {
+              _loadMarkers();
             }
             if (state.directions != null) {
               final geometry = state.directions!['geometry'] as List<dynamic>?;
@@ -721,7 +565,6 @@ class _MapPageContentState extends State<_MapPageContent> {
                   ),
                   styleUri: MapboxStyles.STANDARD,
                   onMapCreated: _onMapCreated,
-                  onStyleLoadedListener: _onStyleLoaded,
                   onTapListener: _onMapTap,
                 ),
               ),
@@ -875,7 +718,6 @@ class _MapPageContentState extends State<_MapPageContent> {
     if (state is MapLoaded && state.selectedBusiness != null) {
       return 260;
     }
-    // Üstte sayaç şeridi var; FAB onun üstünde kalsın.
     return 110 + MediaQuery.of(context).padding.bottom;
   }
 }

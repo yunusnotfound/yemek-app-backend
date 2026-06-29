@@ -100,8 +100,8 @@ const getDirections = async (originLat, originLng, destLat, destLng) => {
  * @returns {Promise<Array>} - Yakındaki işletmeler
  */
 const findNearbyBusinesses = async (lat, lng, radius = 5) => {
-  const { Business, Category } = require('../models');
-  const { Op } = require('sequelize');
+  const { Business, Category, SurprisePackage } = require('../models');
+  const { Op, fn, col } = require('sequelize');
   const { haversineDistance } = require('../utils/helpers');
 
   const businesses = await Business.findAll({
@@ -128,7 +128,32 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
     .filter((b) => b.distance <= radius)
     .sort((a, b) => a.distance - b.distance);
 
-  return nearbyBusinesses;
+  if (nearbyBusinesses.length === 0) return nearbyBusinesses;
+
+  // Her işletme için müsait (aktif, stoklu, bugünden ileri) paket sayısını ekle.
+  // Filtre, packageController.getAll'daki "müsait paket" desenini yansıtır.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const ids = nearbyBusinesses.map((b) => b.id);
+  const counts = await SurprisePackage.findAll({
+    attributes: ['businessId', [fn('COUNT', col('id')), 'count']],
+    where: {
+      businessId: { [Op.in]: ids },
+      isActive: true,
+      remainingQuantity: { [Op.gt]: 0 },
+      pickupDate: { [Op.gte]: today },
+    },
+    group: ['businessId'],
+    raw: true,
+  });
+  const countMap = Object.fromEntries(
+    counts.map((c) => [c.businessId, Number(c.count)])
+  );
+
+  return nearbyBusinesses.map((b) => ({
+    ...b,
+    packageCount: countMap[b.id] || 0,
+  }));
 };
 
 module.exports = {

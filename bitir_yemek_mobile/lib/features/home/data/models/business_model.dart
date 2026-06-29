@@ -18,6 +18,7 @@ class BusinessModel extends Equatable {
   final String approvalStatus;
   final CategoryModel category;
   final double? distance;
+  final int packageCount;
 
   BusinessModel({
     required this.id,
@@ -36,6 +37,7 @@ class BusinessModel extends Equatable {
     required this.approvalStatus,
     required this.category,
     this.distance,
+    this.packageCount = 0,
   });
 
   @override
@@ -56,6 +58,7 @@ class BusinessModel extends Equatable {
     approvalStatus,
     category,
     distance,
+    packageCount,
   ];
 
   factory BusinessModel.fromJson(Map<String, dynamic> json) {
@@ -80,7 +83,15 @@ class BusinessModel extends Equatable {
       distance: json['distance'] != null
           ? _parseDouble(json['distance'])
           : null,
+      packageCount: _parseInt(json['packageCount']),
     );
+  }
+
+  static int _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
   }
 
   static double _parseDouble(dynamic value) {

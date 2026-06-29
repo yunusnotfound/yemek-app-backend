@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -13,6 +15,7 @@ import '../bloc/map_bloc.dart';
 import '../bloc/map_event.dart';
 import '../bloc/map_state.dart';
 import '../widgets/business_map_card.dart';
+import '../widgets/map_search_bar.dart';
 
 class MapPage extends StatelessWidget {
   final double latitude;
@@ -57,19 +60,37 @@ class _MapPageContent extends StatefulWidget {
 }
 
 class _MapPageContentState extends State<_MapPageContent> {
+  // Style source/layer kimlikleri.
+  static const String _sourceId = 'businesses-source';
+  static const String _unclusteredLayerId = 'businesses-unclustered';
+  static const String _clusterLayerId = 'businesses-clusters';
+  static const String _clusterCountLayerId = 'businesses-cluster-count';
+
+  // Marka renkleri (badge/cluster için teal — AppColors.primary turuncu olduğundan kullanılmıyor).
+  static const int _tealColor = 0xFF0E5A4F;
+
   MapboxMap? _mapController;
   PointAnnotationManager? _pointAnnotationManager;
   PolylineAnnotationManager? _polylineAnnotationManager;
-  final Map<String, BusinessModel> _annotationIdToBusiness = {};
-  bool _markersLoaded = false;
-  Cancelable? _tapCancelable;
   PolylineAnnotation? _currentPolyline;
+
+  final Map<String, BusinessModel> _businessById = {};
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  bool _styleLoaded = false;
+  bool _layersAdded = false;
+  bool _settingUp = false;
 
   @override
   void dispose() {
-    _tapCancelable?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
+
+  // ---------------------------------------------------------------------------
+  // Map lifecycle
+  // ---------------------------------------------------------------------------
 
   void _onMapCreated(MapboxMap controller) {
     _mapController = controller;
@@ -81,86 +102,359 @@ class _MapPageContentState extends State<_MapPageContent> {
     _initAnnotationManagers();
   }
 
+  void _onStyleLoaded(StyleLoadedEventData _) {
+    _styleLoaded = true;
+    _setupMarkers();
+  }
+
   Future<void> _initAnnotationManagers() async {
     if (_mapController == null) return;
-
     try {
       _pointAnnotationManager = await _mapController!.annotations
           .createPointAnnotationManager();
       _polylineAnnotationManager = await _mapController!.annotations
           .createPolylineAnnotationManager();
-
-      // Set up tap listener
-      _tapCancelable = _pointAnnotationManager!.tapEvents(
-        onTap: (PointAnnotation annotation) {
-          _onAnnotationTapped(annotation);
-        },
-      );
-
-      // Add current location marker first
       await _addCurrentLocationMarker();
-
-      // Load markers after annotation manager is ready
-      _loadMarkers();
     } catch (e) {
       debugPrint('Error creating annotation manager: $e');
     }
   }
 
-  Future<void> _drawRoutePolyline(List<dynamic> coordinates) async {
-    if (_polylineAnnotationManager == null) return;
+  // ---------------------------------------------------------------------------
+  // Business markers — GeoJSON source + clustering
+  // ---------------------------------------------------------------------------
 
-    // Clear existing polyline
-    if (_currentPolyline != null) {
-      await _polylineAnnotationManager!.delete(_currentPolyline!);
-      _currentPolyline = null;
+  List<BusinessModel> get _visibleBusinesses {
+    final state = context.read<MapBloc>().state;
+    final all = state is MapLoaded
+        ? state.businesses
+        : (state is MapError ? state.businesses : const <BusinessModel>[]);
+    if (_searchQuery.isEmpty) return all;
+    final q = _searchQuery.toLowerCase();
+    return all.where((b) => b.name.toLowerCase().contains(q)).toList();
+  }
+
+  Future<void> _setupMarkers() async {
+    if (_mapController == null || !_styleLoaded || _layersAdded || _settingUp) {
+      return;
     }
+    final state = context.read<MapBloc>().state;
+    if (state is! MapLoaded || state.businesses.isEmpty) return;
 
-    // Convert coordinates to Position list
-    // Mapbox Directions API returns coordinates as [lng, lat] pairs
-    final positions = coordinates.map((coord) {
-      final list = coord as List<dynamic>;
-      return Position(list[0] as double, list[1] as double);
-    }).toList();
+    _settingUp = true;
+    try {
+      final style = _mapController!.style;
+      _businessById.clear();
 
-    // Create polyline
-    final options = PolylineAnnotationOptions(
-      geometry: LineString(coordinates: positions),
-      lineColor: AppColors.primary.toARGB32(),
-      lineWidth: 5.0,
+      // 1) Her işletme için logolu (badge'li) marker görselini kaydet.
+      //    Ağ logoları paralel yüklenir; render + kayıt sırayla yapılır.
+      final logos = await Future.wait(
+        state.businesses.map((b) => _loadNetworkImage(b.imageUrl)),
+      );
+      for (var i = 0; i < state.businesses.length; i++) {
+        final business = state.businesses[i];
+        _businessById[business.id] = business;
+        try {
+          final bytes = await _createLogoMarkerIcon(business, logos[i]);
+          await style.addStyleImage(
+            'marker_${business.id}',
+            2.5,
+            MbxImage(width: _iconSize, height: _iconSize, data: bytes),
+            false,
+            const [],
+            const [],
+            null,
+          );
+        } catch (e) {
+          debugPrint('Error creating marker for ${business.name}: $e');
+        }
+      }
+
+      // 2) Cluster özellikli GeoJSON source ekle.
+      if (!await style.styleSourceExists(_sourceId)) {
+        final sourceJson = jsonEncode({
+          'type': 'geojson',
+          'cluster': true,
+          'clusterRadius': 50,
+          'clusterMaxZoom': 14,
+          'data': _featureCollection(_visibleBusinesses),
+        });
+        await style.addStyleSource(_sourceId, sourceJson);
+      }
+
+      // 3) Katmanlar: kümelenmemiş semboller + küme dairesi + küme sayısı.
+      if (!await style.styleLayerExists(_unclusteredLayerId)) {
+        await style.addStyleLayer(
+          jsonEncode({
+            'id': _unclusteredLayerId,
+            'type': 'symbol',
+            'source': _sourceId,
+            'slot': 'top',
+            'filter': ['!', ['has', 'point_count']],
+            'layout': {
+              'icon-image': ['get', 'icon'],
+              'icon-size': 1.0,
+              'icon-allow-overlap': true,
+              'icon-anchor': 'center',
+            },
+          }),
+          null,
+        );
+      }
+      if (!await style.styleLayerExists(_clusterLayerId)) {
+        await style.addStyleLayer(
+          jsonEncode({
+            'id': _clusterLayerId,
+            'type': 'circle',
+            'source': _sourceId,
+            'slot': 'top',
+            'filter': ['has', 'point_count'],
+            'paint': {
+              'circle-color': '#0E5A4F',
+              'circle-radius': [
+                'step',
+                ['get', 'point_count'],
+                20,
+                10,
+                26,
+                30,
+                32,
+              ],
+              'circle-stroke-width': 4,
+              'circle-stroke-color': '#FFFFFF',
+            },
+          }),
+          null,
+        );
+      }
+      if (!await style.styleLayerExists(_clusterCountLayerId)) {
+        await style.addStyleLayer(
+          jsonEncode({
+            'id': _clusterCountLayerId,
+            'type': 'symbol',
+            'source': _sourceId,
+            'slot': 'top',
+            'filter': ['has', 'point_count'],
+            'layout': {
+              'text-field': ['get', 'point_count_abbreviated'],
+              'text-size': 15,
+              'text-allow-overlap': true,
+            },
+            'paint': {'text-color': '#FFFFFF'},
+          }),
+          null,
+        );
+      }
+
+      _layersAdded = true;
+    } catch (e) {
+      debugPrint('Error setting up markers: $e');
+    } finally {
+      _settingUp = false;
+    }
+  }
+
+  /// Arama sonucu değişince sadece source verisini güncelle (görselleri tekrar kurmadan).
+  Future<void> _refreshSourceData() async {
+    if (_mapController == null || !_layersAdded) return;
+    try {
+      await _mapController!.style.setStyleSourceProperty(
+        _sourceId,
+        'data',
+        _featureCollection(_visibleBusinesses),
+      );
+    } catch (e) {
+      debugPrint('Error refreshing source data: $e');
+    }
+  }
+
+  Map<String, dynamic> _featureCollection(List<BusinessModel> list) {
+    return {
+      'type': 'FeatureCollection',
+      'features': list
+          .map(
+            (b) => {
+              'type': 'Feature',
+              'geometry': {
+                'type': 'Point',
+                'coordinates': [b.longitude, b.latitude],
+              },
+              'properties': {
+                'businessId': b.id,
+                'icon': 'marker_${b.id}',
+                'packageCount': b.packageCount,
+              },
+            },
+          )
+          .toList(),
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Icon rendering
+  // ---------------------------------------------------------------------------
+
+  static const int _iconSize = 120;
+
+  /// İşletme logosunu beyaz daire içine çizer; köşeye teal paket-sayısı rozeti basar.
+  /// Logo yoksa baş-harf fallback kullanır. Ham RGBA bayt döndürür (MbxImage için).
+  Future<Uint8List> _createLogoMarkerIcon(
+    BusinessModel business,
+    ui.Image? logo,
+  ) async {
+    const double size = 120.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, size, size));
+
+    const center = Offset(size / 2, size / 2);
+    const radius = 44.0;
+
+    // Gölge.
+    canvas.drawCircle(
+      center.translate(0, 3),
+      radius,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
 
-    _currentPolyline = await _polylineAnnotationManager!.create(options);
+    // Beyaz daire taban.
+    canvas.drawCircle(center, radius, Paint()..color = Colors.white);
+
+    if (logo != null) {
+      // Logoyu daireye (cover) çiz.
+      canvas.save();
+      canvas.clipPath(
+        Path()..addOval(Rect.fromCircle(center: center, radius: radius - 3)),
+      );
+      final src = _coverSrcRect(logo, radius * 2);
+      canvas.drawImageRect(
+        logo,
+        src,
+        Rect.fromCircle(center: center, radius: radius - 3),
+        Paint()..filterQuality = FilterQuality.medium,
+      );
+      canvas.restore();
+    } else {
+      // Fallback: marka renkli daire + baş harf.
+      canvas.drawCircle(
+        center,
+        radius - 3,
+        Paint()..color = AppColors.primary,
+      );
+      final letter = business.name.isNotEmpty ? business.name[0] : '?';
+      final tp = TextPainter(
+        text: TextSpan(
+          text: letter.toUpperCase(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 38,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Korolev',
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(
+        canvas,
+        center.translate(-tp.width / 2, -tp.height / 2),
+      );
+    }
+
+    // Beyaz kenarlık halkası.
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5,
+    );
+
+    // Paket-sayısı rozeti (sağ üst).
+    if (business.packageCount > 0) {
+      final badgeCenter = const Offset(size - 30, 30);
+      const badgeRadius = 22.0;
+      canvas.drawCircle(
+        badgeCenter,
+        badgeRadius + 2,
+        Paint()..color = Colors.white,
+      );
+      canvas.drawCircle(
+        badgeCenter,
+        badgeRadius,
+        Paint()..color = const Color(_tealColor),
+      );
+      final countText = business.packageCount > 99
+          ? '99+'
+          : '${business.packageCount}';
+      final tp = TextPainter(
+        text: TextSpan(
+          text: countText,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(
+        canvas,
+        badgeCenter.translate(-tp.width / 2, -tp.height / 2),
+      );
+    }
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(_iconSize, _iconSize);
+    final byteData = await image.toByteData(
+      format: ui.ImageByteFormat.rawRgba,
+    );
+    return byteData!.buffer.asUint8List();
   }
 
-  Future<void> _clearRoutePolyline() async {
-    if (_polylineAnnotationManager != null && _currentPolyline != null) {
-      await _polylineAnnotationManager!.delete(_currentPolyline!);
-      _currentPolyline = null;
+  /// Logoyu kareye "cover" şeklinde sığdırmak için kaynak dikdörtgeni hesaplar.
+  Rect _coverSrcRect(ui.Image image, double targetSize) {
+    final w = image.width.toDouble();
+    final h = image.height.toDouble();
+    final side = w < h ? w : h;
+    final dx = (w - side) / 2;
+    final dy = (h - side) / 2;
+    return Rect.fromLTWH(dx, dy, side, side);
+  }
+
+  Future<ui.Image?> _loadNetworkImage(String? url) async {
+    if (url == null || url.isEmpty) return null;
+    try {
+      final completer = Completer<ui.Image?>();
+      final stream = NetworkImage(url).resolve(const ImageConfiguration());
+      late ImageStreamListener listener;
+      listener = ImageStreamListener(
+        (info, _) {
+          if (!completer.isCompleted) completer.complete(info.image);
+          stream.removeListener(listener);
+        },
+        onError: (e, st) {
+          if (!completer.isCompleted) completer.complete(null);
+          stream.removeListener(listener);
+        },
+      );
+      stream.addListener(listener);
+      return await completer.future.timeout(
+        const Duration(seconds: 6),
+        onTimeout: () => null,
+      );
+    } catch (_) {
+      return null;
     }
   }
 
-  void _onAnnotationTapped(PointAnnotation annotation) {
-    // Find the business based on the annotation's custom data
-    final business = _annotationIdToBusiness[annotation.id];
-    if (business == null) return;
-
-    context.read<MapBloc>().add(SelectBusiness(business: business));
-
-    // Request directions if we have user location
-    context.read<MapBloc>().add(
-      RequestDirections(
-        originLat: widget.latitude,
-        originLng: widget.longitude,
-        destLat: business.latitude,
-        destLng: business.longitude,
-      ),
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // Current location marker
+  // ---------------------------------------------------------------------------
 
   Future<void> _addCurrentLocationMarker() async {
     if (_pointAnnotationManager == null) return;
-
     try {
       final iconBytes = await _createCurrentLocationIcon();
       await _pointAnnotationManager!.create(
@@ -184,7 +478,6 @@ class _MapPageContentState extends State<_MapPageContent> {
     final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, size, size));
     final center = const Offset(size / 2, size / 2);
 
-    // Outer pulse ring (semi-transparent blue)
     final pulsePaint = Paint()
       ..shader = RadialGradient(
         colors: [
@@ -195,18 +488,15 @@ class _MapPageContentState extends State<_MapPageContent> {
       ).createShader(Rect.fromCircle(center: center, radius: size / 2));
     canvas.drawCircle(center, size / 2, pulsePaint);
 
-    // White border circle
     final borderPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5.0;
     canvas.drawCircle(center, size / 4.5, borderPaint);
 
-    // Inner solid blue circle
     final innerPaint = Paint()..color = const Color(0xFF4A90D9);
     canvas.drawCircle(center, size / 4.5, innerPaint);
 
-    // White center dot
     final dotPaint = Paint()..color = Colors.white;
     canvas.drawCircle(center, size / 14, dotPaint);
 
@@ -216,118 +506,149 @@ class _MapPageContentState extends State<_MapPageContent> {
     return byteData!.buffer.asUint8List();
   }
 
-  Future<void> _loadMarkers() async {
-    final state = context.read<MapBloc>().state;
-    if (state is! MapLoaded || _markersLoaded) return;
+  // ---------------------------------------------------------------------------
+  // Route polyline
+  // ---------------------------------------------------------------------------
 
-    final businesses = state.businesses;
-    if (businesses.isEmpty || _pointAnnotationManager == null) return;
+  Future<void> _drawRoutePolyline(List<dynamic> coordinates) async {
+    if (_polylineAnnotationManager == null) return;
+    if (_currentPolyline != null) {
+      await _polylineAnnotationManager!.delete(_currentPolyline!);
+      _currentPolyline = null;
+    }
+    final positions = coordinates.map((coord) {
+      final list = coord as List<dynamic>;
+      return Position(list[0] as double, list[1] as double);
+    }).toList();
+    final options = PolylineAnnotationOptions(
+      geometry: LineString(coordinates: positions),
+      lineColor: AppColors.primary.toARGB32(),
+      lineWidth: 5.0,
+    );
+    _currentPolyline = await _polylineAnnotationManager!.create(options);
+  }
 
-    _markersLoaded = true;
-    _annotationIdToBusiness.clear();
-
-    for (final business in businesses) {
-      final letter = business.name.isNotEmpty ? business.name[0] : '?';
-
-      try {
-        final iconBytes = await _createGlowMarkerIcon(letter);
-
-        final annotation = PointAnnotationOptions(
-          geometry: Point(
-            coordinates: Position(business.longitude, business.latitude),
-          ),
-          image: iconBytes,
-          iconSize: 0.65,
-          iconAnchor: IconAnchor.CENTER,
-        );
-
-        final createdAnnotation = await _pointAnnotationManager!.create(
-          annotation,
-        );
-
-        // Store mapping for tap handling
-        _annotationIdToBusiness[createdAnnotation.id] = business;
-      } catch (e) {
-        debugPrint('Error creating marker for ${business.name}: $e');
-      }
+  Future<void> _clearRoutePolyline() async {
+    if (_polylineAnnotationManager != null && _currentPolyline != null) {
+      await _polylineAnnotationManager!.delete(_currentPolyline!);
+      _currentPolyline = null;
     }
   }
 
-  Future<Uint8List> _createGlowMarkerIcon(
-    String letter, {
-    bool isSelected = false,
-  }) async {
-    const size = 180.0;
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
+  // ---------------------------------------------------------------------------
+  // Interactions
+  // ---------------------------------------------------------------------------
 
-    final center = Offset(size / 2, size / 2);
+  Future<void> _onMapTap(MapContentGestureContext gestureContext) async {
+    if (_mapController == null || !_layersAdded) return;
 
-    // Outer glow circle (semi-transparent orange)
-    final glowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          AppColors.primary.withValues(alpha: isSelected ? 0.6 : 0.4),
-          AppColors.primary.withValues(alpha: 0.0),
-        ],
-        stops: const [0.3, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: size / 2));
-    canvas.drawCircle(center, size / 2, glowPaint);
-
-    // Inner solid circle
-    final innerPaint = Paint()
-      ..color = isSelected ? AppColors.primaryDark : AppColors.primary;
-    canvas.drawCircle(center, size / 3.2, innerPaint);
-
-    // White border
-    final borderPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.9)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0;
-    canvas.drawCircle(center, size / 3.2, borderPaint);
-
-    // Letter text
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: letter.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 36,
-          fontWeight: FontWeight.bold,
-          fontFamily: 'Korolev',
+    List<QueriedRenderedFeature?> features;
+    try {
+      features = await _mapController!.queryRenderedFeatures(
+        RenderedQueryGeometry.fromScreenCoordinate(
+          gestureContext.touchPosition,
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset((size - textPainter.width) / 2, (size - textPainter.height) / 2),
-    );
+        RenderedQueryOptions(
+          layerIds: [_unclusteredLayerId, _clusterLayerId],
+          filter: null,
+        ),
+      );
+    } catch (e) {
+      debugPrint('queryRenderedFeatures error: $e');
+      return;
+    }
 
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(size.toInt(), size.toInt());
-    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    return byteData!.buffer.asUint8List();
+    Map<String?, Object?>? hit;
+    for (final f in features) {
+      if (f != null) {
+        hit = f.queriedFeature.feature;
+        break;
+      }
+    }
+
+    if (hit == null) {
+      _clearSelectionIfAny();
+      return;
+    }
+
+    final props = hit['properties'];
+    final propMap = props is Map ? props : const {};
+
+    if (propMap['cluster'] == true || propMap.containsKey('point_count')) {
+      await _zoomToCluster(hit);
+      return;
+    }
+
+    final businessId = propMap['businessId'];
+    final business = _businessById[businessId];
+    if (business == null) {
+      _clearSelectionIfAny();
+      return;
+    }
+
+    if (!mounted) return;
+    context.read<MapBloc>().add(SelectBusiness(business: business));
+    context.read<MapBloc>().add(
+      RequestDirections(
+        originLat: widget.latitude,
+        originLng: widget.longitude,
+        destLat: business.latitude,
+        destLng: business.longitude,
+      ),
+    );
   }
 
-  Future<void> _animateToLocation(
-    double lat,
-    double lng, {
-    double zoom = 15.0,
-  }) async {
-    if (_mapController == null) return;
+  Future<void> _zoomToCluster(Map<String?, Object?> clusterFeature) async {
+    try {
+      final ext = await _mapController!.getGeoJsonClusterExpansionZoom(
+        _sourceId,
+        clusterFeature,
+      );
+      final zoom = double.tryParse(ext.value ?? '') ?? 14.0;
+      final geom = clusterFeature['geometry'];
+      final coords = geom is Map ? geom['coordinates'] as List? : null;
+      if (coords != null && coords.length >= 2) {
+        await _mapController!.flyTo(
+          CameraOptions(
+            center: Point(
+              coordinates: Position(
+                (coords[0] as num).toDouble(),
+                (coords[1] as num).toDouble(),
+              ),
+            ),
+            zoom: zoom + 0.5,
+          ),
+          MapAnimationOptions(duration: 600),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error zooming to cluster: $e');
+    }
+  }
 
-    await _mapController!.setCamera(
-      CameraOptions(
-        center: Point(coordinates: Position(lng, lat)),
-        zoom: zoom,
-      ),
-    );
+  void _clearSelectionIfAny() {
+    final state = context.read<MapBloc>().state;
+    if (state is MapLoaded && state.selectedBusiness != null) {
+      context.read<MapBloc>().add(const ClearSelection());
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value);
+    _refreshSourceData();
   }
 
   Future<void> _goToMyLocation() async {
-    await _animateToLocation(widget.latitude, widget.longitude, zoom: 14.0);
+    if (_mapController == null) return;
+    await _mapController!.flyTo(
+      CameraOptions(
+        center: Point(
+          coordinates: Position(widget.longitude, widget.latitude),
+        ),
+        zoom: 14.0,
+      ),
+      MapAnimationOptions(duration: 600),
+    );
   }
 
   void _onCloseCard() {
@@ -335,26 +656,18 @@ class _MapPageContentState extends State<_MapPageContent> {
   }
 
   void _onNavigate(BusinessModel business) async {
-    // Try Google Maps app first, then Apple Maps, then web Google Maps
     final googleMapsUrl =
         'comgooglemaps://?daddr=${business.latitude},${business.longitude}&directionsmode=driving';
-
     final appleMapsUrl =
         'maps://maps.apple.com/?daddr=${business.latitude},${business.longitude}&dirflg=d';
-
     final webGoogleMapsUrl =
         'https://www.google.com/maps/dir/?api=1&destination=${business.latitude},${business.longitude}&travelmode=driving';
 
-    // Try Google Maps app first
     if (await canLaunchUrl(Uri.parse(googleMapsUrl))) {
       await launchUrl(Uri.parse(googleMapsUrl));
-    }
-    // Then try Apple Maps
-    else if (await canLaunchUrl(Uri.parse(appleMapsUrl))) {
+    } else if (await canLaunchUrl(Uri.parse(appleMapsUrl))) {
       await launchUrl(Uri.parse(appleMapsUrl));
-    }
-    // Fallback to web Google Maps
-    else if (await canLaunchUrl(Uri.parse(webGoogleMapsUrl))) {
+    } else if (await canLaunchUrl(Uri.parse(webGoogleMapsUrl))) {
       await launchUrl(
         Uri.parse(webGoogleMapsUrl),
         mode: LaunchMode.externalApplication,
@@ -363,30 +676,26 @@ class _MapPageContentState extends State<_MapPageContent> {
   }
 
   void _onViewDetails(BusinessModel business) {
-    // No-op for now - detail page doesn't exist yet
     debugPrint('View details tapped for ${business.name}');
   }
 
-  void _onMapTap(MapContentGestureContext context) {
-    // Clear selection when tapping on empty map area
-    final mapState = this.context.read<MapBloc>().state;
-    if (mapState is MapLoaded && mapState.selectedBusiness != null) {
-      this.context.read<MapBloc>().add(const ClearSelection());
-    }
-  }
+  // ---------------------------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------------------------
+
+  int get _totalPackages =>
+      _visibleBusinesses.fold(0, (sum, b) => sum + b.packageCount);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E), // Dark background for map
+      backgroundColor: AppColors.background,
       body: BlocConsumer<MapBloc, MapState>(
         listener: (context, state) {
           if (state is MapLoaded) {
-            if (!_markersLoaded) {
-              _loadMarkers();
+            if (!_layersAdded) {
+              _setupMarkers();
             }
-
-            // Draw or clear route polyline based on directions
             if (state.directions != null) {
               final geometry = state.directions!['geometry'] as List<dynamic>?;
               if (geometry != null) {
@@ -398,10 +707,10 @@ class _MapPageContentState extends State<_MapPageContent> {
           }
         },
         builder: (context, state) {
+          final hasSelection =
+              state is MapLoaded && state.selectedBusiness != null;
           return Stack(
             children: [
-              // Mapbox Map - Positioned.fill ensures the PlatformView
-              // gets explicit tight constraints inside the Stack
               Positioned.fill(
                 child: MapWidget(
                   cameraOptions: CameraOptions(
@@ -410,25 +719,35 @@ class _MapPageContentState extends State<_MapPageContent> {
                     ),
                     zoom: 13.0,
                   ),
-                  styleUri: MapboxStyles.DARK, // GTA dark theme
+                  styleUri: MapboxStyles.STANDARD,
                   onMapCreated: _onMapCreated,
+                  onStyleLoadedListener: _onStyleLoaded,
                   onTapListener: _onMapTap,
+                ),
+              ),
+
+              // Search bar
+              Positioned(
+                top: MediaQuery.of(context).padding.top + AppSpacing.sm,
+                left: AppSpacing.screenPadding,
+                right: AppSpacing.screenPadding,
+                child: MapSearchBar(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  onLocationTap: _goToMyLocation,
                 ),
               ),
 
               // Loading overlay
               if (state is MapLoading)
-                Container(
-                  color: Colors.black54,
-                  child: const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  ),
+                const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
                 ),
 
               // Error overlay
               if (state is MapError)
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + AppSpacing.md,
+                  top: MediaQuery.of(context).padding.top + 72,
                   left: AppSpacing.screenPadding,
                   right: AppSpacing.screenPadding,
                   child: Container(
@@ -481,7 +800,7 @@ class _MapPageContentState extends State<_MapPageContent> {
               ),
 
               // Business card when selected
-              if (state is MapLoaded && state.selectedBusiness != null)
+              if (hasSelection)
                 Positioned(
                   left: 0,
                   right: 0,
@@ -495,6 +814,15 @@ class _MapPageContentState extends State<_MapPageContent> {
                         _onViewDetails(state.selectedBusiness!),
                   ),
                 ),
+
+              // Bottom "N Sürpriz Paket" counter (hidden while a card is open)
+              if (!hasSelection && state is MapLoaded)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _buildCounterBar(),
+                ),
             ],
           );
         },
@@ -502,11 +830,52 @@ class _MapPageContentState extends State<_MapPageContent> {
     );
   }
 
+  Widget _buildCounterBar() {
+    final count = _totalPackages;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.md + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadow,
+            blurRadius: 16,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.divider,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            count == 1 ? '1 Sürpriz Paket' : '$count Sürpriz Paket',
+            style: AppTypography.h3,
+          ),
+        ],
+      ),
+    );
+  }
+
   double _getFabBottomOffset(MapState state) {
     if (state is MapLoaded && state.selectedBusiness != null) {
-      // Account for business card height + padding
       return 260;
     }
-    return AppSpacing.xl + MediaQuery.of(context).padding.bottom;
+    // Üstte sayaç şeridi var; FAB onun üstünde kalsın.
+    return 110 + MediaQuery.of(context).padding.bottom;
   }
 }

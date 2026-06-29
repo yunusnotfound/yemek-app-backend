@@ -12,8 +12,7 @@ class BottomNavBar extends StatelessWidget {
 
   static const List<_NavItem> _items = [
     _NavItem('Keşfet', Icons.explore_outlined, Icons.explore),
-    _NavItem('Ara', Icons.search_outlined, Icons.search),
-    _NavItem('Harita', Icons.map_outlined, Icons.map),
+    _NavItem('Ara', Icons.search_outlined, Icons.search), // MapPage (harita)
     _NavItem('Sipariş', Icons.inventory_2_outlined, Icons.inventory_2),
     _NavItem('Favoriler', Icons.favorite_outline, Icons.favorite),
     _NavItem('Profil', Icons.person_outline, Icons.person),

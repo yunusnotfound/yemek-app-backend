@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../home/presentation/pages/home_page.dart';
 import '../../../home/presentation/widgets/bottom_nav_bar.dart';
-import '../../../search/presentation/pages/search_page.dart';
 import '../../../map/presentation/pages/map_page.dart';
 import '../../../orders/data/datasources/orders_remote_datasource.dart';
 import '../../../orders/data/repositories/orders_repository_impl.dart';
@@ -103,7 +102,8 @@ class _MainScaffoldState extends State<MainScaffold> {
   Widget _buildBody() {
     // MapPage native PlatformView (Mapbox GL) kullanır ve oluşturulurken görünür
     // olmalı; bu yüzden IndexedStack'e koymuyoruz, seçilince doğrudan gösteriyoruz.
-    if (_currentIndex == 2) {
+    // 'Ara' sekmesi (index 1) haritayı açar.
+    if (_currentIndex == 1) {
       return MapPage(
         latitude: widget.latitude,
         longitude: widget.longitude,
@@ -111,17 +111,16 @@ class _MainScaffoldState extends State<MainScaffold> {
       );
     }
 
-    // Görsel index → IndexedStack index (0,1 aynı; 3,4,5 → 2,3,4)
-    final stackIndex = _currentIndex > 2 ? _currentIndex - 1 : _currentIndex;
+    // Görsel index → IndexedStack index (0 aynı; 2,3,4 → 1,2,3)
+    final stackIndex = _currentIndex > 1 ? _currentIndex - 1 : _currentIndex;
 
     return IndexedStack(
       index: stackIndex,
       children: [
         _lazy(0, () => HomePage(latitude: widget.latitude, longitude: widget.longitude)),
-        _lazy(1, () => SearchPage(latitude: widget.latitude, longitude: widget.longitude)),
-        _lazy(3, () => OrdersPage(onNavigateToHome: () => _onTabSelected(0))),
-        _lazy(4, () => FavoritesPage(onNavigateToHome: () => _onTabSelected(0))),
-        _lazy(5, () => ProfilePage(onTabSwitch: _onTabSelected)),
+        _lazy(2, () => OrdersPage(onNavigateToHome: () => _onTabSelected(0))),
+        _lazy(3, () => FavoritesPage(onNavigateToHome: () => _onTabSelected(0))),
+        _lazy(4, () => ProfilePage(onTabSwitch: _onTabSelected)),
       ],
     );
   }

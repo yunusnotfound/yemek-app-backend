@@ -348,7 +348,7 @@ class _HomeViewState extends State<HomeView> {
                               // Horizontal Package List
                               SliverToBoxAdapter(
                                 child: SizedBox(
-                                  height: 290,
+                                  height: 320,
                                   child: ListView.builder(
                                     scrollDirection: Axis.horizontal,
                                     padding: const EdgeInsets.symmetric(

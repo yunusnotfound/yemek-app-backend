@@ -19,6 +19,7 @@ class BusinessModel extends Equatable {
   final CategoryModel category;
   final double? distance;
   final int packageCount;
+  final bool availableNow;
 
   BusinessModel({
     required this.id,
@@ -38,6 +39,7 @@ class BusinessModel extends Equatable {
     required this.category,
     this.distance,
     this.packageCount = 0,
+    this.availableNow = false,
   });
 
   @override
@@ -59,6 +61,7 @@ class BusinessModel extends Equatable {
     category,
     distance,
     packageCount,
+    availableNow,
   ];
 
   factory BusinessModel.fromJson(Map<String, dynamic> json) {
@@ -84,6 +87,9 @@ class BusinessModel extends Equatable {
           ? _parseDouble(json['distance'])
           : null,
       packageCount: _parseInt(json['packageCount']),
+      // _parseBool null'da true döndüğünden burada kullanılamaz; varsayılan false.
+      availableNow:
+          json['availableNow'] == true || json['availableNow'] == 'true',
     );
   }
 

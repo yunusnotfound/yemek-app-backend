@@ -101,7 +101,7 @@ const getDirections = async (originLat, originLng, destLat, destLng) => {
  */
 const findNearbyBusinesses = async (lat, lng, radius = 5) => {
   const { Business, Category, SurprisePackage } = require('../models');
-  const { Op, fn, col } = require('sequelize');
+  const { Op } = require('sequelize');
   const { haversineDistance } = require('../utils/helpers');
 
   const businesses = await Business.findAll({
@@ -130,29 +130,56 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
 
   if (nearbyBusinesses.length === 0) return nearbyBusinesses;
 
-  // Her işletme için müsait (aktif, stoklu, bugünden ileri) paket sayısını ekle.
+  // Her işletme için müsait (aktif, stoklu, bugünden ileri) paketleri çek.
   // Filtre, packageController.getAll'daki "müsait paket" desenini yansıtır.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const ids = nearbyBusinesses.map((b) => b.id);
-  const counts = await SurprisePackage.findAll({
-    attributes: ['businessId', [fn('COUNT', col('id')), 'count']],
+  const packages = await SurprisePackage.findAll({
+    attributes: ['businessId', 'pickupDate', 'pickupStart', 'pickupEnd'],
     where: {
       businessId: { [Op.in]: ids },
       isActive: true,
       remainingQuantity: { [Op.gt]: 0 },
       pickupDate: { [Op.gte]: today },
     },
-    group: ['businessId'],
     raw: true,
   });
-  const countMap = Object.fromEntries(
-    counts.map((c) => [c.businessId, Number(c.count)])
-  );
+
+  // "Şimdi alınabilir mi" için referans an: Europe/Istanbul.
+  const istNow = new Date();
+  const todayStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Istanbul',
+  }).format(istNow); // YYYY-MM-DD
+  const nowTime = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Istanbul',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(istNow); // HH:MM:SS
+
+  // İşletme başına paket sayısı + "şimdi alınabilir" bayrağını topla.
+  const agg = {};
+  for (const p of packages) {
+    const a = agg[p.businessId] || { count: 0, availableNow: false };
+    a.count += 1;
+    // pickupDate bugünse ve şu anki saat [pickupStart, pickupEnd] aralığındaysa.
+    // TIME alanları 'HH:MM:SS' string olduğundan sözlük sırası karşılaştırması doğrudur.
+    if (
+      String(p.pickupDate) === todayStr &&
+      p.pickupStart <= nowTime &&
+      nowTime <= p.pickupEnd
+    ) {
+      a.availableNow = true;
+    }
+    agg[p.businessId] = a;
+  }
 
   return nearbyBusinesses.map((b) => ({
     ...b,
-    packageCount: countMap[b.id] || 0,
+    packageCount: agg[b.id] ? agg[b.id].count : 0,
+    availableNow: agg[b.id] ? agg[b.id].availableNow : false,
   }));
 };
 

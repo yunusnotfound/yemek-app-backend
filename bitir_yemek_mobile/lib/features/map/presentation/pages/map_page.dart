@@ -14,6 +14,7 @@ import '../bloc/map_bloc.dart';
 import '../bloc/map_event.dart';
 import '../bloc/map_state.dart';
 import '../widgets/business_map_card.dart';
+import '../widgets/map_filter_bar.dart';
 import '../widgets/map_search_bar.dart';
 
 class MapPage extends StatelessWidget {
@@ -73,9 +74,12 @@ class _MapPageContentState extends State<_MapPageContent> {
   final List<PointAnnotation> _businessAnnotations = [];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  int? _selectedCategoryId; // null = Tümü
+  bool _collectNow = false;
 
   bool _markersLoaded = false;
   bool _loadingMarkers = false;
+  bool _renderPending = false;
   bool _cameraFitted = false;
 
   @override
@@ -129,20 +133,41 @@ class _MapPageContentState extends State<_MapPageContent> {
   }
 
   List<BusinessModel> get _visibleBusinesses {
-    final all = _allBusinesses;
-    if (_searchQuery.isEmpty) return all;
-    final q = _searchQuery.toLowerCase();
-    return all.where((b) => b.name.toLowerCase().contains(q)).toList();
+    Iterable<BusinessModel> list = _allBusinesses;
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((b) => b.name.toLowerCase().contains(q));
+    }
+    if (_selectedCategoryId != null) {
+      list = list.where((b) => b.category.id == _selectedCategoryId);
+    }
+    if (_collectNow) {
+      list = list.where((b) => b.availableNow);
+    }
+    return list.toList();
+  }
+
+  /// Yakındaki işletmelerden tekilleştirilmiş, ada göre sıralı kategori listesi.
+  List<({int id, String name})> get _categoryOptions {
+    final seen = <int, String>{};
+    for (final b in _allBusinesses) {
+      seen[b.category.id] = b.category.name;
+    }
+    final list = seen.entries
+        .map((e) => (id: e.key, name: e.value))
+        .toList();
+    list.sort((a, b) => a.name.compareTo(b.name));
+    return list;
   }
 
   /// İlk yüklemede tüm marker'ları kurar ve kamerayı çerçeveler.
   Future<void> _loadMarkers() async {
-    if (_pointAnnotationManager == null || _loadingMarkers) return;
+    if (_pointAnnotationManager == null || _markersLoaded) return;
     final state = context.read<MapBloc>().state;
     if (state is! MapLoaded || state.businesses.isEmpty) return;
 
-    await _renderBusinessMarkers(_visibleBusinesses);
     _markersLoaded = true;
+    await _applyMarkers();
 
     if (!_cameraFitted) {
       _cameraFitted = true;
@@ -150,49 +175,60 @@ class _MapPageContentState extends State<_MapPageContent> {
     }
   }
 
-  /// Verilen işletmeler için marker'ları (logo + rozet) oluşturur.
-  /// Önce mevcut işletme marker'larını ve kullanıcı konumunu temizler, yeniden çizer.
-  Future<void> _renderBusinessMarkers(List<BusinessModel> businesses) async {
-    final manager = _pointAnnotationManager;
-    if (manager == null || _loadingMarkers) return;
+  /// Güncel filtrelere göre marker'ları yeniden çizer.
+  /// Eşzamanlı çağrılar coalesce edilir; son istenen durum garanti edilir.
+  Future<void> _applyMarkers() async {
+    if (_loadingMarkers) {
+      _renderPending = true;
+      return;
+    }
     _loadingMarkers = true;
-
     try {
-      await manager.deleteAll();
-      _businessAnnotations.clear();
-      _annotationIdToBusiness.clear();
-
-      // Kullanıcı konumu marker'ı.
-      await _addCurrentLocationMarker();
-
-      // Ağ logoları paralel yüklenir; render + create sırayla yapılır.
-      final logos = await Future.wait(
-        businesses.map((b) => _loadNetworkImage(b.imageUrl)),
-      );
-      for (var i = 0; i < businesses.length; i++) {
-        final business = businesses[i];
-        try {
-          final iconBytes = await _createLogoMarkerIcon(business, logos[i]);
-          final annotation = await manager.create(
-            PointAnnotationOptions(
-              geometry: Point(
-                coordinates: Position(business.longitude, business.latitude),
-              ),
-              image: iconBytes,
-              iconSize: 0.85,
-              iconAnchor: IconAnchor.CENTER,
-            ),
-          );
-          _businessAnnotations.add(annotation);
-          _annotationIdToBusiness[annotation.id] = business;
-        } catch (e) {
-          debugPrint('Error creating marker for ${business.name}: $e');
-        }
-      }
-    } catch (e) {
-      debugPrint('Error rendering markers: $e');
+      do {
+        _renderPending = false;
+        await _renderOnce(_visibleBusinesses);
+      } while (_renderPending);
     } finally {
       _loadingMarkers = false;
+    }
+  }
+
+  /// Verilen işletmeler için marker'ları (logo + rozet) oluşturur.
+  /// Önce mevcut işletme marker'larını ve kullanıcı konumunu temizler, yeniden çizer.
+  Future<void> _renderOnce(List<BusinessModel> businesses) async {
+    final manager = _pointAnnotationManager;
+    if (manager == null) return;
+
+    await manager.deleteAll();
+    _businessAnnotations.clear();
+    _annotationIdToBusiness.clear();
+
+    // Kullanıcı konumu marker'ı.
+    await _addCurrentLocationMarker();
+
+    // Ağ logoları paralel yüklenir; render + create sırayla yapılır.
+    final logos = await Future.wait(
+      businesses.map((b) => _loadNetworkImage(b.imageUrl)),
+    );
+    for (var i = 0; i < businesses.length; i++) {
+      final business = businesses[i];
+      try {
+        final iconBytes = await _createLogoMarkerIcon(business, logos[i]);
+        final annotation = await manager.create(
+          PointAnnotationOptions(
+            geometry: Point(
+              coordinates: Position(business.longitude, business.latitude),
+            ),
+            image: iconBytes,
+            iconSize: 0.85,
+            iconAnchor: IconAnchor.CENTER,
+          ),
+        );
+        _businessAnnotations.add(annotation);
+        _annotationIdToBusiness[annotation.id] = business;
+      } catch (e) {
+        debugPrint('Error creating marker for ${business.name}: $e');
+      }
     }
   }
 
@@ -479,7 +515,17 @@ class _MapPageContentState extends State<_MapPageContent> {
 
   void _onSearchChanged(String value) {
     setState(() => _searchQuery = value);
-    _renderBusinessMarkers(_visibleBusinesses);
+    _applyMarkers();
+  }
+
+  void _onCategorySelected(int? categoryId) {
+    setState(() => _selectedCategoryId = categoryId);
+    _applyMarkers();
+  }
+
+  void _onCollectNowChanged(bool value) {
+    setState(() => _collectNow = value);
+    _applyMarkers();
   }
 
   Future<void> _goToMyLocation() async {
@@ -580,6 +626,21 @@ class _MapPageContentState extends State<_MapPageContent> {
                   onLocationTap: _goToMyLocation,
                 ),
               ),
+
+              // Filter bar (Şimdi Al + kategoriler)
+              if (state is MapLoaded && state.businesses.isNotEmpty)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + AppSpacing.sm + 60,
+                  left: 0,
+                  right: 0,
+                  child: MapFilterBar(
+                    categories: _categoryOptions,
+                    selectedCategoryId: _selectedCategoryId,
+                    collectNow: _collectNow,
+                    onCategorySelected: _onCategorySelected,
+                    onCollectNowChanged: _onCollectNowChanged,
+                  ),
+                ),
 
               // Loading overlay
               if (state is MapLoading)

@@ -206,7 +206,16 @@ class PackageCard extends StatelessWidget {
         child: AppCachedImage(
           imageUrl: package.business.imageUrl,
           fit: BoxFit.cover,
-          placeholder: _buildPlaceholderImage(),
+          // Küçük daire için kompakt placeholder (büyük görsel placeholder'ı taşar).
+          placeholder: Container(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            alignment: Alignment.center,
+            child: Icon(
+              Icons.storefront,
+              size: 20,
+              color: AppColors.primary.withValues(alpha: 0.6),
+            ),
+          ),
         ),
       ),
     );

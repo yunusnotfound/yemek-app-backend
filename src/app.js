@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const path = require('path');
@@ -105,12 +107,29 @@ app.use(cors(corsOptions));
 // ödeme onayları düşebilir. retrieve OTORİTE olduğu için güvenli.
 const isIyzicoServerHook = (req) => req.originalUrl.startsWith('/api/payments/iyzico/');
 
+// Giriş yapmış isteklerde limiti kullanıcı bazlı anahtarla (mobil operatör
+// CGNAT'ında çok sayıda kullanıcı tek public IP paylaştığı için IP bazlı limit
+// haksız 429 üretiyordu). Token yoksa/geçersizse IP'ye düş (IPv6-güvenli).
+const userOrIpKey = (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+      if (decoded && decoded.id) return `user:${decoded.id}`;
+    } catch (_) {
+      // süresi dolmuş / geçersiz token → IP'ye düş
+    }
+  }
+  return ipKeyGenerator(req.ip);
+};
+
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: userOrIpKey,
   skip: isIyzicoServerHook,
 });
 
@@ -121,6 +140,7 @@ const paymentsLimiter = rateLimit({
   message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: userOrIpKey,
   skip: isIyzicoServerHook,
 });
 
@@ -138,6 +158,7 @@ const businessDashboardLimiter = rateLimit({
   message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: userOrIpKey,
 });
 
 const adminLimiter = rateLimit({
@@ -146,6 +167,7 @@ const adminLimiter = rateLimit({
   message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: userOrIpKey,
 });
 
 app.use(generalLimiter);

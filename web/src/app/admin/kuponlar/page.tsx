@@ -91,7 +91,9 @@ export default function AdminCouponsPage() {
       discountValue: Number(form.discountValue),
       minOrderAmount: Number(form.minOrderAmount),
       maxUsage: Number(form.maxUsage),
-      expiresAt: form.expiresAt,
+      expiresAt: form.expiresAt
+        ? new Date(`${form.expiresAt}T23:59:59`).toISOString()
+        : "",
     };
     try {
       if (editing === "new") {

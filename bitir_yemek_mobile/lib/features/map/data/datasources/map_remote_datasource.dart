@@ -68,6 +68,34 @@ class MapRemoteDataSource {
     }
   }
 
+  /// Konuma yakın aktif paketleri döndürür (GET /packages?lat&lng&radius).
+  /// Keşfet ekranıyla aynı uç; her paket iç içe `business` taşır.
+  Future<List<PackageModel>> getNearbyPackages({
+    required double latitude,
+    required double longitude,
+    double radius = 10.0,
+    int limit = 100,
+  }) async {
+    try {
+      final response = await _dioClient.dio.get(
+        '/packages',
+        queryParameters: {
+          'lat': latitude,
+          'lng': longitude,
+          'radius': radius,
+          'limit': limit,
+          'excludeExpired': 'true',
+        },
+      );
+
+      return PackagesResponse.fromJson(
+        response.data as Map<String, dynamic>,
+      ).data;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getDirections({
     required double originLat,
     required double originLng,

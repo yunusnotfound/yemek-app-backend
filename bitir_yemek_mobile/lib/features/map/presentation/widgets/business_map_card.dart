@@ -5,7 +5,7 @@ import '../../../favorites/presentation/widgets/favorite_button.dart';
 import '../../../home/data/models/business_model.dart';
 import '../../../home/data/models/package_model.dart';
 
-class BusinessMapCard extends StatelessWidget {
+class BusinessMapCard extends StatefulWidget {
   final BusinessModel business;
   final PackageModel? package;
   final bool packageLoading;
@@ -26,7 +26,83 @@ class BusinessMapCard extends StatelessWidget {
   });
 
   @override
+  State<BusinessMapCard> createState() => _BusinessMapCardState();
+}
+
+class _BusinessMapCardState extends State<BusinessMapCard>
+    with SingleTickerProviderStateMixin {
+  // Aşağı sürükleyerek kapatma için anlık offset (yalnız aşağı yön).
+  double _dragOffset = 0;
+  // Snap-back başladığı andaki offset; controller 0→1 ilerlerken
+  // offset bu değerden 0'a interpole edilir.
+  double _snapStart = 0;
+  late final AnimationController _snapBack;
+
+  // Eşikler: bu kadar piksel sürüklenir ya da aşağı fling yapılırsa kapanır.
+  static const double _dismissDistance = 90;
+  static const double _dismissVelocity = 700;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapBack = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    )..addListener(() {
+        setState(() => _dragOffset = _snapStart * (1 - _snapBack.value));
+      });
+  }
+
+  @override
+  void dispose() {
+    _snapBack.dispose();
+    super.dispose();
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    _snapBack.stop();
+    setState(() {
+      _dragOffset = (_dragOffset + details.delta.dy).clamp(0.0, double.infinity);
+    });
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (_dragOffset > _dismissDistance || velocity > _dismissVelocity) {
+      widget.onClose();
+      return;
+    }
+    // Eşiğin altında: yerine geri dön (offset _snapStart'tan 0'a).
+    _snapStart = _dragOffset;
+    _snapBack
+      ..reset()
+      ..animateTo(1, curve: Curves.easeOut);
+  }
+
+  // Aşağıdaki build yardımcıları sade alan adlarıyla yazıldığı için
+  // widget.* alanlarını proxy getter'larla erişilebilir kılıyoruz.
+  BusinessModel get business => widget.business;
+  PackageModel? get package => widget.package;
+  bool get packageLoading => widget.packageLoading;
+  Map<String, dynamic>? get directions => widget.directions;
+  VoidCallback get onClose => widget.onClose;
+  VoidCallback get onNavigate => widget.onNavigate;
+  VoidCallback get onViewDetails => widget.onViewDetails;
+
+  @override
   Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragUpdate: _onDragUpdate,
+      onVerticalDragEnd: _onDragEnd,
+      child: Transform.translate(
+        offset: Offset(0, _dragOffset),
+        child: _buildCard(),
+      ),
+    );
+  }
+
+  Widget _buildCard() {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,

@@ -15,4 +15,11 @@ abstract class MapRepository {
   });
 
   Future<BusinessPackagesResult> getBusinessPackages(String businessId);
+
+  /// Konuma yakın tüm aktif paketler (alt liste paneli için).
+  Future<BusinessPackagesResult> getNearbyPackages({
+    required double lat,
+    required double lng,
+    double radius = 10.0,
+  });
 }

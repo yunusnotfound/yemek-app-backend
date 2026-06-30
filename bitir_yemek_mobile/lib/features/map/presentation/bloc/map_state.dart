@@ -24,6 +24,7 @@ class MapLoaded extends MapState {
   directions; // contains 'distance', 'duration', 'geometry'
   final PackageModel? selectedPackage; // seçili işletmenin temsilî paketi
   final bool packageLoading; // paket çekilirken true
+  final List<PackageModel> packages; // yakındaki tüm paketler (alt liste paneli)
 
   const MapLoaded({
     required this.businesses,
@@ -31,6 +32,7 @@ class MapLoaded extends MapState {
     this.directions,
     this.selectedPackage,
     this.packageLoading = false,
+    this.packages = const [],
   });
 
   MapLoaded copyWith({
@@ -42,6 +44,7 @@ class MapLoaded extends MapState {
     PackageModel? selectedPackage,
     bool clearPackage = false,
     bool? packageLoading,
+    List<PackageModel>? packages,
   }) {
     return MapLoaded(
       businesses: businesses ?? this.businesses,
@@ -55,6 +58,7 @@ class MapLoaded extends MapState {
       packageLoading: clearSelection
           ? false
           : (packageLoading ?? this.packageLoading),
+      packages: packages ?? this.packages,
     );
   }
 
@@ -65,6 +69,7 @@ class MapLoaded extends MapState {
     directions,
     selectedPackage,
     packageLoading,
+    packages,
   ];
 }
 

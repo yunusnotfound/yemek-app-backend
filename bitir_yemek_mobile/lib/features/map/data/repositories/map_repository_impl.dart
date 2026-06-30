@@ -64,6 +64,26 @@ class MapRepositoryImpl implements MapRepository {
       return BusinessPackagesResult.failure('Bir hata oluştu: $e');
     }
   }
+
+  @override
+  Future<BusinessPackagesResult> getNearbyPackages({
+    required double lat,
+    required double lng,
+    double radius = 10.0,
+  }) async {
+    try {
+      final packages = await _remoteDataSource.getNearbyPackages(
+        latitude: lat,
+        longitude: lng,
+        radius: radius,
+      );
+      return BusinessPackagesResult.success(packages: packages);
+    } on MapException catch (e) {
+      return BusinessPackagesResult.failure(e.message);
+    } catch (e) {
+      return BusinessPackagesResult.failure('Bir hata oluştu: $e');
+    }
+  }
 }
 
 class MapBusinessesResult {

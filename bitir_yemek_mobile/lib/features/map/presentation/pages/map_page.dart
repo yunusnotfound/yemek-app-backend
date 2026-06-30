@@ -8,13 +8,18 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../config/theme.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../home/data/models/business_model.dart';
+import '../../../home/data/models/package_model.dart';
 import '../../../home/presentation/pages/business_detail_page.dart';
+import '../../../home/presentation/pages/package_detail_page.dart';
+import '../../../home/presentation/widgets/package_card.dart';
+import '../../../favorites/presentation/bloc/favorites_bloc.dart';
 import '../../data/datasources/map_remote_datasource.dart';
 import '../../data/repositories/map_repository_impl.dart';
 import '../bloc/map_bloc.dart';
 import '../bloc/map_event.dart';
 import '../bloc/map_state.dart';
 import '../widgets/business_map_card.dart';
+import '../widgets/location_picker_sheet.dart';
 import '../widgets/map_filter_bar.dart';
 import '../widgets/map_search_bar.dart';
 
@@ -82,6 +87,15 @@ class _MapPageContentState extends State<_MapPageContent> {
   bool _loadingMarkers = false;
   bool _renderPending = false;
   bool _cameraFitted = false;
+
+  // Aktif harita merkezi/yarıçapı. Konum seçici bir override set edene kadar
+  // widget'tan gelen ilk konum kullanılır. (Nullable + getter; `late` yok ki
+  // hot reload'da LateInitializationError olmasın.)
+  double? _latOverride;
+  double? _lngOverride;
+  double get _lat => _latOverride ?? widget.latitude;
+  double get _lng => _lngOverride ?? widget.longitude;
+  double _radius = 10.0;
 
   @override
   void dispose() {
@@ -237,7 +251,7 @@ class _MapPageContentState extends State<_MapPageContent> {
     if (_mapController == null || businesses.isEmpty) return;
     try {
       final points = <Point>[
-        Point(coordinates: Position(widget.longitude, widget.latitude)),
+        Point(coordinates: Position(_lng, _lat)),
         ...businesses.map(
           (b) => Point(coordinates: Position(b.longitude, b.latitude)),
         ),
@@ -262,8 +276,8 @@ class _MapPageContentState extends State<_MapPageContent> {
     context.read<MapBloc>().add(SelectBusiness(business: business));
     context.read<MapBloc>().add(
       RequestDirections(
-        originLat: widget.latitude,
-        originLng: widget.longitude,
+        originLat: _lat,
+        originLng: _lng,
         destLat: business.latitude,
         destLng: business.longitude,
       ),
@@ -428,7 +442,7 @@ class _MapPageContentState extends State<_MapPageContent> {
       await _pointAnnotationManager!.create(
         PointAnnotationOptions(
           geometry: Point(
-            coordinates: Position(widget.longitude, widget.latitude),
+            coordinates: Position(_lng, _lat),
           ),
           image: iconBytes,
           iconSize: 0.6,
@@ -508,6 +522,8 @@ class _MapPageContentState extends State<_MapPageContent> {
   // ---------------------------------------------------------------------------
 
   void _onMapTap(MapContentGestureContext _) {
+    // Boş alana (haritaya) dokununca arama çubuğunun odağını/klavyeyi bırak.
+    FocusScope.of(context).unfocus();
     final state = context.read<MapBloc>().state;
     if (state is MapLoaded && state.selectedBusiness != null) {
       context.read<MapBloc>().add(const ClearSelection());
@@ -534,12 +550,57 @@ class _MapPageContentState extends State<_MapPageContent> {
     await _mapController!.flyTo(
       CameraOptions(
         center: Point(
-          coordinates: Position(widget.longitude, widget.latitude),
+          coordinates: Position(_lng, _lat),
         ),
         zoom: 14.0,
       ),
       MapAnimationOptions(duration: 600),
     );
+  }
+
+  /// Konum seçici paneli açar; sonuç dönerse haritayı yeni merkez/yarıçapa
+  /// göre yeniden yükler (marker + kamera + paketler yenilenir).
+  Future<void> _openLocationPicker() async {
+    FocusScope.of(context).unfocus();
+    final result =
+        await showModalBottomSheet<({double lat, double lng, double radius})>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => LocationPickerSheet(
+        initialLat: _lat,
+        initialLng: _lng,
+        initialRadius: _radius,
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _latOverride = result.lat;
+      _lngOverride = result.lng;
+      _radius = result.radius;
+    });
+
+    // Marker/kamera yeniden çizilsin diye gate flag'lerini sıfırla.
+    _markersLoaded = false;
+    _cameraFitted = false;
+    _annotationIdToBusiness.clear();
+    _businessAnnotations.clear();
+
+    context.read<MapBloc>().add(
+          LoadBusinessesForMap(
+            latitude: _lat,
+            longitude: _lng,
+            radius: _radius,
+          ),
+        );
+
+    // İşletme bulunsa _fitCameraToMarkers zaten çerçeveler; bulunmasa bile
+    // harita yeni merkeze gitsin diye hemen oraya uç.
+    unawaited(_goToMyLocation());
   }
 
   void _onCloseCard() {
@@ -584,6 +645,30 @@ class _MapPageContentState extends State<_MapPageContent> {
   int get _totalPackages =>
       _visibleBusinesses.fold(0, (sum, b) => sum + b.packageCount);
 
+  /// Alt liste için: yüklenen paketleri, haritada görünür (filtrelenmiş)
+  /// işletmelerin id'lerine göre süzer — böylece arama/kategori/şimdi-al
+  /// çipleri liste için de geçerli olur.
+  List<PackageModel> get _visiblePackages {
+    final state = context.read<MapBloc>().state;
+    if (state is! MapLoaded) return const [];
+    final visibleIds = _visibleBusinesses.map((b) => b.id).toSet();
+    return state.packages
+        .where((p) => visibleIds.contains(p.businessId))
+        .toList();
+  }
+
+  void _openPackage(PackageModel package) {
+    final favBloc = context.read<FavoritesBloc>();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: favBloc,
+          child: PackageDetailPage(package: package),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -613,7 +698,7 @@ class _MapPageContentState extends State<_MapPageContent> {
                 child: MapWidget(
                   cameraOptions: CameraOptions(
                     center: Point(
-                      coordinates: Position(widget.longitude, widget.latitude),
+                      coordinates: Position(_lng, _lat),
                     ),
                     zoom: 13.0,
                   ),
@@ -631,7 +716,7 @@ class _MapPageContentState extends State<_MapPageContent> {
                 child: MapSearchBar(
                   controller: _searchController,
                   onChanged: _onSearchChanged,
-                  onLocationTap: _goToMyLocation,
+                  onLocationTap: _openLocationPicker,
                 ),
               ),
 
@@ -684,8 +769,8 @@ class _MapPageContentState extends State<_MapPageContent> {
                           onPressed: () {
                             context.read<MapBloc>().add(
                               LoadBusinessesForMap(
-                                latitude: widget.latitude,
-                                longitude: widget.longitude,
+                                latitude: _lat,
+                                longitude: _lng,
                                 radius: 10.0,
                               ),
                             );
@@ -729,14 +814,9 @@ class _MapPageContentState extends State<_MapPageContent> {
                   ),
                 ),
 
-              // Bottom "N Sürpriz Paket" counter (hidden while a card is open)
-              if (!hasSelection && state is MapLoaded)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: _buildCounterBar(),
-                ),
+              // Yukarı sürüklenince Keşfet tarzı paket listesine açılan,
+              // "N Sürpriz Paket" başlıklı alt panel (kart açıkken gizli).
+              if (!hasSelection && state is MapLoaded) _buildPackageSheet(),
             ],
           );
         },
@@ -744,25 +824,95 @@ class _MapPageContentState extends State<_MapPageContent> {
     );
   }
 
-  Widget _buildCounterBar() {
-    final count = _totalPackages;
-    return Container(
-      padding: EdgeInsets.fromLTRB(
+  /// "N Sürpriz Paket" başlıklı, yukarı sürüklenince Keşfet tarzı paket
+  /// kartlarına açılan alt panel. Toplanmışken sadece başlık görünür.
+  Widget _buildPackageSheet() {
+    final media = MediaQuery.of(context);
+    final bottomInset = media.padding.bottom;
+    // Toplanmış yükseklik: handle + başlık + paddingler.
+    final collapsed =
+        ((96 + bottomInset) / media.size.height).clamp(0.08, 0.5);
+
+    final state = context.read<MapBloc>().state;
+    final packagesLoaded = state is MapLoaded && state.packages.isNotEmpty;
+    final packages = _visiblePackages;
+    // Paketler yüklenene kadar packageCount toplamını, sonra gerçek liste
+    // uzunluğunu göster (başlık ile liste tutarlı olsun).
+    final count = packagesLoaded ? packages.length : _totalPackages;
+
+    return Positioned.fill(
+      child: DraggableScrollableSheet(
+        initialChildSize: collapsed,
+        minChildSize: collapsed,
+        maxChildSize: 0.85,
+        snap: true,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.shadow,
+                  blurRadius: 16,
+                  offset: Offset(0, -4),
+                ),
+              ],
+            ),
+            child: CustomScrollView(
+              controller: scrollController,
+              slivers: [
+                SliverToBoxAdapter(child: _buildSheetHeader(count)),
+                if (packages.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      child: Center(
+                        child: Text(
+                          packagesLoaded
+                              ? 'Bu filtrelerde paket yok'
+                              : 'Paketler yükleniyor...',
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.screenPadding,
+                      0,
+                      AppSpacing.screenPadding,
+                      AppSpacing.md + bottomInset,
+                    ),
+                    sliver: SliverList.builder(
+                      itemCount: packages.length,
+                      itemBuilder: (_, i) => Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                        child: PackageCard(
+                          package: packages[i],
+                          onTap: () => _openPackage(packages[i]),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSheetHeader(int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
         AppSpacing.md,
         AppSpacing.lg,
-        AppSpacing.md + MediaQuery.of(context).padding.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 16,
-            offset: Offset(0, -4),
-          ),
-        ],
+        AppSpacing.md,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

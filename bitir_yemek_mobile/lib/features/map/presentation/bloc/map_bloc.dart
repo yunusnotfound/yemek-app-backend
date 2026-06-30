@@ -31,7 +31,21 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       );
 
       if (result.isSuccess && result.businesses != null) {
+        // Markerlar hemen görünsün diye işletmeleri önce emit et.
         emit(MapLoaded(businesses: result.businesses!));
+
+        // Alt liste paneli için yakındaki paketleri ayrıca yükle.
+        final pkgResult = await _repository.getNearbyPackages(
+          lat: event.latitude,
+          lng: event.longitude,
+          radius: event.radius,
+        );
+        final latest = state;
+        if (latest is MapLoaded &&
+            pkgResult.isSuccess &&
+            pkgResult.packages != null) {
+          emit(latest.copyWith(packages: pkgResult.packages));
+        }
       } else {
         emit(MapError(message: result.error ?? 'Bilinmeyen hata'));
       }

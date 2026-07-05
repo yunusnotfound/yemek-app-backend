@@ -101,11 +101,16 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 };
-app.use(cors(corsOptions));
-
-// iyzico callback/webhook (sunucudan sunucuya) limit'e takılmamalı; aksi halde
-// ödeme onayları düşebilir. retrieve OTORİTE olduğu için güvenli.
+// iyzico callback/webhook (sunucudan sunucuya) limit'e ve CORS'a takılmamalı;
+// aksi halde ödeme onayları düşebilir. retrieve OTORİTE olduğu için güvenli.
 const isIyzicoServerHook = (req) => req.originalUrl.startsWith('/api/payments/iyzico/');
+
+// CORS, iyzico callback'lerine uygulanmaz: banka 3DS sayfası ve iyzico formu
+// callback'e tarayıcı form POST'u ile döner ve Origin taşır (WebView'da "null").
+// Bu uçlar JWT'siz + idempotent, gerçek doğrulama iyzico retrieve — CORS'un
+// koruyacağı bir şey yok; reddetmek ödeme onayını düşürür.
+const corsMiddleware = cors(corsOptions);
+app.use((req, res, next) => (isIyzicoServerHook(req) ? next() : corsMiddleware(req, res, next)));
 
 // Giriş yapmış isteklerde limiti kullanıcı bazlı anahtarla (mobil operatör
 // CGNAT'ında çok sayıda kullanıcı tek public IP paylaştığı için IP bazlı limit

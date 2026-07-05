@@ -39,6 +39,7 @@ abstract class BusinessesRepository {
     required String packageId,
     int quantity = 1,
     String? couponCode,
+    Map<String, dynamic>? paymentCard,
   });
 
   Future<CouponResult> validateCoupon({required String code});

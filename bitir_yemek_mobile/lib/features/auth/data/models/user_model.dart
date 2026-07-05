@@ -12,7 +12,7 @@ class UserModel extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  UserModel({
+  const UserModel({
     required this.id,
     required this.name,
     required this.email,

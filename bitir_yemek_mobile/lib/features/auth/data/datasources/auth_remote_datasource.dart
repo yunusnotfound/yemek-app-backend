@@ -89,8 +89,8 @@ class AuthRemoteDataSource {
         data: {
           'identityToken': identityToken,
           'userIdentifier': userIdentifier,
-          if (email != null) 'email': email,
-          if (fullName != null) 'fullName': fullName,
+          'email': ?email,
+          'fullName': ?fullName,
           'role': role,
         },
       );

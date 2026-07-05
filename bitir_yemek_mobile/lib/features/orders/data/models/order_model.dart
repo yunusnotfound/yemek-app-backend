@@ -14,7 +14,7 @@ class OrderModel extends Equatable {
   final DateTime createdAt;
   final OrderPackageModel? package;
 
-  OrderModel({
+  const OrderModel({
     required this.id,
     required this.packageId,
     required this.quantity,
@@ -103,7 +103,7 @@ class OrderPackageModel extends Equatable {
   final String? imageUrl;
   final OrderBusinessModel? business;
 
-  OrderPackageModel({
+  const OrderPackageModel({
     required this.id,
     required this.title,
     required this.discountedPrice,
@@ -135,7 +135,7 @@ class OrderBusinessModel extends Equatable {
   final String address;
   final String? phone;
 
-  OrderBusinessModel({
+  const OrderBusinessModel({
     required this.id,
     required this.name,
     required this.address,
@@ -161,7 +161,7 @@ class OrdersResponse extends Equatable {
   final int page;
   final int totalPages;
 
-  OrdersResponse({
+  const OrdersResponse({
     required this.orders,
     required this.total,
     required this.page,

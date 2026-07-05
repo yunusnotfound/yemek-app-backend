@@ -68,6 +68,11 @@ const User = sequelize.define('User', {
     allowNull: true,
     unique: true,
   },
+  // iyzico kart cüzdanı anahtarı — yalnız sunucu tarafı, client'a asla dönmez.
+  cardUserKey: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
 }, {
   timestamps: true,
   paranoid: true,
@@ -98,6 +103,7 @@ User.prototype.toJSON = function () {
   delete values.emailVerificationExpires;
   delete values.passwordResetToken;
   delete values.passwordResetExpires;
+  delete values.cardUserKey;
   return values;
 };
 

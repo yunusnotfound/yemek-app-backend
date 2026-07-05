@@ -14,6 +14,9 @@ const { conversationIdParamSchema } = require('../validations/schemas');
 // iyzico -> backend callback (auth yok; istek iyzico'dan gelir).
 router.post('/iyzico/callback', paymentController.iyzicoCallback);
 
+// Banka 3DS ekranından dönüş (native kartlı ödeme akışı; auth yok).
+router.post('/iyzico/3ds-callback', paymentController.iyzico3dsCallback);
+
 // iyzico webhook yedeği (imza app.js'te raw body ile doğrulanır).
 router.post('/iyzico/webhook', paymentController.iyzicoWebhook);
 

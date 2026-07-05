@@ -12,7 +12,7 @@ class ReservationModel extends Equatable {
   final String paymentStatus;
   final String? couponId;
 
-  ReservationModel({
+  const ReservationModel({
     required this.id,
     required this.packageId,
     required this.quantity,
@@ -68,7 +68,7 @@ class CouponModel extends Equatable {
   final double discountValue;
   final double minOrderAmount;
 
-  CouponModel({
+  const CouponModel({
     required this.id,
     required this.code,
     required this.discountType,

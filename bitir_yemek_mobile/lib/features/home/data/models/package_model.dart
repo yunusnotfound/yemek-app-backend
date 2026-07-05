@@ -19,7 +19,7 @@ class PackageModel extends Equatable {
   final List<int>? recurringDays;
   final BusinessModel business;
 
-  PackageModel({
+  const PackageModel({
     required this.id,
     required this.businessId,
     required this.title,
@@ -121,7 +121,7 @@ class PackagesResponse extends Equatable {
   final List<PackageModel> data;
   final PaginationModel pagination;
 
-  PackagesResponse({required this.data, required this.pagination});
+  const PackagesResponse({required this.data, required this.pagination});
 
   @override
   List<Object?> get props => [data, pagination];

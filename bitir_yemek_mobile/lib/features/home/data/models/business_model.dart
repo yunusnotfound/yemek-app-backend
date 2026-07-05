@@ -21,7 +21,7 @@ class BusinessModel extends Equatable {
   final int packageCount;
   final bool availableNow;
 
-  BusinessModel({
+  const BusinessModel({
     required this.id,
     required this.name,
     this.description,
@@ -125,7 +125,7 @@ class PaginationModel extends Equatable {
   final int limit;
   final int totalPages;
 
-  PaginationModel({
+  const PaginationModel({
     required this.total,
     required this.page,
     required this.limit,
@@ -155,7 +155,7 @@ class BusinessesResponse extends Equatable {
   final List<BusinessModel> data;
   final PaginationModel pagination;
 
-  BusinessesResponse({required this.data, required this.pagination});
+  const BusinessesResponse({required this.data, required this.pagination});
 
   @override
   List<Object?> get props => [data, pagination];

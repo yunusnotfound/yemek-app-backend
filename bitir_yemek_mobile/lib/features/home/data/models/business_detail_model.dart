@@ -21,7 +21,7 @@ class BusinessDetailModel extends Equatable {
   final List<ReviewModel> reviews;
   final List<PackageModel> packages;
 
-  BusinessDetailModel({
+  const BusinessDetailModel({
     required this.id,
     required this.name,
     this.description,
@@ -179,7 +179,7 @@ class ReviewModel extends Equatable {
   final String userName;
   final DateTime createdAt;
 
-  ReviewModel({
+  const ReviewModel({
     required this.id,
     required this.rating,
     this.comment,

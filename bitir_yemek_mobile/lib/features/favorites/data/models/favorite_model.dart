@@ -12,7 +12,7 @@ class FavoriteModel extends Equatable {
   final String? categoryName;
   final DateTime createdAt;
 
-  FavoriteModel({
+  const FavoriteModel({
     required this.id,
     required this.businessId,
     required this.businessName,
@@ -81,7 +81,7 @@ class FavoritesResponse extends Equatable {
   final int page;
   final int totalPages;
 
-  FavoritesResponse({
+  const FavoritesResponse({
     required this.favorites,
     required this.total,
     required this.page,

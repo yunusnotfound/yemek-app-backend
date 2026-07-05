@@ -5,7 +5,7 @@ class CategoryModel extends Equatable {
   final String name;
   final String slug;
 
-  CategoryModel({required this.id, required this.name, required this.slug});
+  const CategoryModel({required this.id, required this.name, required this.slug});
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
     return CategoryModel(

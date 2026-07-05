@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
 import '../../../auth/data/models/user_model.dart';
 import '../../../auth/presentation/pages/welcome_page.dart';
+import '../../../cards/presentation/pages/saved_cards_page.dart';
 import '../bloc/profile_bloc.dart';
 import '../widgets/edit_profile_sheet.dart';
 import '../widgets/profile_header.dart';
@@ -139,6 +140,13 @@ class ProfilePage extends StatelessWidget {
               context,
               title: 'Ayarlar',
               children: [
+                ProfileMenuItem(
+                  icon: Icons.credit_card_outlined,
+                  title: 'Kayitli Kartlarim',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SavedCardsPage()),
+                  ),
+                ),
                 ProfileMenuItem(
                   icon: Icons.info_outline,
                   title: 'Hakkinda',

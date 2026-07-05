@@ -170,8 +170,19 @@ const adminLimiter = rateLimit({
   keyGenerator: userOrIpKey,
 });
 
+// Kart kaydetme uçları için sıkı limit (BIN-testing / kart doğrulama saldırılarına karşı).
+const cardsLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  message: { message: 'Çok fazla kart işlemi, lütfen daha sonra tekrar deneyin' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+});
+
 app.use(generalLimiter);
 app.use('/api/auth', authLimiter);
+app.use('/api/cards', cardsLimiter);
 app.use('/api/business-dashboard', businessDashboardLimiter);
 app.use('/api/admin', adminLimiter);
 app.use('/api/payments', paymentsLimiter);

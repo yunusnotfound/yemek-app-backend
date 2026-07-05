@@ -7,6 +7,7 @@ router.use('/businesses', require('./businesses'));
 router.use('/packages', require('./packages'));
 router.use('/orders', require('./orders'));
 router.use('/payments', require('./payments'));
+router.use('/cards', require('./cards'));
 router.use('/reviews', require('./reviews'));
 router.use('/favorites', require('./favorites'));
 router.use('/notifications', require('./notifications'));

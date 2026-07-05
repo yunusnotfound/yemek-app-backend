@@ -38,15 +38,14 @@ const call = (resource, method, request) =>
   });
 
 /**
- * Pazaryeri Checkout Form başlat. basketItem alt üye işyeri (subMerchantKey/Price) taşır.
- * @returns {{ token, checkoutFormContent, paymentPageUrl, conversationId }}
+ * Checkout Form ve 3DS'in paylaştığı ödeme isteği gövdesi (buyer/adresler/basketItems).
+ * Pazaryeri kalemi: yalnız submerchant varsa kırılım (subMerchantKey/Price) gönderilir;
+ * submerchant yoksa düz tahsilat (test modu) — kalem submerchant alanları taşımaz.
  */
-const initializeCheckoutForm = async ({ order, user, business, pkg, categoryName, ip }) => {
+const buildPaymentRequestBase = ({ order, user, business, pkg, categoryName, ip }) => {
   const { name, surname } = splitName(user.name);
   const price = formatPrice(order.finalPrice);
 
-  // Pazaryeri kalemi: yalnız submerchant varsa kırılım (subMerchantKey/Price) gönder.
-  // submerchant yoksa düz tahsilat (test modu) — kalem submerchant alanları taşımaz.
   const basketItem = {
     id: pkg.id,
     name: pkg.title,
@@ -59,7 +58,7 @@ const initializeCheckoutForm = async ({ order, user, business, pkg, categoryName
     basketItem.subMerchantPrice = formatPrice(order.subMerchantPrice);
   }
 
-  const request = {
+  return {
     locale: Iyzipay.LOCALE.TR,
     conversationId: order.id,
     price,
@@ -67,8 +66,6 @@ const initializeCheckoutForm = async ({ order, user, business, pkg, categoryName
     currency: Iyzipay.CURRENCY.TRY,
     basketId: order.id,
     paymentGroup: Iyzipay.PAYMENT_GROUP.PRODUCT,
-    callbackUrl: process.env.IYZICO_CALLBACK_URL,
-    enabledInstallments: [1], // tek çekim
     buyer: {
       id: user.id,
       name,
@@ -98,6 +95,18 @@ const initializeCheckoutForm = async ({ order, user, business, pkg, categoryName
     },
     basketItems: [basketItem],
   };
+};
+
+/**
+ * Pazaryeri Checkout Form başlat. basketItem alt üye işyeri (subMerchantKey/Price) taşır.
+ * @returns {{ token, checkoutFormContent, paymentPageUrl, conversationId }}
+ */
+const initializeCheckoutForm = async ({ order, user, business, pkg, categoryName, ip }) => {
+  const request = {
+    ...buildPaymentRequestBase({ order, user, business, pkg, categoryName, ip }),
+    callbackUrl: process.env.IYZICO_CALLBACK_URL,
+    enabledInstallments: [1], // tek çekim
+  };
 
   const result = await call('checkoutFormInitialize', 'create', request);
   if (!result || result.status !== 'success') {
@@ -121,6 +130,102 @@ const retrieveCheckoutForm = (token, conversationId) =>
     conversationId,
     token,
   });
+
+// 3DS banka dönüş adresi: açık env yoksa mevcut callback'ten türetilir.
+const threedsCallbackUrl = () =>
+  process.env.IYZICO_3DS_CALLBACK_URL ||
+  String(process.env.IYZICO_CALLBACK_URL || '').replace(/\/iyzico\/callback\/?$/, '/iyzico/3ds-callback');
+
+/**
+ * Native 3DS ödeme başlat. paymentCard: {cardUserKey, cardToken} (kayıtlı kart)
+ * VEYA ham kart alanları + registerCard (yeni kart, isteğe bağlı kaydet).
+ * DİKKAT: request PAN/CVV içerir — bu fonksiyonda request asla loglanmaz.
+ * @returns {{ threeDSHtmlContent: string }} decode edilmiş HTML (WebView doğrudan render eder)
+ */
+const initializeThreeDS = async ({ order, user, business, pkg, categoryName, ip, paymentCard }) => {
+  const request = {
+    ...buildPaymentRequestBase({ order, user, business, pkg, categoryName, ip }),
+    installment: 1,
+    paymentChannel: Iyzipay.PAYMENT_CHANNEL.MOBILE,
+    callbackUrl: threedsCallbackUrl(),
+    paymentCard,
+  };
+
+  const result = await call('threedsInitialize', 'create', request);
+  if (!result || result.status !== 'success' || !result.threeDSHtmlContent) {
+    const msg = result?.errorMessage || 'iyzico 3DS başlatılamadı';
+    logger.error(`[iyzico] 3DS init başarısız: ${msg} (order ${order.id})`);
+    throw new Error(msg);
+  }
+  return {
+    threeDSHtmlContent: Buffer.from(result.threeDSHtmlContent, 'base64').toString('utf8'),
+  };
+};
+
+/** 3DS tamamla (banka doğrulaması sonrası tahsilat). Sonuç finalize'a verilir. */
+const completeThreeDS = ({ paymentId, conversationData, conversationId }) =>
+  call('threedsPayment', 'create', {
+    locale: Iyzipay.LOCALE.TR,
+    conversationId,
+    paymentId,
+    ...(conversationData ? { conversationData } : {}),
+  });
+
+/** Ödemeyi conversationId ile sorgula — 3DS siparişlerinde reaper/poll-sync kullanır (token yok). */
+const retrievePayment = ({ conversationId, paymentId }) =>
+  call('payment', 'retrieve', {
+    locale: Iyzipay.LOCALE.TR,
+    conversationId,
+    paymentConversationId: conversationId,
+    ...(paymentId ? { paymentId } : {}),
+  });
+
+// --- Kart saklama (iyzico cüzdanı — PAN bizde tutulmaz) ---
+
+/** Kart kaydet. İlk kartta iyzico yeni cardUserKey üretir; sonrakiler mevcut cüzdana eklenir. */
+const createCard = async ({ user, card }) => {
+  const request = {
+    locale: Iyzipay.LOCALE.TR,
+    conversationId: user.id,
+    email: user.email,
+    externalId: user.id,
+    ...(user.cardUserKey ? { cardUserKey: user.cardUserKey } : {}),
+    card,
+  };
+  const result = await call('card', 'create', request);
+  if (!result || result.status !== 'success') {
+    logger.warn(`[iyzico] kart kaydı başarısız (user ${user.id}): ${result?.errorMessage || 'bilinmeyen'}`);
+    throw new Error(result?.errorMessage || 'Kart kaydedilemedi');
+  }
+  return result; // cardUserKey, cardToken, binNumber, lastFourDigits, cardAssociation, ...
+};
+
+/** Kullanıcının iyzico'daki kayıtlı kartlarını listele. */
+const listCards = async (cardUserKey, conversationId) => {
+  const result = await call('cardList', 'retrieve', {
+    locale: Iyzipay.LOCALE.TR,
+    conversationId,
+    cardUserKey,
+  });
+  if (!result || result.status !== 'success') {
+    throw new Error(result?.errorMessage || 'Kartlar alınamadı');
+  }
+  return result.cardDetails || [];
+};
+
+/** Kayıtlı kartı sil. */
+const deleteCard = async (cardUserKey, cardToken, conversationId) => {
+  const result = await call('card', 'delete', {
+    locale: Iyzipay.LOCALE.TR,
+    conversationId,
+    cardUserKey,
+    cardToken,
+  });
+  if (!result || result.status !== 'success') {
+    throw new Error(result?.errorMessage || 'Kart silinemedi');
+  }
+  return result;
+};
 
 /** Alt üye işyeri (sub-merchant) oluştur. business alanlarından request kurar. */
 const buildSubMerchantRequest = (business) => {
@@ -250,6 +355,12 @@ module.exports = {
   calcSubMerchantPrice,
   initializeCheckoutForm,
   retrieveCheckoutForm,
+  initializeThreeDS,
+  completeThreeDS,
+  retrievePayment,
+  createCard,
+  listCards,
+  deleteCard,
   createSubMerchant,
   updateSubMerchant,
   approveItem,

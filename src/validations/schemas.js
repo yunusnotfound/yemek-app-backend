@@ -83,11 +83,56 @@ const geocodeQuerySchema = z.object({
   address: z.string().min(1, "Adres gerekli"),
 });
 
+// --- Kart (iyzico kart saklama) ---
+const luhnOk = (num) => {
+  let sum = 0;
+  let dbl = false;
+  for (let i = num.length - 1; i >= 0; i--) {
+    let d = num.charCodeAt(i) - 48;
+    if (dbl) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+    dbl = !dbl;
+  }
+  return sum % 10 === 0;
+};
+
+const newCardSchema = z.object({
+  cardHolderName: z.string().trim().min(2, "Kart üzerindeki isim gerekli").max(80),
+  cardNumber: z
+    .string()
+    .transform((s) => s.replace(/\s+/g, ""))
+    .refine((v) => /^\d{12,19}$/.test(v) && luhnOk(v), "Geçerli bir kart numarası girin"),
+  expireMonth: z.string().regex(/^(0[1-9]|1[0-2])$/, "Geçerli bir ay girin (01-12)"),
+  expireYear: z.string().regex(/^\d{4}$/, "Geçerli bir yıl girin (4 hane)"),
+  cardAlias: z.string().trim().max(50).optional(),
+});
+
+// POST /cards — CVV alınmaz (iyzico card.create CVV istemez)
+const cardCreateSchema = newCardSchema;
+
+const cardTokenParamSchema = z.object({
+  cardToken: z.string().min(1, "Kart token gerekli").max(200),
+});
+
+// Sipariş ödemesi: kayıtlı kart (token) VEYA yeni kart (+ CVV, isteğe bağlı kaydet)
+const orderPaymentCardSchema = z.union([
+  z.object({ savedCardToken: z.string().min(1).max(200) }),
+  newCardSchema.extend({
+    cvc: z.string().regex(/^\d{3,4}$/, "Geçerli bir CVV girin"),
+    saveCard: z.boolean().optional(),
+  }),
+], { error: "Geçerli bir ödeme kartı bilgisi girin" });
+
 // Order
 const orderSchema = z.object({
   packageId: z.string().uuid("Geçerli bir paket ID girin"),
   quantity: z.number().int().min(1).optional(),
   couponCode: z.string().optional(),
+  // Varsa native 3DS akışı; yoksa checkout form (eski app sürümleri) — geriye uyumlu.
+  paymentCard: orderPaymentCardSchema.optional(),
 });
 
 // iyzico alt üye işyeri (sub-merchant) onboarding
@@ -343,6 +388,8 @@ module.exports = {
   packageSchema,
   packageUpdateSchema,
   orderSchema,
+  cardCreateSchema,
+  cardTokenParamSchema,
   subMerchantSchema,
   reviewSchema,
   orderStatusSchema,

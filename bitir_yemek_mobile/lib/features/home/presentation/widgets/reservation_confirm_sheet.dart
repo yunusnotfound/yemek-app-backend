@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
+import '../../../cards/data/datasources/cards_remote_datasource.dart';
+import '../../../cards/data/models/saved_card_model.dart';
+import '../../../cards/data/repositories/cards_repository_impl.dart';
+import '../../../cards/presentation/bloc/cards_bloc.dart';
+import '../../../cards/presentation/widgets/card_form_fields.dart';
 import '../../data/models/package_model.dart';
 import '../../data/models/reservation_model.dart';
 import '../bloc/reservation_bloc.dart';
@@ -17,15 +23,37 @@ class ReservationConfirmSheet extends StatefulWidget {
 }
 
 class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
+  // RadioGroup sentineli: "yeni kart ile öde" seçeneği (kart tokenlarıyla çakışmaz).
+  static const _newCardOption = '__new_card__';
+
   final _couponController = TextEditingController();
   CouponModel? _appliedCoupon;
   double _couponDiscount = 0;
   bool _couponValidating = false;
   String? _couponError;
 
+  // Ödeme yöntemi: kayıtlı kart tokenı veya yeni kart formu.
+  late final CardsBloc _cardsBloc;
+  final _cardFormKey = GlobalKey<CardFormFieldsState>();
+  String? _selectedCardToken;
+  bool _useNewCard = false;
+  bool _saveNewCard = true;
+  String? _paymentError;
+
+  @override
+  void initState() {
+    super.initState();
+    _cardsBloc = CardsBloc(
+      repository: CardsRepositoryImpl(
+        remoteDataSource: CardsRemoteDataSource(dioClient: appDioClient),
+      ),
+    )..add(const LoadCards());
+  }
+
   @override
   void dispose() {
     _couponController.dispose();
+    _cardsBloc.close();
     super.dispose();
   }
 
@@ -33,6 +61,8 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
       widget.package.originalPrice - widget.package.discountedPrice;
 
   double get _totalPrice => widget.package.discountedPrice - _couponDiscount;
+
+  bool get _isPaid => _totalPrice > 0;
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +87,9 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
             _couponValidating = true;
             _couponError = null;
           });
+        } else if (state is ReservationError) {
+          // Kayıtlı kart bayat olabilir (iyzico'da silinmiş) -> listeyi sessizce yenile.
+          _cardsBloc.add(const LoadCards(silent: true));
         }
       },
       child: Padding(
@@ -100,6 +133,12 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
               _buildCouponInput(),
               const SizedBox(height: AppSpacing.lg),
 
+              // Payment method (yalnız ücretli siparişte)
+              if (_isPaid) ...[
+                _buildPaymentMethod(),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+
               // Price breakdown
               _buildPriceBreakdown(),
               const SizedBox(height: AppSpacing.lg),
@@ -130,7 +169,9 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
                               ),
                             )
                           : Text(
-                              'Rezerve Et - ₺${_totalPrice.toStringAsFixed(0)}',
+                              _isPaid
+                                  ? 'Öde ve Rezerve Et - ₺${_totalPrice.toStringAsFixed(0)}'
+                                  : 'Rezerve Et - ₺${_totalPrice.toStringAsFixed(0)}',
                               style: AppTypography.button,
                             ),
                     ),
@@ -327,6 +368,154 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
     );
   }
 
+  Widget _buildPaymentMethod() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Odeme Yontemi',
+          style: AppTypography.bodySmall.copyWith(
+            color: AppColors.textHint,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        BlocConsumer<CardsBloc, CardsState>(
+          bloc: _cardsBloc,
+          listener: (context, state) {
+            if (state is CardsLoaded) {
+              setState(() {
+                // Seçili kart artık listede yoksa (silinmiş) seçimi düşür.
+                if (_selectedCardToken != null &&
+                    !state.cards.any((c) => c.cardToken == _selectedCardToken)) {
+                  _selectedCardToken = null;
+                }
+                if (state.cards.isEmpty) {
+                  _useNewCard = true;
+                } else if (_selectedCardToken == null && !_useNewCard) {
+                  _selectedCardToken = state.cards.first.cardToken;
+                }
+              });
+            } else if (state is CardsError) {
+              // Kart listesi alınamadı — ödeme bloklanmasın, yeni kart formuna düş.
+              setState(() => _useNewCard = true);
+            }
+          },
+          builder: (context, state) {
+            if (state is CardsLoading || state is CardsInitial) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                child: Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            }
+            final cards = state is CardsLoaded
+                ? state.cards
+                : const <SavedCardModel>[];
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.divider),
+              ),
+              child: RadioGroup<String>(
+                groupValue: _useNewCard ? _newCardOption : _selectedCardToken,
+                onChanged: (v) => setState(() {
+                  _useNewCard = v == _newCardOption;
+                  if (!_useNewCard) _selectedCardToken = v;
+                  _paymentError = null;
+                }),
+                child: Column(
+                  children: [
+                    for (final card in cards) ...[
+                      RadioListTile<String>(
+                        value: card.cardToken,
+                        dense: true,
+                        activeColor: AppColors.primary,
+                        title: Text(
+                          '${card.displayName} ${card.maskedNumber}',
+                          style: AppTypography.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        secondary: const Icon(
+                          Icons.credit_card,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const Divider(height: 1, color: AppColors.divider),
+                    ],
+                    RadioListTile<String>(
+                      value: _newCardOption,
+                      dense: true,
+                      activeColor: AppColors.primary,
+                      title: Text(
+                        cards.isEmpty ? 'Kart ile ode' : 'Yeni kart ile ode',
+                        style: AppTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      secondary: const Icon(
+                        Icons.add_card,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ),
+                    if (_useNewCard)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          0,
+                          AppSpacing.md,
+                          AppSpacing.sm,
+                        ),
+                        child: Column(
+                          children: [
+                            CardFormFields(
+                              key: _cardFormKey,
+                              requireCvc: true,
+                              showAlias: false,
+                            ),
+                            CheckboxListTile(
+                              value: _saveNewCard,
+                              onChanged: (v) =>
+                                  setState(() => _saveNewCard = v ?? false),
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              activeColor: AppColors.primary,
+                              title: Text(
+                                'Kartimi sonraki siparisler icin kaydet',
+                                style: AppTypography.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        if (_paymentError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(
+              _paymentError!,
+              style: AppTypography.bodySmall.copyWith(color: AppColors.error),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildPriceBreakdown() {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -409,10 +598,33 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
   }
 
   void _onConfirm() {
+    Map<String, dynamic>? paymentCard;
+
+    if (_isPaid) {
+      if (_useNewCard) {
+        final data = _cardFormKey.currentState?.validateAndRead();
+        if (data == null) return; // form hataları alanlarda gösterilir
+        paymentCard = {
+          'cardHolderName': data.cardHolderName,
+          'cardNumber': data.cardNumber,
+          'expireMonth': data.expireMonth,
+          'expireYear': data.expireYear,
+          'cvc': data.cvc,
+          'saveCard': _saveNewCard,
+        };
+      } else if (_selectedCardToken != null) {
+        paymentCard = {'savedCardToken': _selectedCardToken};
+      } else {
+        setState(() => _paymentError = 'Lutfen bir odeme yontemi secin');
+        return;
+      }
+    }
+
     context.read<ReservationBloc>().add(
       CreateReservation(
         packageId: widget.package.id,
         couponCode: _appliedCoupon?.code,
+        paymentCard: paymentCard,
       ),
     );
   }

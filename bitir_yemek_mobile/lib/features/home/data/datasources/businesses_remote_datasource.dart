@@ -122,6 +122,7 @@ class BusinessesRemoteDataSource {
     required String packageId,
     int quantity = 1,
     String? couponCode,
+    Map<String, dynamic>? paymentCard,
   }) async {
     try {
       final data = <String, dynamic>{
@@ -130,6 +131,9 @@ class BusinessesRemoteDataSource {
       };
       if (couponCode != null && couponCode.isNotEmpty) {
         data['couponCode'] = couponCode;
+      }
+      if (paymentCard != null) {
+        data['paymentCard'] = paymentCard;
       }
 
       final response = await _dioClient.dio.post('/orders', data: data);

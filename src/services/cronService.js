@@ -134,6 +134,22 @@ const startPaymentReaperJob = () => {
               recovered++;
               continue;
             }
+          } else if (order.paymentProvider === 'iyzico') {
+            // 3DS siparişi (token yok) -> payment.retrieve ile kontrol.
+            // SUCCESS değilse (3DS yarıda bırakıldı / reddedildi) aşağıda hold serbest bırakılır.
+            const result = await iyzicoService.retrievePayment({ conversationId: order.conversationId }).catch(() => null);
+            if (result?.status === 'success') {
+              const r = await paymentFinalizeService.finalize({
+                retrieveResult: result,
+                conversationId: order.conversationId,
+                source: 'reaper',
+                ip: '0.0.0.0',
+              });
+              if (r.outcome === 'paid' || r.outcome === 'already_paid') {
+                recovered++;
+                continue;
+              }
+            }
           }
           // Ödenmemiş -> hold'u serbest bırak (sonradan ödeme gelirse finalize otomatik iade eder).
           const ok = await paymentFinalizeService.expireUnpaidHold(order.id);

@@ -12,14 +12,20 @@ class CreateReservation extends ReservationEvent {
   final int quantity;
   final String? couponCode;
 
+  /// Native 3DS ödemesi için kart seçimi: {savedCardToken} veya
+  /// {cardHolderName, cardNumber, expireMonth, expireYear, cvc, saveCard}.
+  /// null ise backend eski Checkout Form akışına düşer.
+  final Map<String, dynamic>? paymentCard;
+
   const CreateReservation({
     required this.packageId,
     this.quantity = 1,
     this.couponCode,
+    this.paymentCard,
   });
 
   @override
-  List<Object?> get props => [packageId, quantity, couponCode];
+  List<Object?> get props => [packageId, quantity, couponCode, paymentCard];
 }
 
 class ValidateCoupon extends ReservationEvent {

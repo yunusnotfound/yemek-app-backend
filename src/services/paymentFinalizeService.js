@@ -1,4 +1,4 @@
-const { Order, SurprisePackage, Business, sequelize } = require('../models');
+const { Order, SurprisePackage, Business, User, sequelize } = require('../models');
 const iyzicoService = require('./iyzicoService');
 const { notifyNewOrder, createNotification } = require('./notificationService');
 const cacheService = require('./cacheService');
@@ -9,6 +9,16 @@ const PRICE_EPS = 0.01;
 // Kesin başarısızlık sayılan iyzico paymentStatus değerleri (terminal).
 const isTerminalFailure = (paymentStatus) =>
   ['FAILURE', 'BANK_FAIL'].includes(String(paymentStatus || '').toUpperCase());
+
+// checkoutForm.retrieve 'paymentStatus' alanı döndürür; threedsPayment.create ve
+// payment.retrieve sonuçları döndürmez — orada status:'success' + paymentId varlığı
+// SUCCESS'e, status:'failure' FAILURE'a eşdeğerdir.
+const effectivePaymentStatus = (result) => {
+  if (result?.paymentStatus) return String(result.paymentStatus).toUpperCase();
+  if (result?.status === 'success' && result?.paymentId) return 'SUCCESS';
+  if (result?.status === 'failure') return 'FAILURE';
+  return '';
+};
 
 // Stok iade et + siparişi iptal et — yalnız hâlâ awaiting_payment ise (idempotent, yarış güvenli).
 const releaseStockGuarded = async (order, reason, t) => {
@@ -85,7 +95,7 @@ const finalize = async ({ token, conversationId, retrieveResult, source = 'callb
 
     // 3) Sonucu değerlendir
     const apiOk = result && result.status === 'success';
-    const payStatus = String(result?.paymentStatus || '').toUpperCase();
+    const payStatus = effectivePaymentStatus(result);
     const fraud = Number(result?.fraudStatus);
     const paidPrice = Number(result?.paidPrice);
     const currencyOk = !result?.currency || result.currency === 'TRY';
@@ -108,6 +118,15 @@ const finalize = async ({ token, conversationId, retrieveResult, source = 'callb
         },
         { where: { id: order.id, status: 'awaiting_payment' }, transaction: t }
       );
+
+      // Ödeme sırasında kart kaydı (registerCard: 1) yapıldıysa cüzdan anahtarını persist et.
+      // Guarded: yalnız hâlâ boşsa yaz (eşzamanlı ilk kayıtla yarışa karşı).
+      if (result.cardUserKey && result.cardToken) {
+        await User.update(
+          { cardUserKey: result.cardUserKey },
+          { where: { id: order.userId, cardUserKey: null }, transaction: t }
+        );
+      }
 
       if (n === 0) {
         // Reaper TTL'de iptal etmiş ama ödeme gerçekleşmiş -> para alındı, hold yok -> otomatik iade.
@@ -140,8 +159,9 @@ const finalize = async ({ token, conversationId, retrieveResult, source = 'callb
       return { outcome: 'amount_mismatch', orderId: order.id };
     }
 
-    // 3c) Terminal başarısızlık / fraud flag -> hold serbest bırak
-    if (apiOk && (isTerminalFailure(payStatus) || fraud === -1)) {
+    // 3c) Terminal başarısızlık / fraud flag -> hold serbest bırak.
+    // Kesin status:'failure' sonucu da (3DS reddi / payment.retrieve "bulunamadı") terminaldir.
+    if ((apiOk && (isTerminalFailure(payStatus) || fraud === -1)) || payStatus === 'FAILURE') {
       await releaseStockGuarded(order, fraud === -1 ? 'fraud_flagged' : `failed_${payStatus}`, t);
       await t.commit();
       logger.info(`[finalize] ödeme başarısız (order ${order.id}, status=${payStatus}, fraud=${fraud})`);

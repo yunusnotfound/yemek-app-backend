@@ -237,12 +237,14 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
     required String packageId,
     int quantity = 1,
     String? couponCode,
+    Map<String, dynamic>? paymentCard,
   }) async {
     try {
       final response = await _remoteDataSource.createReservation(
         packageId: packageId,
         quantity: quantity,
         couponCode: couponCode,
+        paymentCard: paymentCard,
       );
 
       final orderData = response['order'] as Map<String, dynamic>?;

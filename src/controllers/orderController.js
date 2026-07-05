@@ -13,12 +13,12 @@ const HOLD_MINUTES = (() => {
   return Number.isFinite(m) && m > 0 ? m : 20;
 })();
 
-// iyzico checkout başlatılamazsa hold'u telafi et (iptal + stok iade), idempotent.
-const releaseHoldCompensation = async (order) => {
+// iyzico ödeme başlatılamazsa hold'u telafi et (iptal + stok iade), idempotent.
+const releaseHoldCompensation = async (order, reason = 'checkout_init_failed') => {
   const t = await sequelize.transaction();
   try {
     const [n] = await Order.update(
-      { status: 'cancelled', paymentStatus: 'failed', paymentError: 'checkout_init_failed' },
+      { status: 'cancelled', paymentStatus: 'failed', paymentError: reason },
       { where: { id: order.id, status: 'awaiting_payment' }, transaction: t }
     );
     if (n === 1) {
@@ -208,8 +208,64 @@ exports.create = async (req, res, next) => {
       });
     }
 
-    // --- Ücretli sipariş: hold commit edildi, şimdi iyzico checkout başlat ---
+    // --- Ücretli sipariş: hold commit edildi, şimdi iyzico ödemesini başlat ---
     const buyer = await User.findByPk(req.user.id);
+
+    // Native 3DS akışı (paymentCard geldi): kayıtlı kart veya yeni kart ile.
+    // DİKKAT: 3DS siparişlerinde paymentToken bilerek set edilmez — reaper/poll-sync
+    // token'sız siparişleri payment.retrieve ile sorgular.
+    if (req.body.paymentCard) {
+      const pc = req.body.paymentCard;
+      let paymentCard;
+      if (pc.savedCardToken) {
+        if (!buyer.cardUserKey) {
+          await releaseHoldCompensation(order, 'saved_card_missing');
+          return res.status(400).json({ message: 'Kayıtlı kart bulunamadı, lütfen kartlarınızı yenileyin' });
+        }
+        paymentCard = { cardUserKey: buyer.cardUserKey, cardToken: pc.savedCardToken };
+      } else {
+        paymentCard = {
+          cardHolderName: pc.cardHolderName,
+          cardNumber: pc.cardNumber,
+          expireMonth: pc.expireMonth,
+          expireYear: pc.expireYear,
+          cvc: pc.cvc,
+          registerCard: pc.saveCard ? 1 : 0,
+          ...(pc.cardAlias ? { cardAlias: pc.cardAlias } : {}),
+        };
+      }
+
+      try {
+        const tds = await iyzicoService.initializeThreeDS({
+          order,
+          user: buyer,
+          business,
+          pkg,
+          categoryName: business.category?.name,
+          ip: req.ip,
+          paymentCard,
+        });
+
+        return res.status(201).json({
+          message: 'Ödeme başlatıldı',
+          order,
+          payment: {
+            required: true,
+            provider: 'iyzico',
+            method: '3ds',
+            threeDSHtmlContent: tds.threeDSHtmlContent,
+            conversationId: order.conversationId,
+            holdExpiresAt: order.paymentHoldExpiresAt,
+          },
+        });
+      } catch (e) {
+        logger.error(`[orders] 3DS init başarısız (order ${order.id}): ${e.message}`);
+        await releaseHoldCompensation(order, 'threeds_init_failed');
+        return res.status(502).json({ message: 'Ödeme başlatılamadı, kart bilgilerinizi kontrol edip tekrar deneyin' });
+      }
+    }
+
+    // Checkout Form (eski app sürümleri — paymentCard göndermeyen istemciler)
     try {
       const cf = await iyzicoService.initializeCheckoutForm({
         order,

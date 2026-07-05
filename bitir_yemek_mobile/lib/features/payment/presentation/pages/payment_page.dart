@@ -63,7 +63,9 @@ class _PaymentViewState extends State<_PaymentView> {
   // Backend callback/result URL'i host'tan bağımsız, path ile yakalanır (dev tüneli de çalışır).
   bool _isResultUrl(String? url) {
     if (url == null) return false;
-    return url.contains('/payments/result') || url.contains('/payments/iyzico/callback');
+    return url.contains('/payments/result') ||
+        url.contains('/payments/iyzico/callback') ||
+        url.contains('/payments/iyzico/3ds-callback');
   }
 
   Future<void> _handleBack(BuildContext context, bool locked) async {
@@ -91,6 +93,7 @@ class _PaymentViewState extends State<_PaymentView> {
   Widget build(BuildContext context) {
     final bloc = context.read<PaymentBloc>();
     final url = widget.payment.paymentPageUrl;
+    final threeDSHtml = widget.payment.threeDSHtmlContent;
 
     return BlocConsumer<PaymentBloc, PaymentState>(
       listener: (context, state) {
@@ -134,9 +137,23 @@ class _PaymentViewState extends State<_PaymentView> {
             ),
             body: Stack(
               children: [
-                if (url != null && url.isNotEmpty)
+                if ((threeDSHtml != null && threeDSHtml.isNotEmpty) ||
+                    (url != null && url.isNotEmpty))
                   InAppWebView(
-                    initialUrlRequest: URLRequest(url: WebUri(url)),
+                    // Native 3DS: banka doğrulama HTML'i doğrudan render edilir
+                    // (form mutlak banka URL'lerine POST eder, baseUrl gerekmez).
+                    initialData: threeDSHtml != null && threeDSHtml.isNotEmpty
+                        ? InAppWebViewInitialData(
+                            data: threeDSHtml,
+                            mimeType: 'text/html',
+                            encoding: 'utf-8',
+                          )
+                        : null,
+                    initialUrlRequest:
+                        (threeDSHtml == null || threeDSHtml.isEmpty) &&
+                            url != null
+                        ? URLRequest(url: WebUri(url))
+                        : null,
                     initialSettings: InAppWebViewSettings(
                       useShouldOverrideUrlLoading: false,
                       javaScriptEnabled: true,

@@ -29,6 +29,7 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
       packageId: event.packageId,
       quantity: event.quantity,
       couponCode: event.couponCode,
+      paymentCard: event.paymentCard,
     );
 
     if (result.isSuccess) {

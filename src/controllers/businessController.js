@@ -13,13 +13,28 @@ const {
 } = require("../utils/helpers");
 const cacheService = require('../services/cacheService');
 
+// Bbox satırları daralttıktan sonra JS Haversine'e sokulacak aday sayısı için sert tavan.
+const GEO_CANDIDATE_LIMIT = 500;
+
 exports.getAll = async (req, res, next) => {
   try {
     const { city, district, categoryId, search, lat, lng, radius } = req.query;
     const { page, limit, offset } = paginate(req.query);
     const useGeoFilter = lat && lng && radius;
 
-    const cacheKey = `businesses:list:${JSON.stringify(req.query)}`;
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    const maxRadius = parseFloat(radius);
+
+    // Cache anahtarı: geo sorgularında koordinat 3 haneye yuvarlanır ki her farklı
+    // ondalık ayrı anahtar olup Redis'i şişirmesin (paket listesiyle aynı desen).
+    const keyParts = { city, district, categoryId, search, page, limit };
+    if (useGeoFilter) {
+      keyParts.lat = userLat.toFixed(3);
+      keyParts.lng = userLng.toFixed(3);
+      keyParts.radius = radius;
+    }
+    const cacheKey = `businesses:list:${JSON.stringify(keyParts)}`;
     const cached = await cacheService.get(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -30,6 +45,16 @@ exports.getAll = async (req, res, next) => {
     if (district) where.district = district;
     if (categoryId) where.categoryId = categoryId;
     if (search) where.name = { [Op.iLike]: `%${search}%` };
+
+    // Bounding-box ön filtresi (idx_businesses_lat_lng): sınırsız tarama yerine
+    // önce SQL'de daralt; BETWEEN, koordinatı NULL olan satırları da eler.
+    if (useGeoFilter) {
+      const latDelta = maxRadius / 111.32;
+      const cosLat = Math.cos((userLat * Math.PI) / 180);
+      const lngDelta = maxRadius / (111.32 * Math.max(Math.abs(cosLat), 1e-6));
+      where.latitude = { [Op.between]: [userLat - latDelta, userLat + latDelta] };
+      where.longitude = { [Op.between]: [userLng - lngDelta, userLng + lngDelta] };
+    }
 
     const queryOptions = {
       where,
@@ -42,6 +67,8 @@ exports.getAll = async (req, res, next) => {
     if (!useGeoFilter) {
       queryOptions.limit = limit;
       queryOptions.offset = offset;
+    } else {
+      queryOptions.limit = GEO_CANDIDATE_LIMIT;
     }
 
     const { count, rows: businesses } = await Business.findAndCountAll(queryOptions);
@@ -50,10 +77,6 @@ exports.getAll = async (req, res, next) => {
     let totalCount = count;
 
     if (useGeoFilter) {
-      const userLat = parseFloat(lat);
-      const userLng = parseFloat(lng);
-      const maxRadius = parseFloat(radius);
-
       resultBusinesses = businesses.filter((business) => {
         if (!business.latitude || !business.longitude) return false;
         const distance = haversineDistance(userLat, userLng, parseFloat(business.latitude), parseFloat(business.longitude));
@@ -80,10 +103,15 @@ exports.getById = async (req, res, next) => {
     const business = await Business.findByPk(req.params.id, {
       include: [
         { model: Category, as: "category", attributes: ["id", "name", "slug"] },
-        { model: User, as: "owner", attributes: ["id", "name", "email"] },
+        { model: User, as: "owner", attributes: ["id", "name"] },
         {
           model: Review,
           as: "reviews",
+          // Ayrı sorgu (separate) -> hasMany'de limit doğru çalışır. Tüm review
+          // geçmişini limitsiz döndürmek yerine son 20; tamamı /reviews/business/:id'de.
+          separate: true,
+          limit: 20,
+          order: [["createdAt", "DESC"]],
           include: [{ model: User, as: "user", attributes: ["id", "name"] }],
         },
         {
@@ -96,6 +124,12 @@ exports.getById = async (req, res, next) => {
     });
 
     if (!business) {
+      return res.status(404).json({ message: "İşletme bulunamadı" });
+    }
+
+    // Onaylanmamış/pasif işletme public detayda görünmez (liste ile tutarlı).
+    // Sahibi kendi işletmesini business-dashboard uçlarından yönetir.
+    if (!business.isActive || !business.isApproved) {
       return res.status(404).json({ message: "İşletme bulunamadı" });
     }
 

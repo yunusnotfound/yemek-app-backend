@@ -185,12 +185,16 @@ const cardsLimiter = rateLimit({
   keyGenerator: userOrIpKey,
 });
 
-app.use(generalLimiter);
-app.use('/api/auth', authLimiter);
-app.use('/api/cards', cardsLimiter);
-app.use('/api/business-dashboard', businessDashboardLimiter);
-app.use('/api/admin', adminLimiter);
-app.use('/api/payments', paymentsLimiter);
+// Rate limiting'i test ortamında devre dışı bırak — testler auth uçlarını yoğun
+// kullandığından global/auth limitleri spurious 429 üretirdi.
+if (process.env.NODE_ENV !== 'test') {
+  app.use(generalLimiter);
+  app.use('/api/auth', authLimiter);
+  app.use('/api/cards', cardsLimiter);
+  app.use('/api/business-dashboard', businessDashboardLimiter);
+  app.use('/api/admin', adminLimiter);
+  app.use('/api/payments', paymentsLimiter);
+}
 
 // iyzico webhook imzası için HAM gövde gerekir -> global JSON parser'dan ÖNCE,
 // yalnız bu path'e scoped raw parser.
@@ -207,12 +211,21 @@ app.use(
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     next();
   },
-  express.static(path.join(__dirname, '..', 'uploads'))
+  express.static(path.join(__dirname, '..', 'uploads'), {
+    setHeaders: (res) => {
+      // Yüklenen dosyalar asla script/HTML olarak yorumlanmasın (stored-XSS savunması).
+      // nosniff MIME tahminini kapatır; sandbox CSP'si dosyaya doğrudan gidilse bile
+      // script yürütmeyi engeller (<img> gömme etkilenmez).
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    },
+  })
 );
 
 app.get('/api/health', async (req, res) => {
   const { sequelize } = require('./models');
   const cacheService = require('./services/cacheService');
+  const iyzico = require('./config/iyzico');
   const isProduction = process.env.NODE_ENV === 'production';
 
   let database = 'connected';
@@ -233,6 +246,8 @@ app.get('/api/health', async (req, res) => {
     timestamp: new Date().toISOString(),
     database,
     redis,
+    // 'live' | 'sandbox' | 'unconfigured' — canlı geçişte doğrulama için (health'i etkilemez).
+    iyzicoMode: iyzico.getMode(),
     uptime: process.uptime(),
   });
 });

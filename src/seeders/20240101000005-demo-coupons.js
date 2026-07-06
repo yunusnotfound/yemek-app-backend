@@ -4,6 +4,9 @@ const { v4: uuidv4 } = require('uuid');
 
 module.exports = {
   async up(queryInterface) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Seed verisi production ortamında çalıştırılamaz (örnek/demo veri).');
+    }
     const existing = await queryInterface.sequelize.query(
       'SELECT id FROM "Coupons" LIMIT 1',
       { type: queryInterface.sequelize.QueryTypes.SELECT }

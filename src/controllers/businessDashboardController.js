@@ -242,30 +242,44 @@ exports.getBusinessPackages = async (req, res, next) => {
 
     const { count, rows: packages } = await SurprisePackage.findAndCountAll({
       where: { businessId },
-      include: [
-        {
-          model: Order,
-          as: 'orders',
-          // Satış istatistiği yalnız ödenmiş & iptal olmayan siparişlerden.
-          where: { paymentStatus: 'paid', status: { [Op.ne]: 'cancelled' } },
-          required: false,
-          attributes: ['id', 'status', 'totalPrice'],
-        },
-      ],
       order: [['createdAt', 'DESC']],
       limit,
       offset,
     });
 
+    // Satış istatistiğini per-paket TÜM siparişleri yüklemek yerine tek grouped
+    // sorguyla topla (yalnız ödenmiş & iptal olmayan). Popüler bir paketin binlerce
+    // siparişinin belleğe yüklenmesini önler. soldQuantity mevcut davranışı korur =
+    // sipariş adedi (COUNT), totalRevenue = SUM(totalPrice).
+    const pageIds = packages.map((p) => p.id);
+    const statsRows = pageIds.length
+      ? await Order.findAll({
+          attributes: [
+            'packageId',
+            [sequelize.fn('COUNT', sequelize.col('id')), 'soldCount'],
+            [sequelize.fn('COALESCE', sequelize.fn('SUM', sequelize.col('totalPrice')), 0), 'revenue'],
+          ],
+          where: { packageId: { [Op.in]: pageIds }, paymentStatus: 'paid', status: { [Op.ne]: 'cancelled' } },
+          group: ['packageId'],
+          raw: true,
+        })
+      : [];
+
+    const statsByPkg = {};
+    for (const row of statsRows) {
+      statsByPkg[row.packageId] = {
+        soldQuantity: parseInt(row.soldCount, 10) || 0,
+        totalRevenue: parseFloat(row.revenue) || 0,
+      };
+    }
+
     const packagesWithStats = packages.map((pkg) => {
       const pkgData = pkg.toJSON();
-      const soldQuantity = pkgData.orders?.length || 0;
-      const totalRevenue = pkgData.orders?.reduce((sum, o) => sum + parseFloat(o.totalPrice), 0) || 0;
-
+      const stats = statsByPkg[pkgData.id] || { soldQuantity: 0, totalRevenue: 0 };
       return {
         ...pkgData,
-        soldQuantity,
-        totalRevenue,
+        soldQuantity: stats.soldQuantity,
+        totalRevenue: stats.totalRevenue,
         remainingQuantity: pkgData.remainingQuantity,
       };
     });

@@ -39,4 +39,8 @@ class AppConstants {
   static const String googleClientId = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
   );
+
+  // Sentry crash reporting - pass via: --dart-define=SENTRY_DSN=https://...
+  // Empty => crash reporting disabled (the app runs normally without it).
+  static const String sentryDsn = String.fromEnvironment('SENTRY_DSN');
 }

@@ -1,11 +1,13 @@
 const { Sequelize } = require('sequelize');
 
 const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
 const useSSL = process.env.DB_SSL === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=require'));
 
 const dbOptions = {
   dialect: 'postgres',
-  logging: isProduction ? false : console.log,
+  // Test'te de SQL loglamayı sustur (aksi halde test çıktısı okunamaz olur).
+  logging: isProduction || isTest ? false : console.log,
   pool: {
     max: isProduction ? 20 : 20,
     min: isProduction ? 2 : 3,

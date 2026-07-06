@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -132,7 +132,7 @@ class _MapPageContentState extends State<_MapPageContent> {
 
       _loadMarkers();
     } catch (e) {
-      debugPrint('Error creating annotation manager: $e');
+      if (kDebugMode) debugPrint('Error creating annotation manager: $e');
     }
   }
 
@@ -242,7 +242,7 @@ class _MapPageContentState extends State<_MapPageContent> {
         _businessAnnotations.add(annotation);
         _annotationIdToBusiness[annotation.id] = business;
       } catch (e) {
-        debugPrint('Error creating marker for ${business.name}: $e');
+        if (kDebugMode) debugPrint('Error creating marker for ${business.name}: $e');
       }
     }
   }
@@ -265,7 +265,7 @@ class _MapPageContentState extends State<_MapPageContent> {
       );
       await _mapController!.flyTo(camera, MapAnimationOptions(duration: 700));
     } catch (e) {
-      debugPrint('Error fitting camera: $e');
+      if (kDebugMode) debugPrint('Error fitting camera: $e');
     }
   }
 
@@ -450,7 +450,7 @@ class _MapPageContentState extends State<_MapPageContent> {
         ),
       );
     } catch (e) {
-      debugPrint('Error creating current location marker: $e');
+      if (kDebugMode) debugPrint('Error creating current location marker: $e');
     }
   }
 

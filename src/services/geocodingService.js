@@ -99,36 +99,61 @@ const getDirections = async (originLat, originLng, destLat, destLng) => {
  * @param {number} radius - Arama yarıçapı (km)
  * @returns {Promise<Array>} - Yakındaki işletmeler
  */
+const GEO_CANDIDATE_LIMIT = 500;
+const NEARBY_CACHE_TTL = 60; // sn — availableNow zamana duyarlı olduğundan kısa tutulur
+
 const findNearbyBusinesses = async (lat, lng, radius = 5) => {
   const { Business, Category, SurprisePackage } = require('../models');
   const { Op } = require('sequelize');
   const { haversineDistance } = require('../utils/helpers');
+  const cacheService = require('./cacheService');
+
+  const userLat = parseFloat(lat);
+  const userLng = parseFloat(lng);
+  const maxRadius = parseFloat(radius);
+
+  // Kısa TTL cache. Koordinat 3 haneye (~110 m hücre) yuvarlanır ki yakın konumlar
+  // aynı anahtarı paylaşsın (Redis anahtar patlamasını önler).
+  const cacheKey = `maps:nearby:${userLat.toFixed(3)}:${userLng.toFixed(3)}:${maxRadius}`;
+  const cached = await cacheService.get(cacheKey);
+  if (cached) return cached;
+
+  // Bounding-box ön filtresi (idx_businesses_lat_lng): merkez + yarıçaptan min/max
+  // lat/lng hesaplanır ve SQL'e itilir; kesin Haversine filtresi JS'te sonra koşar.
+  // BETWEEN, latitude/longitude'u NULL olan satırları da eler.
+  const latDelta = maxRadius / 111.32;
+  const cosLat = Math.cos((userLat * Math.PI) / 180);
+  const lngDelta = maxRadius / (111.32 * Math.max(Math.abs(cosLat), 1e-6));
 
   const businesses = await Business.findAll({
     where: {
       isActive: true,
       isApproved: true,
-      latitude: { [Op.ne]: null },
-      longitude: { [Op.ne]: null },
+      latitude: { [Op.between]: [userLat - latDelta, userLat + latDelta] },
+      longitude: { [Op.between]: [userLng - lngDelta, userLng + lngDelta] },
     },
     include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
+    limit: GEO_CANDIDATE_LIMIT,
   });
 
   // Mesafe hesapla ve filtrele
   const nearbyBusinesses = businesses
     .map((business) => {
       const distance = haversineDistance(
-        lat,
-        lng,
+        userLat,
+        userLng,
         business.latitude,
         business.longitude
       );
       return { ...business.toJSON(), distance };
     })
-    .filter((b) => b.distance <= radius)
+    .filter((b) => b.distance <= maxRadius)
     .sort((a, b) => a.distance - b.distance);
 
-  if (nearbyBusinesses.length === 0) return nearbyBusinesses;
+  if (nearbyBusinesses.length === 0) {
+    await cacheService.set(cacheKey, nearbyBusinesses, NEARBY_CACHE_TTL);
+    return nearbyBusinesses;
+  }
 
   // Her işletme için müsait (aktif, stoklu, bugünden ileri) paketleri çek.
   // Filtre, packageController.getAll'daki "müsait paket" desenini yansıtır.
@@ -176,11 +201,13 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
     agg[p.businessId] = a;
   }
 
-  return nearbyBusinesses.map((b) => ({
+  const result = nearbyBusinesses.map((b) => ({
     ...b,
     packageCount: agg[b.id] ? agg[b.id].count : 0,
     availableNow: agg[b.id] ? agg[b.id].availableNow : false,
   }));
+  await cacheService.set(cacheKey, result, NEARBY_CACHE_TTL);
+  return result;
 };
 
 module.exports = {

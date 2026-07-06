@@ -2,6 +2,15 @@ name: Deploy
 
 # Push to main -> verify the image builds, then deploy to the VPS over SSH.
 # DB migrations are intentionally NOT run here (see migrate.yml, manual).
+#
+# ⚠️ MIGRATION ORDERING: this workflow deploys CODE immediately, but migrations are
+# manual (migrate.yml). If a push contains code that REQUIRES a new migration, the new
+# code runs against the OLD schema until you run migrate.yml -> 500s/crash window.
+# Safe order for additive migrations: merge -> run migrate.yml -> confirm -> the code is
+# already tolerant. For risky/renaming migrations, prefer an expand/contract rollout.
+# On a bad deploy this script auto-rolls-back the IMAGE to :prev (schema is untouched);
+# manual image rollback: docker image tag bitir-yemek-app:prev bitir-yemek-app:latest \
+#   && cd ~/bitir-yemek && docker compose up -d --no-build app
 on:
   push:
     branches: [main]
@@ -22,6 +31,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Deploy öncesi kapı: migration zinciri + kritik path testleri geçmeli.
+  test:
+    uses: ./.github/workflows/test.yml
+
   build-check:
     name: Build check (Docker image)
     runs-on: ubuntu-latest
@@ -32,7 +45,7 @@ jobs:
 
   deploy:
     name: Deploy to VPS
-    needs: build-check
+    needs: [test, build-check]
     runs-on: ubuntu-latest
     steps:
       - name: SSH deploy
@@ -46,6 +59,8 @@ jobs:
             set -euo pipefail
             cd ~/bitir-yemek
             git pull --ff-only
+            # Mevcut çalışan imajı :prev olarak sakla — health başarısızsa geri dönüş için.
+            docker image tag bitir-yemek-app:latest bitir-yemek-app:prev 2>/dev/null || true
             docker compose up -d --build app
             echo "Waiting for the app to become healthy..."
             for i in $(seq 1 10); do
@@ -56,5 +71,21 @@ jobs:
               echo "  not healthy yet ($i/10), retrying..."
               sleep 3
             done
-            echo "Health check FAILED after deploy"
+            echo "Health check FAILED — rolling back image to :prev"
+            if docker image inspect bitir-yemek-app:prev > /dev/null 2>&1; then
+              docker image tag bitir-yemek-app:prev bitir-yemek-app:latest
+              docker compose up -d --no-build app
+              echo "Rolled back to previous image; verifying health..."
+              for i in $(seq 1 10); do
+                if curl -fsS https://api.bitirgitsin.com/api/health > /dev/null; then
+                  echo "Health OK after rollback — deploy reverted, investigate the new build/migration."
+                  exit 1
+                fi
+                echo "  not healthy yet ($i/10), retrying..."
+                sleep 3
+              done
+              echo "Rollback ALSO unhealthy — manual intervention required"
+            else
+              echo "No :prev image available to roll back to — manual intervention required"
+            fi
             exit 1

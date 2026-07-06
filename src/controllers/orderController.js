@@ -26,6 +26,13 @@ const releaseHoldCompensation = async (order, reason = 'checkout_init_failed') =
         { remainingQuantity: sequelize.literal(`"remainingQuantity" + ${parseInt(order.quantity)}`) },
         { where: { id: order.packageId }, transaction: t }
       );
+      // Ödeme başlatılamadı -> kupon kullanımını da geri ver (create'te artırılmıştı).
+      if (order.couponId) {
+        await Coupon.update(
+          { currentUsage: sequelize.literal('GREATEST("currentUsage" - 1, 0)') },
+          { where: { id: order.couponId }, transaction: t }
+        );
+      }
     }
     await t.commit();
     await cacheService.delPattern('packages:list:*');
@@ -112,6 +119,14 @@ exports.create = async (req, res, next) => {
     if (!business) {
       await t.rollback();
       return res.status(404).json({ message: 'İşletme bulunamadı' });
+    }
+
+    // Onaylanmamış işletmeden sipariş alınamaz (moderasyon/güven kapısı).
+    // Sub-merchant onboarding'i self-service olduğu için admin onayı olmadan
+    // gerçek para akışı başlamamalı.
+    if (!business.isApproved) {
+      await t.rollback();
+      return res.status(403).json({ message: 'Bu işletme henüz onaylanmadı' });
     }
 
     // Ücretli sipariş normalde işletmenin alt üye işyeri (sub-merchant) kaydı tamamlanmadan alınamaz.
@@ -305,7 +320,12 @@ exports.getAll = async (req, res, next) => {
   try {
     const where = {};
 
-    if (req.user.role === 'customer') {
+    // Yalnızca admin tüm siparişleri görebilir. Diğer tüm roller (customer ve
+    // business_owner) kendi siparişlerine kilitlenir; işletme sahibi kendi
+    // işletmesinin siparişlerini ownership-scoped
+    // /business-dashboard/:businessId/orders ucundan alır. (business_owner burada
+    // scope'lanmazsa tüm platformun siparişlerini müşteri PII'siyle görürdü.)
+    if (req.user.role !== 'admin') {
       where.userId = req.user.id;
     }
 
@@ -538,6 +558,14 @@ exports.cancel = async (req, res, next) => {
         { remainingQuantity: sequelize.literal(`"remainingQuantity" + ${order.quantity}`) },
         { where: { id: order.packageId }, transaction: t }
       );
+      // Ödenmemiş hold (awaiting_payment) iptal ediliyorsa kupon kullanımını geri ver.
+      // Ödenmiş/ücretsiz (pending/confirmed) siparişlerde kupon tüketilmiş sayılır (iade yok).
+      if (order.status === 'awaiting_payment' && order.couponId) {
+        await Coupon.update(
+          { currentUsage: sequelize.literal('GREATEST("currentUsage" - 1, 0)') },
+          { where: { id: order.couponId }, transaction: t }
+        );
+      }
       await t.commit();
     } catch (e) {
       await t.rollback();

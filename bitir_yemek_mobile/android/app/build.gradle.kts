@@ -64,7 +64,9 @@ android {
     buildTypes {
         release {
             // Use the real release signing config when key.properties is present;
-            // otherwise fall back to debug signing so local builds still work.
+            // otherwise fall back to debug signing so local dev builds / analyze still
+            // work. A real release assembly WITHOUT a keystore is blocked by the
+            // gradle.taskGraph guard below (no silent debug-signed release ships).
             // See android/key.properties.example for the required fields and the
             // keytool command to generate a keystore.
             signingConfig = if (hasReleaseKeystore) {
@@ -82,6 +84,24 @@ android {
                 "proguard-rules.pro",
             )
         }
+    }
+}
+
+// Sessiz debug-imza fallback'i yalnız yerel/dev derlemeler içindir. Gerçek bir
+// release (assemble/bundle/packageRelease) çıktısını debug anahtarıyla imzalayıp
+// yayınlamamak için, key.properties yokken release görevini başarısız kıl.
+gradle.taskGraph.whenReady {
+    val assemblingRelease = allTasks.any { task ->
+        val n = task.name
+        n.contains("Release") &&
+            (n.startsWith("assemble") || n.startsWith("bundle") || n.startsWith("package"))
+    }
+    if (assemblingRelease && !hasReleaseKeystore) {
+        throw GradleException(
+            "Release imzası için android/key.properties gerekli — aksi halde build " +
+                "debug anahtarıyla imzalanır (Play'e yüklenemez / güvensiz). " +
+                "Bkz. android/key.properties.example.",
+        )
     }
 }
 

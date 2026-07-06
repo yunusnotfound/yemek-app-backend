@@ -1,0 +1,56 @@
+name: Test
+
+# Reusable workflow: backend migration-chain check + Jest integration tests.
+# Called by ci.yml (develop / PRs) and deploy.yml (gate before production deploy).
+on:
+  workflow_call:
+
+jobs:
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bitir_yemek
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: bitir_yemek
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-test-jwt-secret-please-change-0000000000
+      JWT_REFRESH_SECRET: ci-test-jwt-refresh-secret-change-00000000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Migration zincirinin temiz uygulandığını doğrula (bozuk migration'ı yakalar).
+      - name: Run migrations (validate the chain applies cleanly)
+        run: npm run db:migrate
+      # Testler ayrı bir test DB'si (bitir_yemek_test) kullanır; globalSetup oluşturur + sync eder.
+      - name: Run tests
+        run: npm test

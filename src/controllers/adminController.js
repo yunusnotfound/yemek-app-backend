@@ -303,6 +303,8 @@ exports.approveBusiness = async (req, res, next) => {
     await business.update({ isApproved: true, approvalStatus: 'approved', approvedAt: new Date() });
     await auditService.record({ req, action: 'business.approve', targetType: 'business', targetId: business.id });
     await cacheService.delPattern('businesses:list:*');
+    // Paket listesi de isApproved'a bağlı — onay sonrası paketler görünür olsun.
+    await cacheService.delPattern('packages:list:*');
 
     res.json({ message: 'İşletme onaylandı', business });
   } catch (error) {
@@ -320,6 +322,8 @@ exports.rejectBusiness = async (req, res, next) => {
     await business.update({ isApproved: false, approvalStatus: 'rejected', rejectedAt: new Date() });
     await auditService.record({ req, action: 'business.reject', targetType: 'business', targetId: business.id });
     await cacheService.delPattern('businesses:list:*');
+    // Paket listesi de isApproved'a bağlı — ret sonrası paketler listeden düşsün.
+    await cacheService.delPattern('packages:list:*');
 
     res.json({ message: 'İşletme reddedildi', business });
   } catch (error) {

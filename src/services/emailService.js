@@ -44,7 +44,10 @@ const sendOtpEmail = async (email, code) => {
 };
 
 const sendVerificationEmail = async (email, token) => {
-  const url = `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/verify-email?token=${token}`;
+  // Doğrulama linki bu API'nin public origin'ine gider. APP_URL öncelikli; yoksa
+  // uploads için zaten tanımlı olan PUBLIC_API_URL'e düşer (ikisi de aynı origin).
+  const base = process.env.APP_URL || process.env.PUBLIC_API_URL || 'http://localhost:3000';
+  const url = `${base.replace(/\/$/, '')}/api/auth/verify-email?token=${token}`;
   await sendMail(email, 'Bitir Yemek - E-posta Doğrulama', `
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
       <h2 style="color: #FF7043;">E-posta Doğrulama</h2>

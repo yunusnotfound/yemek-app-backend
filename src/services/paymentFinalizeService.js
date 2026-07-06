@@ -1,4 +1,4 @@
-const { Order, SurprisePackage, Business, User, sequelize } = require('../models');
+const { Order, SurprisePackage, Business, User, Coupon, sequelize } = require('../models');
 const iyzicoService = require('./iyzicoService');
 const { notifyNewOrder, createNotification } = require('./notificationService');
 const cacheService = require('./cacheService');
@@ -31,6 +31,15 @@ const releaseStockGuarded = async (order, reason, t) => {
       { remainingQuantity: sequelize.literal(`"remainingQuantity" + ${parseInt(order.quantity)}`) },
       { where: { id: order.packageId }, transaction: t }
     );
+    // Kupon kullanımı sipariş oluşturulurken artırıldı; ödeme tamamlanmadan iptal
+    // oluyorsa geri ver — aksi halde limitli kupon hiç ödemeyen kullanıcılarca tükenir.
+    // GREATEST ile 0'ın altına inmez.
+    if (order.couponId) {
+      await Coupon.update(
+        { currentUsage: sequelize.literal('GREATEST("currentUsage" - 1, 0)') },
+        { where: { id: order.couponId }, transaction: t }
+      );
+    }
   }
   return n === 1;
 };

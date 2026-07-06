@@ -28,7 +28,8 @@ exports.getAll = async (req, res, next) => {
       return res.json(cached);
     }
 
-    const businessWhere = { isActive: true };
+    // Yalnızca onaylı + aktif işletmelerin paketleri herkese listelenir.
+    const businessWhere = { isActive: true, isApproved: true };
     if (city) businessWhere.city = city;
     if (district) businessWhere.district = district;
     if (categoryId) businessWhere.categoryId = categoryId;
@@ -122,6 +123,11 @@ exports.getById = async (req, res, next) => {
     });
 
     if (!pkg) {
+      return res.status(404).json({ message: 'Paket bulunamadı' });
+    }
+
+    // Onaylanmamış/pasif işletmenin paketi public detayda görünmez (liste ile tutarlı).
+    if (!pkg.business || !pkg.business.isActive || !pkg.business.isApproved) {
       return res.status(404).json({ message: 'Paket bulunamadı' });
     }
 

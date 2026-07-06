@@ -1,0 +1,32 @@
+name: CI
+
+# develop push'larında ve TÜM PR'larda testleri koştur (main'e giden PR'lar dahil).
+# main push'unda testler deploy.yml içinden (deploy öncesi kapı) çalışır.
+on:
+  push:
+    branches: [develop]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.vscode/**'
+      - 'bitir_yemek_mobile/**'
+      - 'web/**'
+      - 'proxy/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.vscode/**'
+      - 'bitir_yemek_mobile/**'
+      - 'web/**'
+      - 'proxy/**'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml

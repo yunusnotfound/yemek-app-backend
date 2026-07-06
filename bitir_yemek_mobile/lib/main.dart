@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'config/constants.dart';
 import 'config/theme.dart';
 import 'core/di/service_locator.dart';
@@ -14,13 +15,20 @@ import 'features/business_owner/presentation/pages/business_owner_scaffold.dart'
 import 'features/location/presentation/pages/location_permission_page.dart';
 import 'features/main/presentation/pages/main_scaffold.dart';
 
-/// Centralised reporting hook for uncaught errors.
-/// TODO: Initialize a crash-reporting service here (e.g. Sentry or Firebase
-/// Crashlytics) and forward [error]/[stack] to it before shipping to the
-/// stores. Keep it a no-op-friendly wrapper so the app still runs without it.
+/// Whether crash reporting is active (a SENTRY_DSN was provided at build time).
+bool get _crashReportingEnabled => AppConstants.sentryDsn.isNotEmpty;
+
+/// Centralised reporting hook for uncaught errors. Forwards to Sentry when a
+/// SENTRY_DSN is provided (--dart-define); otherwise a no-op-friendly wrapper so
+/// the app still runs without it. Always prints in non-release builds.
 void _reportError(Object error, StackTrace? stack) {
-  // TODO: replace with crash-reporting call, e.g.
-  //   Sentry.captureException(error, stackTrace: stack);
+  if (_crashReportingEnabled) {
+    // fire-and-forget; capture'ın kendi hatası uygulamayı etkilemesin.
+    unawaited(
+      Sentry.captureException(error, stackTrace: stack)
+          .catchError((_) => SentryId.empty()),
+    );
+  }
   if (!kReleaseMode) {
     debugPrint('Uncaught error: $error');
     if (stack != null) debugPrintStack(stackTrace: stack);
@@ -36,31 +44,47 @@ class AppBlocObserver extends BlocObserver {
   }
 }
 
-void main() {
-  // runZonedGuarded catches async errors that escape the widget tree.
-  runZonedGuarded<Future<void>>(
-    () async {
-      WidgetsFlutterBinding.ensureInitialized();
+/// App initialisation (framework hooks, locale, Mapbox) + runApp.
+Future<void> _startApp() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-      // Forward all Flutter framework errors to our reporting hook.
-      FlutterError.onError = (FlutterErrorDetails details) {
-        FlutterError.presentError(details);
-        _reportError(details.exception, details.stack);
-      };
+  // Forward all Flutter framework errors to our reporting hook.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    _reportError(details.exception, details.stack);
+  };
 
-      Bloc.observer = AppBlocObserver();
+  Bloc.observer = AppBlocObserver();
 
-      await initializeDateFormatting('tr_TR');
+  await initializeDateFormatting('tr_TR');
 
-      // Initialize Mapbox SDK with access token (only if provided)
-      if (AppConstants.mapboxAccessToken.isNotEmpty) {
-        MapboxOptions.setAccessToken(AppConstants.mapboxAccessToken);
-      }
+  // Initialize Mapbox SDK with access token (only if provided)
+  if (AppConstants.mapboxAccessToken.isNotEmpty) {
+    MapboxOptions.setAccessToken(AppConstants.mapboxAccessToken);
+  }
 
-      runApp(const MainApp());
-    },
-    (error, stack) => _reportError(error, stack),
-  );
+  runApp(const MainApp());
+}
+
+Future<void> main() async {
+  if (_crashReportingEnabled) {
+    // Sentry kendi hata zone'unu + native crash yakalamayı kurar; uygulamayı
+    // appRunner içinde başlatır.
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = AppConstants.sentryDsn;
+        options.environment = kReleaseMode ? 'production' : 'debug';
+        options.tracesSampleRate = 0.0; // hata odaklı; APM istenirse artır
+      },
+      appRunner: _startApp,
+    );
+  } else {
+    // Sentry yoksa mevcut davranış: async hataları runZonedGuarded yakalar.
+    runZonedGuarded<Future<void>>(
+      _startApp,
+      (error, stack) => _reportError(error, stack),
+    );
+  }
 }
 
 class MainApp extends StatelessWidget {

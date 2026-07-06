@@ -100,6 +100,18 @@ const ping = async () => {
   }
 };
 
+// Redis bağlantısını düzgün kapatır (graceful shutdown). Bağlantı yoksa no-op.
+const quit = async () => {
+  if (!redis) return;
+  try {
+    await redis.quit();
+  } catch {
+    // zaten kapalı / hata — yut
+  } finally {
+    redis = null;
+  }
+};
+
 const storeRefreshToken = async (tokenHash, userId, ttlSeconds = 604800) => {
   await set(`rt:${tokenHash}`, { userId }, ttlSeconds);
 };
@@ -113,4 +125,4 @@ const isRefreshTokenStored = async (tokenHash) => {
   return val !== null;
 };
 
-module.exports = { get, set, del, delPattern, isRedisAvailable, ping, storeRefreshToken, revokeRefreshToken, isRefreshTokenStored };
+module.exports = { get, set, del, delPattern, isRedisAvailable, ping, quit, storeRefreshToken, revokeRefreshToken, isRefreshTokenStored };

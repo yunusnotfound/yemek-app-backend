@@ -258,8 +258,8 @@ exports.setBusinessActive = async (req, res, next) => {
     await auditService.record({
       req, action: 'business.active', targetType: 'business', targetId: business.id, metadata: { isActive },
     });
-    await cacheService.delPattern('businesses:list:*');
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('businesses:list');
+    await cacheService.invalidateNamespace('packages:list');
 
     res.json({
       message: isActive ? 'İşletme aktifleştirildi' : 'İşletme askıya alındı',
@@ -302,9 +302,9 @@ exports.approveBusiness = async (req, res, next) => {
 
     await business.update({ isApproved: true, approvalStatus: 'approved', approvedAt: new Date() });
     await auditService.record({ req, action: 'business.approve', targetType: 'business', targetId: business.id });
-    await cacheService.delPattern('businesses:list:*');
+    await cacheService.invalidateNamespace('businesses:list');
     // Paket listesi de isApproved'a bağlı — onay sonrası paketler görünür olsun.
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
 
     res.json({ message: 'İşletme onaylandı', business });
   } catch (error) {
@@ -321,9 +321,9 @@ exports.rejectBusiness = async (req, res, next) => {
 
     await business.update({ isApproved: false, approvalStatus: 'rejected', rejectedAt: new Date() });
     await auditService.record({ req, action: 'business.reject', targetType: 'business', targetId: business.id });
-    await cacheService.delPattern('businesses:list:*');
+    await cacheService.invalidateNamespace('businesses:list');
     // Paket listesi de isApproved'a bağlı — ret sonrası paketler listeden düşsün.
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
 
     res.json({ message: 'İşletme reddedildi', business });
   } catch (error) {
@@ -441,7 +441,7 @@ exports.refundOrder = async (req, res, next) => {
       throw e;
     }
 
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
     await auditService.record({
       req, action: 'order.refund', targetType: 'order', targetId: order.id,
       metadata: { amount: refundedAmount, reason: req.body?.reason },
@@ -493,7 +493,7 @@ exports.setPackageActive = async (req, res, next) => {
     await auditService.record({
       req, action: 'package.active', targetType: 'package', targetId: pkg.id, metadata: { isActive },
     });
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
 
     res.json({ message: isActive ? 'Paket aktifleştirildi' : 'Paket pasifleştirildi', package: pkg });
   } catch (error) {

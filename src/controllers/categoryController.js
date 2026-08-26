@@ -27,7 +27,7 @@ exports.create = async (req, res, next) => {
     await auditService.record({
       req, action: 'category.create', targetType: 'category', targetId: category.id, metadata: { name, slug },
     });
-    await cacheService.delPattern('businesses:list:*');
+    await cacheService.invalidateNamespace('businesses:list');
 
     res.status(201).json({ message: 'Kategori oluşturuldu', category });
   } catch (error) {
@@ -62,7 +62,7 @@ exports.update = async (req, res, next) => {
     await auditService.record({
       req, action: 'category.update', targetType: 'category', targetId: category.id, metadata: updates,
     });
-    await cacheService.delPattern('businesses:list:*');
+    await cacheService.invalidateNamespace('businesses:list');
 
     res.json({ message: 'Kategori güncellendi', category });
   } catch (error) {
@@ -86,7 +86,7 @@ exports.remove = async (req, res, next) => {
     await auditService.record({
       req, action: 'category.delete', targetType: 'category', targetId: category.id, metadata: { name: category.name },
     });
-    await cacheService.delPattern('businesses:list:*');
+    await cacheService.invalidateNamespace('businesses:list');
 
     res.json({ message: 'Kategori silindi' });
   } catch (error) {

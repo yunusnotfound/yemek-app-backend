@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/di/service_locator.dart';
+import '../../../home/data/datasources/businesses_remote_datasource.dart';
+import '../../../home/data/repositories/businesses_repository_impl.dart';
+import '../../../home/presentation/bloc/home_bloc.dart';
+import '../../../home/presentation/bloc/packages_bloc.dart';
 import '../../../home/presentation/pages/home_page.dart';
 import '../../../home/presentation/widgets/bottom_nav_bar.dart';
+import '../../../map/data/datasources/map_remote_datasource.dart';
+import '../../../map/data/repositories/map_repository_impl.dart';
+import '../../../map/presentation/bloc/map_bloc.dart';
 import '../../../map/presentation/pages/map_page.dart';
 import '../../../orders/data/datasources/orders_remote_datasource.dart';
 import '../../../orders/data/repositories/orders_repository_impl.dart';
@@ -58,10 +65,46 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    // Paylaşılan blocs. Home/Search/Packages blocs ilgili sayfaların kendi
-    // içinde sağlanır; burada yalnız sekmeler arası paylaşılanlar var.
+    // Paylaşılan blocs.
+    //
+    // Sekme sayfaları yeniden kurulabildiği için (Ara sekmesi seçilince
+    // IndexedStack tamamen yerini MapPage'e bırakır, geri dönülünce baştan
+    // kurulur) sayfa içinde yaratılan bir bloc her geçişte sıfırlanır ve aynı
+    // veriyi tekrar ağdan çeker. Ölçümde tek oturum 46 isteğe çıkıyor ve
+    // sunucudaki 100 istek/15dk limitine (src/app.js generalLimiter) takılıyordu.
+    // Bu yüzden sekmeler arası yaşaması gereken bloc'lar burada tutulur; ilk
+    // yükleme ilgili sayfanın initState'inde YALNIZCA durum hâlâ initial ise
+    // tetiklenir. Böylece sekmeye dönmek ağ isteği üretmez.
     return MultiBlocProvider(
       providers: [
+        // Ana sayfa paketleri — HomePage.initState ilk yüklemeyi tetikler.
+        BlocProvider(
+          create: (context) => PackagesBloc(
+            repository: BusinessesRepositoryImpl(
+              remoteDataSource: BusinessesRemoteDataSource(
+                dioClient: appDioClient,
+              ),
+            ),
+          ),
+        ),
+        // Kategoriler — HomePage.initState ilk yüklemeyi tetikler.
+        BlocProvider(
+          create: (context) => HomeBloc(
+            repository: BusinessesRepositoryImpl(
+              remoteDataSource: BusinessesRemoteDataSource(
+                dioClient: appDioClient,
+              ),
+            ),
+          ),
+        ),
+        // Harita — MapPage.initState ilk yüklemeyi tetikler.
+        BlocProvider(
+          create: (context) => MapBloc(
+            repository: MapRepositoryImpl(
+              remoteDataSource: MapRemoteDataSource(dioClient: appDioClient),
+            ),
+          ),
+        ),
         // Favoriler tüm sekmelerde paylaşılır; ana sayfadaki favori rozetleri için
         // açılışta (HomePage bunu okuduğunda) yüklenir.
         BlocProvider(

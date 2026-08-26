@@ -2,11 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/shimmer_loader.dart';
-import '../../data/datasources/businesses_remote_datasource.dart';
 import '../../data/models/category_model.dart';
-import '../../data/repositories/businesses_repository_impl.dart';
 import '../bloc/home_bloc.dart';
 import '../bloc/packages_bloc.dart';
 import '../widgets/category_chips.dart';
@@ -24,29 +21,11 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (context) => PackagesBloc(
-            repository: BusinessesRepositoryImpl(
-              remoteDataSource: BusinessesRemoteDataSource(
-                dioClient: appDioClient,
-              ),
-            ),
-          )..add(LoadNearbyPackages(latitude: latitude, longitude: longitude)),
-        ),
-        BlocProvider(
-          create: (context) => HomeBloc(
-            repository: BusinessesRepositoryImpl(
-              remoteDataSource: BusinessesRemoteDataSource(
-                dioClient: appDioClient,
-              ),
-            ),
-          )..add(LoadCategories()),
-        ),
-      ],
-      child: HomeView(latitude: latitude, longitude: longitude),
-    );
+    // PackagesBloc ve HomeBloc artık MainScaffold'da sağlanıyor; bu sayfa Ara
+    // sekmesine geçilince yeniden kurulduğu için bloc'u burada yaratmak her
+    // dönüşte aynı veriyi tekrar ağdan çekiyordu. İlk yükleme
+    // _HomeViewState.initState içinde, yalnız durum initial ise tetiklenir.
+    return HomeView(latitude: latitude, longitude: longitude);
   }
 }
 
@@ -72,6 +51,24 @@ class _HomeViewState extends State<HomeView> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+
+    // Bloc'lar sekmeler arası paylaşıldığı için veri zaten yüklenmiş olabilir.
+    // Yalnızca hiç yüklenmemişse ağa çık — sekmeye her dönüşte tekrar istek
+    // atılmasını bu koşul engelliyor.
+    final packagesBloc = context.read<PackagesBloc>();
+    if (packagesBloc.state is PackagesInitial) {
+      packagesBloc.add(
+        LoadNearbyPackages(
+          latitude: widget.latitude,
+          longitude: widget.longitude,
+        ),
+      );
+    }
+
+    final homeBloc = context.read<HomeBloc>();
+    if (homeBloc.state is HomeInitial) {
+      homeBloc.add(LoadCategories());
+    }
   }
 
   @override

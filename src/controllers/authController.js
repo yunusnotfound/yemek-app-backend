@@ -137,7 +137,7 @@ exports.requestOtp = async (req, res, next) => {
 // Passwordless OTP — Step 2: verify the code, then log in or create the account
 exports.verifyOtp = async (req, res, next) => {
   try {
-    const { email, code, name, phone } = req.body;
+    const { email, code, name, phone, role } = req.body;
 
     const otp = await EmailOtp.findOne({ where: { email } });
     if (!otp || otp.expiresAt < new Date()) {
@@ -172,14 +172,19 @@ exports.verifyOtp = async (req, res, next) => {
       if (!name) {
         return res.status(400).json({ message: 'Yeni hesap için ad soyad gerekli' });
       }
+      // Rol YALNIZCA yeni hesap açılırken uygulanır; mevcut bir kullanıcının
+      // rolü OTP girişiyle asla değişmez (yukarıdaki dalda dokunulmuyor).
+      // Google/Apple akışıyla aynı savunma: beklenen değer dışındaki her şey
+      // 'customer'a düşer, 'admin' dışarıdan atanamaz.
+      const userRole = role === 'business_owner' ? 'business_owner' : 'customer';
       user = await User.create({
         name,
         email,
         phone,
-        role: 'customer',
+        role: userRole,
         isEmailVerified: true,
       });
-      logger.info('New user registered via OTP', { userId: user.id, email });
+      logger.info('New user registered via OTP', { userId: user.id, email, role: userRole });
     }
 
     const tokens = generateTokens(user);

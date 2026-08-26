@@ -23,16 +23,20 @@ class AuthRemoteDataSource {
 
   /// Verify the OTP [code] for [email]. For brand-new accounts [name] is
   /// required (and [phone] optional). Returns `{ accessToken, refreshToken, user }`.
+  /// [role] YALNIZ yeni hesap açılırken kullanılır (bkz. authController.verifyOtp);
+  /// mevcut hesabın rolünü değiştirmez.
   Future<Map<String, dynamic>> verifyOtp({
     required String email,
     required String code,
     String? name,
     String? phone,
+    String role = 'customer',
   }) async {
     try {
       final data = <String, dynamic>{'email': email, 'code': code};
       if (name != null && name.isNotEmpty) data['name'] = name;
       if (phone != null && phone.isNotEmpty) data['phone'] = phone;
+      data['role'] = role;
 
       final response = await _dioClient.dio.post('/auth/otp/verify', data: data);
 

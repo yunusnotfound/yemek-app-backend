@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../business_owner/presentation/pages/business_owner_scaffold.dart';
@@ -17,10 +18,14 @@ class OtpVerifyPage extends StatelessWidget {
   final String email;
   final bool isNewUser;
 
+  /// Onboarding'de seçilen rol. YALNIZ yeni hesap açılırken uygulanır.
+  final String role;
+
   const OtpVerifyPage({
     super.key,
     required this.email,
     required this.isNewUser,
+    this.role = 'customer',
   });
 
   @override
@@ -34,7 +39,7 @@ class OtpVerifyPage extends StatelessWidget {
           tokenStorage: appTokenStorage,
         ),
       ),
-      child: OtpVerifyView(email: email, isNewUser: isNewUser),
+      child: OtpVerifyView(email: email, isNewUser: isNewUser, role: role),
     );
   }
 }
@@ -42,11 +47,13 @@ class OtpVerifyPage extends StatelessWidget {
 class OtpVerifyView extends StatefulWidget {
   final String email;
   final bool isNewUser;
+  final String role;
 
   const OtpVerifyView({
     super.key,
     required this.email,
     required this.isNewUser,
+    this.role = 'customer',
   });
 
   @override
@@ -75,6 +82,7 @@ class _OtpVerifyViewState extends State<OtpVerifyView> {
           code: _codeController.text.trim(),
           name: widget.isNewUser ? _nameController.text.trim() : null,
           phone: widget.isNewUser ? _phoneController.text.trim() : null,
+          role: widget.role,
         ),
       );
     }
@@ -158,19 +166,9 @@ class _OtpVerifyViewState extends State<OtpVerifyView> {
             await _navigateAfterLogin(context, state.user.role);
           } else if (state is OtpSent) {
             // Resend succeeded — stay on this page.
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.success,
-              ),
-            );
+            AppNotice.success(context, state.message);
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            AppNotice.error(context, state.message);
           }
         },
         builder: (context, state) {

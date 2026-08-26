@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'dart:math';
 
 import '../../../../config/constants.dart';
+import '../../../../core/storage/onboarding_storage.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
@@ -15,11 +16,19 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
   final TokenStorage _tokenStorage;
 
+  /// Tanıtım ekranının bir daha gösterilmemesi için "girildi" işaretini yazar.
+  /// Varsayılanı olan bir parametre: mevcut çağrı yerlerinin hiçbiri
+  /// değiştirilmek zorunda kalmasın diye.
+  final OnboardingStorage _onboardingStorage;
+
   AuthRepositoryImpl({
     required AuthRemoteDataSource remoteDataSource,
     required TokenStorage tokenStorage,
+    OnboardingStorage? onboardingStorage,
   }) : _remoteDataSource = remoteDataSource,
-       _tokenStorage = tokenStorage;
+       _tokenStorage = tokenStorage,
+       _onboardingStorage =
+           onboardingStorage ?? createDefaultOnboardingStorage();
 
   @override
   Future<OtpRequestResult> requestOtp(String email) async {
@@ -42,6 +51,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String code,
     String? name,
     String? phone,
+    String role = 'customer',
   }) async {
     try {
       final response = await _remoteDataSource.verifyOtp(
@@ -49,6 +59,7 @@ class AuthRepositoryImpl implements AuthRepository {
         code: code,
         name: name,
         phone: phone,
+        role: role,
       );
 
       final accessToken = response['accessToken'] as String?;
@@ -66,6 +77,10 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = UserModel.fromJson(userData);
       await _tokenStorage.saveUserRole(user.role);
       await _tokenStorage.saveUserData(jsonEncode(user.toJson()));
+
+      // Bu cihazda artık bir hesaba girilmiş sayılır: kullanıcı çıkış yapsa
+      // bile tanıtım ekranı bir daha gösterilmez, doğrudan girişe düşer.
+      await _onboardingStorage.markSignedIn();
 
       return AuthResult.success(user: user);
     } on AuthException catch (e) {
@@ -123,6 +138,10 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = UserModel.fromJson(userData);
       await _tokenStorage.saveUserRole(user.role);
       await _tokenStorage.saveUserData(jsonEncode(user.toJson()));
+
+      // Bu cihazda artık bir hesaba girilmiş sayılır: kullanıcı çıkış yapsa
+      // bile tanıtım ekranı bir daha gösterilmez, doğrudan girişe düşer.
+      await _onboardingStorage.markSignedIn();
 
       return AuthResult.success(user: user);
     } on AuthException catch (e) {
@@ -184,6 +203,10 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = UserModel.fromJson(userData);
       await _tokenStorage.saveUserRole(user.role);
       await _tokenStorage.saveUserData(jsonEncode(user.toJson()));
+
+      // Bu cihazda artık bir hesaba girilmiş sayılır: kullanıcı çıkış yapsa
+      // bile tanıtım ekranı bir daha gösterilmez, doğrudan girişe düşer.
+      await _onboardingStorage.markSignedIn();
 
       return AuthResult.success(user: user);
     } on SignInWithAppleAuthorizationException catch (e) {

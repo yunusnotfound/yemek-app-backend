@@ -35,7 +35,7 @@ const releaseHoldCompensation = async (order, reason = 'checkout_init_failed') =
       }
     }
     await t.commit();
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
   } catch (e) {
     await t.rollback();
     logger.error(`[orders] hold telafi hatası (order ${order.id}): ${e.message}`);
@@ -206,7 +206,7 @@ exports.create = async (req, res, next) => {
     }
 
     await t.commit();
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
 
     // --- Ücretsiz sipariş: ödeme yok, doğrudan onaylı ---
     if (isFree) {
@@ -359,7 +359,10 @@ exports.getById = async (req, res, next) => {
         {
           model: SurprisePackage,
           as: 'package',
-          include: [{ model: Business, as: 'business' }],
+          // Bu sipariş müşteriye döndürülüyor -> yalnız public işletme alanları.
+          include: [
+            { model: Business, as: 'business', attributes: Business.PUBLIC_ATTRIBUTES },
+          ],
         },
         { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
       ],
@@ -376,7 +379,8 @@ exports.getById = async (req, res, next) => {
     let isOwnerOfBusiness = false;
     if (isBusinessOwner) {
       const pkg = await SurprisePackage.findByPk(order.packageId, {
-        include: [{ model: Business, as: 'business' }],
+        // Yalnız yetki kontrolü için; istemciye dönmüyor. ownerId burada ZORUNLU.
+        include: [{ model: Business, as: 'business', attributes: ['id', 'ownerId'] }],
       });
       isOwnerOfBusiness = pkg && pkg.business.ownerId === req.user.id;
     }
@@ -482,7 +486,7 @@ exports.updateStatus = async (req, res, next) => {
     }
 
     if (status === 'cancelled') {
-      await cacheService.delPattern('packages:list:*');
+      await cacheService.invalidateNamespace('packages:list');
     }
 
     // Teslim -> satıcı fonlarını serbest bırak (iyzico approval).
@@ -572,7 +576,7 @@ exports.cancel = async (req, res, next) => {
       throw e;
     }
 
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
 
     const pkg = await SurprisePackage.findByPk(order.packageId);
     const business = pkg ? await Business.findByPk(pkg.businessId) : null;

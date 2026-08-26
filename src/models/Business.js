@@ -134,4 +134,23 @@ const Business = sequelize.define('Business', {
   paranoid: true,
 });
 
+/**
+ * Müşteri/public uçlarda döndürülmesi GÜVENLİ olan alanlar.
+ *
+ * Bu model iyzico Pazaryeri için iban, identityNumber (TC kimlik), gsmNumber,
+ * contactName/contactSurname, subMerchantKey, taxNumber gibi alanlar tutuyor.
+ * Bunlar YALNIZCA işletme sahibinin kendi paneline ve admin'e aittir.
+ * Public/müşteri sorgularında `attributes: Business.PUBLIC_ATTRIBUTES` kullanın —
+ * filtresiz bir findAll/findByPk tüm satırı JSON'a çevirip dışarı sızdırır.
+ *
+ * Yeni bir hassas kolon eklenince buraya EKLEMEYİN; liste allowlist mantığıyla
+ * çalışır, eklenmeyen alan dışarı çıkmaz.
+ */
+Business.PUBLIC_ATTRIBUTES = [
+  'id', 'name', 'description', 'address', 'city', 'district',
+  'latitude', 'longitude', 'phone', 'imageUrl', 'rating',
+  'isActive', 'isApproved', 'approvalStatus', 'categoryId',
+  'createdAt', 'updatedAt',
+];
+
 module.exports = Business;

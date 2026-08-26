@@ -87,3 +87,71 @@ describe('Onaysız işletme herkese görünmez (KRİTİK moderasyon kapısı)', 
     expect(res.status).toBe(404);
   });
 });
+
+describe('İşletme PII sızıntısı (KRİTİK — iyzico sub-merchant alanları)', () => {
+  // Business modeli Pazaryeri için IBAN, TC kimlik, GSM ve iletişim adı tutuyor.
+  // Bu alanlar YALNIZCA işletme sahibinin kendi paneline ve admin'e aittir.
+  // Müşteri/public uçlarda `attributes` whitelist'i unutulursa Sequelize tüm
+  // satırı JSON'a çevirip dışarı verir (bkz. Business.PUBLIC_ATTRIBUTES).
+  const GIZLI_ALANLAR = [
+    'iban',
+    'identityNumber',
+    'taxNumber',
+    'gsmNumber',
+    'contactName',
+    'contactSurname',
+    'subMerchantKey',
+    'subMerchantError',
+    'ownerId',
+  ];
+
+  const hassasVeriliIsletme = () =>
+    createBusiness({
+      iban: 'TR000000000000000000000000',
+      identityNumber: '11111111111',
+      gsmNumber: '5550000000',
+      contactName: 'Gizli',
+      contactSurname: 'Kisi',
+    });
+
+  const sizintiYok = (obj) => {
+    for (const alan of GIZLI_ALANLAR) {
+      expect(obj).not.toHaveProperty(alan);
+    }
+  };
+
+  test('GET /api/businesses (public, token yok) hassas alan döndürmez', async () => {
+    await hassasVeriliIsletme();
+
+    const res = await request(app).get('/api/businesses');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeGreaterThan(0);
+    res.body.data.forEach(sizintiYok);
+  });
+
+  test('GET /api/businesses/:id (public, token yok) hassas alan döndürmez', async () => {
+    const business = await hassasVeriliIsletme();
+
+    const res = await request(app).get(`/api/businesses/${business.id}`);
+
+    expect(res.status).toBe(200);
+    // Doğru işletme geldiğini teyit et ki test boş yanıtla "geçmiş" olmasın.
+    expect(res.body.business.id).toBe(business.id);
+    sizintiYok(res.body.business);
+  });
+
+  test('GET /api/maps/nearby hassas alan döndürmez', async () => {
+    const business = await hassasVeriliIsletme(); // helper: lat 41.0, lng 29.0
+    const customer = await createUser({ role: 'customer' });
+
+    const res = await request(app)
+      .get('/api/maps/nearby?lat=41.0&lng=29.0&radius=5')
+      .set(authHeader(customer));
+
+    expect(res.status).toBe(200);
+    const ids = res.body.businesses.map((b) => b.id);
+    expect(ids).toContain(business.id);
+    res.body.businesses.forEach(sizintiYok);
+  });
+});

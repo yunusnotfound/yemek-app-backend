@@ -122,6 +122,10 @@ exports.getById = async (req, res, next) => {
         {
           model: Business,
           as: 'business',
+          // GET /packages/:id kimlik doğrulaması İSTEMEYEN public bir uç
+          // (bkz. routes/packages.js). Whitelist olmadan işletmenin iban,
+          // identityNumber, gsmNumber gibi alanları herkese açılırdı.
+          attributes: Business.PUBLIC_ATTRIBUTES,
           include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
         },
       ],

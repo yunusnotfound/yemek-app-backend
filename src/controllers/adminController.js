@@ -232,7 +232,11 @@ exports.getBusinessById = async (req, res, next) => {
       packageIds.length ? Order.sum('commissionAmount', { where: { packageId: { [Op.in]: packageIds }, paymentStatus: 'paid' } }) : 0,
     ]);
 
-    const json = business.toJSON();
+    // toOwnerJSON: Business.toJSON hassas alanları varsayılan olarak düşürür.
+    // Burada ham kayda bilerek erişiyoruz, çünkü admin görünümü IBAN'ı MASKELİ
+    // göstermek istiyor — alan silinmiş gelseydi maskIban(undefined) döner ve
+    // panelde bilgi hiç görünmezdi. Maskeleme + eleme aşağıda aynen korunuyor.
+    const json = business.toOwnerJSON();
     json.iban = maskIban(json.iban);
     delete json.identityNumber;
     delete json.taxNumber;

@@ -117,8 +117,23 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
               ),
               const SizedBox(height: AppSpacing.lg),
 
-              // Title
-              Text('Rezervasyonu Onayla', style: AppTypography.h3),
+              // Başlık + kapat
+              Row(
+                children: [
+                  Expanded(
+                    child: Text('Rezervasyonu Onayla', style: AppTypography.h3),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    behavior: HitTestBehavior.opaque,
+                    child: const Icon(
+                      Icons.close,
+                      size: 22,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: AppSpacing.lg),
 
               // Package summary

@@ -1,28 +1,35 @@
-const { SurprisePackage, Business, Category, Order } = require('../models');
+const { SurprisePackage, Business, Category, Order, sequelize } = require('../models');
 const { Op } = require('sequelize');
-const { paginate, paginatedResponse, haversineDistance } = require('../utils/helpers');
+const { paginate, paginatedResponse, haversineSql } = require('../utils/helpers');
 const cacheService = require('../services/cacheService');
 
 exports.getAll = async (req, res, next) => {
   try {
     const { city, district, categoryId, maxPrice, lat, lng, radius, excludeExpired } = req.query;
     const { page, limit, offset } = paginate(req.query);
-    const useGeoFilter = lat && lng && radius;
 
-    // Hard cap on candidate rows fetched for geo-filtering so we never load the
-    // whole active-package table into memory for the JS Haversine pass.
-    const GEO_CANDIDATE_LIMIT = 500;
+    const userLat = parseFloat(lat);
+    const userLng = parseFloat(lng);
+    const maxRadius = parseFloat(radius);
 
-    // Build a cache key that rounds coordinates to ~3 decimals (~110m precision)
-    // so nearby requests share a cache entry instead of producing a unique key
-    // for every exact coordinate.
+    // Bu üç değer SQL ifadesine SAYI olarak gömüldüğünden (haversineSql), sonlu
+    // sayı olmaları zorunlu — aksi halde geo filtresi hiç uygulanmaz.
+    const useGeoFilter =
+      Number.isFinite(userLat) && Number.isFinite(userLng) && Number.isFinite(maxRadius) && maxRadius > 0;
+
+    // Koordinatlar ~1.1 km'lik ızgaraya (2 ondalık) yuvarlanır. 3 ondalık ~110 m
+    // demekti; yürüyen bir kullanıcı her 110 m'de yeni anahtar üretiyor, her giriş
+    // yaklaşık BİR kez okunup ölüyordu — cache'in maliyeti vardı, faydası yoktu.
+    // Yarıçap zaten km mertebesinde olduğu için 1.1 km'lik merkez kayması sonucu
+    // pratikte değiştirmez, buna karşılık anahtar sayısını ~100 kat düşürür.
     const cacheKeyParts = { city, district, categoryId, maxPrice, excludeExpired, page, limit };
     if (useGeoFilter) {
-      cacheKeyParts.lat = parseFloat(lat).toFixed(3);
-      cacheKeyParts.lng = parseFloat(lng).toFixed(3);
+      cacheKeyParts.lat = parseFloat(lat).toFixed(2);
+      cacheKeyParts.lng = parseFloat(lng).toFixed(2);
       cacheKeyParts.radius = radius;
     }
-    const cacheKey = `packages:list:${JSON.stringify(cacheKeyParts)}`;
+    // Sürümlü anahtar: geçersiz kılma tek INCR ile O(1) (bkz. cacheService).
+    const cacheKey = await cacheService.versionedKey('packages:list', cacheKeyParts);
     const cached = await cacheService.get(cacheKey);
     if (cached) {
       return res.json(cached);
@@ -43,13 +50,9 @@ exports.getAll = async (req, res, next) => {
       packageWhere.pickupDate = { [Op.gte]: today };
     }
 
-    const userLat = parseFloat(lat);
-    const userLng = parseFloat(lng);
-    const maxRadius = parseFloat(radius);
-
-    // Bounding-box pre-filter: compute min/max lat & lng from the center + radius
-    // (radius is in km) and push it into SQL so the DB only returns business
-    // candidates inside the box. The precise Haversine filter runs afterwards in JS.
+    // Bounding-box ön filtresi: idx_businesses_lat_lng'i kullanabilsin diye önce
+    // SQL'de kutu ile daralt. Kesin dairesel filtre aşağıda yine SQL'de (Haversine)
+    // uygulanır; kutu yalnız indeksten faydalanmak için var.
     if (useGeoFilter) {
       const latDelta = maxRadius / 111.32; // ~111.32 km per degree of latitude
       const cosLat = Math.cos((userLat * Math.PI) / 180);
@@ -60,6 +63,8 @@ exports.getAll = async (req, res, next) => {
       businessWhere.longitude = { [Op.between]: [userLng - lngDelta, userLng + lngDelta] };
     }
 
+    const businessAttributes = ['id', 'name', 'address', 'city', 'district', 'latitude', 'longitude', 'imageUrl', 'rating'];
+
     const queryOptions = {
       where: packageWhere,
       include: [
@@ -67,42 +72,42 @@ exports.getAll = async (req, res, next) => {
           model: Business,
           as: 'business',
           where: businessWhere,
-          attributes: ['id', 'name', 'address', 'city', 'district', 'latitude', 'longitude', 'imageUrl', 'rating'],
+          attributes: businessAttributes,
           include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
         },
       ],
       order: [['pickupDate', 'ASC'], ['pickupStart', 'ASC']],
+      limit,
+      offset,
     };
 
     if (useGeoFilter) {
-      // Bounding box already trims the rows in SQL; cap candidates to a sane hard
-      // limit, then Haversine-filter + distance-sort + paginate in memory below.
-      queryOptions.limit = GEO_CANDIDATE_LIMIT;
-    } else {
-      queryOptions.limit = limit;
-      queryOptions.offset = offset;
+      // Mesafe artık SQL'de hesaplanıyor: yarıçap filtresi, sıralama ve
+      // LIMIT/OFFSET veritabanında yapılır. Böylece "en yakın" gerçekten en yakın
+      // olur ve `total` gerçek toplamı gösterir (eskiden 500'lük aday penceresi
+      // yüzünden ikisi de yanlış olabiliyordu).
+      const distanceSql = haversineSql(userLat, userLng, '"business"."latitude"', '"business"."longitude"');
+
+      // subQuery:false şart — LIMIT'li bir sorguda include kolonlarına ORDER BY /
+      // WHERE ile ancak böyle erişilebilir. Paket→işletme çoktan-teke olduğu için
+      // JOIN satır çoğaltmaz, dolayısıyla LIMIT doğru sayıda paket döndürür.
+      queryOptions.subQuery = false;
+      queryOptions.where = {
+        [Op.and]: [packageWhere, sequelize.where(sequelize.literal(distanceSql), { [Op.lte]: maxRadius })],
+      };
+      // distance'ı işletme nesnesinin içine koy — istemci onu orada bekliyor.
+      // AÇIK liste kullanılıyor: `{ include: [...] }` biçimi "tüm kolonlar + bunlar"
+      // anlamına gelir ve iban/identityNumber gibi alanları geri sızdırırdı.
+      queryOptions.include[0].attributes = [
+        ...businessAttributes,
+        [sequelize.literal(distanceSql), 'distance'],
+      ];
+      queryOptions.order = [[sequelize.literal(distanceSql), 'ASC'], ['pickupDate', 'ASC']];
     }
 
     const { count, rows: packages } = await SurprisePackage.findAndCountAll(queryOptions);
 
-    let resultPackages = packages;
-    let totalCount = count;
-
-    if (useGeoFilter) {
-      resultPackages = packages.filter(pkg => {
-        if (!pkg.business.latitude || !pkg.business.longitude) return false;
-        const distance = haversineDistance(userLat, userLng, parseFloat(pkg.business.latitude), parseFloat(pkg.business.longitude));
-        pkg.business.setDataValue('distance', distance);
-        return distance <= maxRadius;
-      });
-
-      resultPackages.sort((a, b) => a.business.getDataValue('distance') - b.business.getDataValue('distance'));
-
-      totalCount = resultPackages.length;
-      resultPackages = resultPackages.slice(offset, offset + limit);
-    }
-
-    const responseData = paginatedResponse(resultPackages, totalCount, page, limit);
+    const responseData = paginatedResponse(packages, count, page, limit);
     await cacheService.set(cacheKey, responseData, 300);
     res.json(responseData);
   } catch (error) {
@@ -164,7 +169,7 @@ exports.create = async (req, res, next) => {
       imageUrl,
     });
 
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
 
     res.status(201).json({
       message: 'Paket oluşturuldu',
@@ -208,7 +213,7 @@ exports.update = async (req, res, next) => {
       pickupDate, imageUrl, isActive,
     });
 
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
 
     res.json({
       message: 'Paket güncellendi',
@@ -247,7 +252,7 @@ exports.remove = async (req, res, next) => {
 
     await pkg.destroy();
 
-    await cacheService.delPattern('packages:list:*');
+    await cacheService.invalidateNamespace('packages:list');
 
     res.json({ message: 'Paket silindi' });
   } catch (error) {

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
+import '../widgets/food_orbit.dart';
+import '../widgets/rescue_game.dart';
+import '../widgets/surprise_box.dart';
 import 'email_entry_page.dart';
 
 class WelcomePage extends StatefulWidget {
@@ -13,34 +16,31 @@ class _WelcomePageState extends State<WelcomePage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
+  /// İlk sayfa salt GÖRSEL (kendi kendine dönen kompozisyon, kullanıcıdan bir
+  /// şey beklemez); sonraki ikisi etkileşimli ve birbirinden farklı jest ister
+  /// — dokunma ve sürükleme. Aynı hissin tekrarlanmaması için böyle ayrıldı.
   final List<_OnboardingData> _pages = const [
     _OnboardingData(
-      icon: Icons.eco_rounded,
-      iconColor: Color(0xFF4CAF50),
       title: 'Yiyecek İsrafına Son',
       description:
           'Restoranlardan ve marketlerden arta kalan lezzetli yiyecekleri keşfet, hem cebini hem dünyayı koru.',
     ),
     _OnboardingData(
-      icon: Icons.card_giftcard_rounded,
-      iconColor: Color(0xFFFF7043),
       title: 'Sürpriz Paketler',
       description:
-          'İşletmelerin hazırladığı sürpriz paketleri uygun fiyatlarla al. Ne geleceğini merak et, sürprizin tadını çıkar!',
+          'Kutuya dokun ve ne çıkacağını gör. Gerçek paketler de böyle: uygun fiyat, her seferinde başka bir lezzet.',
     ),
     _OnboardingData(
-      icon: Icons.storefront_rounded,
-      iconColor: Color(0xFF00796B),
-      title: 'İşletmeler İçin',
+      title: 'Sen Kurtar, Çöpe Gitmesin',
       description:
-          'Arta kalan ürünlerini sürpriz paketlerle değerlendir, yeni müşteriler kazan ve israfı azalt.',
+          'Yemeği çantana sürükle. Uygulamada yaptığın şey de tam olarak bu.',
     ),
   ];
 
   void _goToLogin() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (context) => const EmailEntryPage()));
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const EmailEntryPage()),
+    );
   }
 
   @override
@@ -88,54 +88,11 @@ class _WelcomePageState extends State<WelcomePage> {
                   setState(() => _currentPage = index);
                 },
                 itemBuilder: (context, index) {
-                  final page = _pages[index];
                   return Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.screenPadding,
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Icon circle
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: page.iconColor.withValues(alpha: 0.12),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            page.icon,
-                            size: 56,
-                            color: page.iconColor,
-                          ),
-                        ),
-
-                        const SizedBox(height: AppSpacing.xxl),
-
-                        // Title
-                        Text(
-                          page.title,
-                          textAlign: TextAlign.center,
-                          style: AppTypography.h1.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-
-                        const SizedBox(height: AppSpacing.md),
-
-                        // Description
-                        Text(
-                          page.description,
-                          textAlign: TextAlign.center,
-                          style: AppTypography.bodyLarge.copyWith(
-                            color: AppColors.textSecondary,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: _buildPage(index),
                   );
                 },
               ),
@@ -174,6 +131,8 @@ class _WelcomePageState extends State<WelcomePage> {
                   SizedBox(
                     width: double.infinity,
                     height: 56,
+                    // Etkileşimler İSTEĞE BAĞLI keyif katmanıdır; oynamayan
+                    // kullanıcıyı bekletmemek için buton her zaman aktiftir.
                     child: ElevatedButton(
                       onPressed: () {
                         if (isLastPage) {
@@ -211,17 +170,62 @@ class _WelcomePageState extends State<WelcomePage> {
       ),
     );
   }
+
+  /// Sayfa gövdesi. Başlık + açıklama düzeni üç sayfada da aynı kalır; değişen
+  /// tek şey üstteki etkileşim alanı. Metin bloğu sabit durduğu için sayfalar
+  /// arası geçişte düzen zıplamaz.
+  Widget _buildPage(int index) {
+    final page = _pages[index];
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildVisual(index),
+
+        const SizedBox(height: AppSpacing.xl),
+
+        Text(
+          page.title,
+          textAlign: TextAlign.center,
+          style: AppTypography.h1.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+
+        const SizedBox(height: AppSpacing.md),
+
+        Text(
+          page.description,
+          textAlign: TextAlign.center,
+          style: AppTypography.bodyLarge.copyWith(
+            color: AppColors.textSecondary,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Sayfanın üst görsel alanı. 0 salt dekoratif; 1 ve 2 etkileşimli ve ayrı
+  /// jestler kullanır (dokunma / sürükleme).
+  Widget _buildVisual(int index) {
+    switch (index) {
+      case 0:
+        return const FoodOrbit();
+      case 1:
+        return const SurpriseBox();
+      default:
+        return const RescueGame();
+    }
+  }
 }
 
 class _OnboardingData {
-  final IconData icon;
-  final Color iconColor;
   final String title;
   final String description;
 
   const _OnboardingData({
-    required this.icon,
-    required this.iconColor,
     required this.title,
     required this.description,
   });

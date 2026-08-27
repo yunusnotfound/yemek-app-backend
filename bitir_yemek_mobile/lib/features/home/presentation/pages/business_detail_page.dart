@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../config/theme.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
 import '../../../../core/di/service_locator.dart';
@@ -229,6 +230,10 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                     const SizedBox(height: AppSpacing.md),
                   ],
 
+                  // Bir bakışta özet: puan / paket / değerlendirme.
+                  _buildStatStrip(detail),
+                  const SizedBox(height: AppSpacing.md),
+
                   // Address
                   _buildInfoRow(
                     Icons.location_on_outlined,
@@ -236,6 +241,9 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                   ),
                   if (detail.phone != null && detail.phone!.isNotEmpty)
                     _buildInfoRow(Icons.phone_outlined, detail.phone!),
+
+                  const SizedBox(height: AppSpacing.sm),
+                  _buildActionButtons(detail),
 
                   const SizedBox(height: AppSpacing.lg),
                   const Divider(color: AppColors.divider),
@@ -254,7 +262,31 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                   AppSpacing.screenPadding,
                   AppSpacing.sm,
                 ),
-                child: Text('Mevcut Paketler', style: AppTypography.h3),
+                // Sayı rozeti, Değerlendirmeler bölümündeki kalıbın aynısı —
+                // iki başlık artık aynı dili konuşuyor.
+                child: Row(
+                  children: [
+                    Text('Mevcut Paketler', style: AppTypography.h3),
+                    const SizedBox(width: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                      ),
+                      child: Text(
+                        '${detail.packages.length}',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             SliverList(
@@ -359,6 +391,180 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
         ],
       ),
     );
+  }
+
+  /// İsmin hemen altındaki özet şerit: puan / paket / değerlendirme.
+  ///
+  /// Sayfa açıldığında göz, isim ile adres arasında tutunacak bir şey
+  /// bulamıyordu. Buradaki üç değer de zaten çekilen veriden geliyor, ek istek
+  /// yok — sadece daha önce gösterilmiyorlardı.
+  Widget _buildStatStrip(BusinessDetailModel detail) {
+    final puanVar = detail.reviews.isNotEmpty || detail.rating > 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: const [
+          BoxShadow(color: AppColors.shadow, blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatCell(
+              icon: Icons.star_rounded,
+              iconColor: AppColors.warning,
+              value: puanVar ? detail.averageRating.toStringAsFixed(1) : 'Yeni',
+              label: 'Puan',
+            ),
+          ),
+          _buildStatDivider(),
+          Expanded(
+            child: _buildStatCell(
+              icon: Icons.shopping_bag_rounded,
+              iconColor: AppColors.primary,
+              value: '${detail.packages.length}',
+              label: 'Paket',
+            ),
+          ),
+          _buildStatDivider(),
+          Expanded(
+            child: _buildStatCell(
+              icon: Icons.chat_bubble_rounded,
+              iconColor: AppColors.info,
+              value: '${detail.reviews.length}',
+              label: 'Yorum',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCell({
+    required IconData icon,
+    required Color iconColor,
+    required String value,
+    required String label,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: iconColor),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          value,
+          style: AppTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold),
+        ),
+        Text(
+          label,
+          style: AppTypography.caption.copyWith(color: AppColors.textHint),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatDivider() {
+    return Container(width: 1, height: 32, color: AppColors.divider);
+  }
+
+  /// Yol tarifi + arama. Ekran şimdiye kadar adresi ve telefonu yalnız METİN
+  /// olarak gösteriyordu; kullanıcı numarayı elle kopyalamak zorundaydı.
+  Widget _buildActionButtons(BusinessDetailModel detail) {
+    final telefonVar = detail.phone != null && detail.phone!.isNotEmpty;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.directions_rounded,
+            label: 'Yol Tarifi',
+            onTap: () => _openDirections(detail),
+            dolgulu: true,
+          ),
+        ),
+        if (telefonVar) ...[
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: _buildActionButton(
+              icon: Icons.phone_rounded,
+              label: 'Ara',
+              onTap: () => _callBusiness(detail.phone!),
+              dolgulu: false,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    required bool dolgulu,
+  }) {
+    return Material(
+      color: dolgulu ? AppColors.primary : AppColors.surface,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: dolgulu
+                ? null
+                : Border.all(color: AppColors.primary, width: 1.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: dolgulu ? Colors.white : AppColors.primary,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                label,
+                style: AppTypography.button.copyWith(
+                  fontSize: 15,
+                  color: dolgulu ? Colors.white : AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Harita sayfasındaki (_onNavigate) sıralamanın aynısı: önce Google Maps
+  /// uygulaması, sonra Apple Haritalar, en son tarayıcı.
+  Future<void> _openDirections(BusinessDetailModel detail) async {
+    final hedefler = [
+      'comgooglemaps://?daddr=${detail.latitude},${detail.longitude}&directionsmode=driving',
+      'maps://maps.apple.com/?daddr=${detail.latitude},${detail.longitude}&dirflg=d',
+      'https://www.google.com/maps/dir/?api=1&destination=${detail.latitude},${detail.longitude}&travelmode=driving',
+    ];
+    for (final hedef in hedefler) {
+      final uri = Uri.parse(hedef);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
+  }
+
+  Future<void> _callBusiness(String phone) async {
+    final uri = Uri.parse('tel:${phone.replaceAll(RegExp(r'[^0-9+]'), '')}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
   }
 
   Widget _buildInfoRow(IconData icon, String text) {

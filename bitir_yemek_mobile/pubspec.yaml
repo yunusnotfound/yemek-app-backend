@@ -83,3 +83,8 @@ flutter:
   
   assets:
     - assets/images/
+    # Alt klasörler ayrıca yazılmalı; Flutter varlıkları özyinelemeli taramaz.
+    - assets/images/categories/
+    # Açılış sahnesi marka logosunu buradan okur (flutter_launcher_icons ile
+    # aynı dosya; logo tek bir yerde tutulsun diye kopyalanmadı).
+    - assets/icon/

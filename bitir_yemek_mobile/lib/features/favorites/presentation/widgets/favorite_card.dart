@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_dialog.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
 import '../../data/models/favorite_model.dart';
 
@@ -218,28 +219,15 @@ class FavoriteCard extends StatelessWidget {
   }
 
   void _showRemoveDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Favorilerden Kaldir'),
-        content: Text(
-          '${favorite.businessName} favorilerinizden kaldirilsin mi?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Vazgec'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              onRemove?.call();
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Kaldir'),
-          ),
-        ],
-      ),
-    );
+    AppDialog.confirm(
+      context,
+      icon: Icons.heart_broken_rounded,
+      title: 'Favorilerden kaldir',
+      message: '${favorite.businessName} favorilerinizden kaldirilsin mi?',
+      cancelLabel: 'Vazgec',
+      confirmLabel: 'Kaldir',
+    ).then((confirmed) {
+      if (confirmed) onRemove?.call();
+    });
   }
 }

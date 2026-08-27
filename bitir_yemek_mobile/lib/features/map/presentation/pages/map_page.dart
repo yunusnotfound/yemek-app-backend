@@ -58,7 +58,12 @@ class _MapPageContent extends StatefulWidget {
 class _MapPageContentState extends State<_MapPageContent> {
   // Marka renkleri (badge için teal — AppColors.primary turuncu olduğundan kullanılmıyor).
   static const int _tealColor = 0xFF0E5A4F;
-  static const int _iconSize = 120;
+  /// Marker ikonunun çizim (logical) boyutu; içindeki tüm ölçüler buna göre.
+  static const double _ikonCizimBoyutu = 120.0;
+
+  /// Rasterlenen PNG'nin piksel boyutu. Çizim boyutundan büyük tutulur ki
+  /// haritada daha iri gösterilen marker keskin kalsın.
+  static const int _iconSize = 192;
 
   /// Rasterlenmiş marker ikonları (PNG bayt), görünümü belirleyen anahtara göre.
   ///
@@ -259,7 +264,8 @@ class _MapPageContentState extends State<_MapPageContent> {
             ),
           ),
           image: iconBytes,
-          iconSize: 0.85,
+          // 192px raster * 0.72 -> ekranda ~138px (eskiden 120 * 0.85 = 102).
+          iconSize: 0.72,
           iconAnchor: IconAnchor.CENTER,
         ),
       );
@@ -362,9 +368,14 @@ class _MapPageContentState extends State<_MapPageContent> {
     BusinessModel business,
     ui.Image? logo,
   ) async {
-    const double size = 120.0;
+    const double size = _ikonCizimBoyutu;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, size, size));
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, _iconSize.toDouble(), _iconSize.toDouble()),
+    );
+    // Çizim 120 birim üzerinden yapılır, raster daha büyük: ölçekle.
+    canvas.scale(_iconSize / size);
 
     const center = Offset(size / 2, size / 2);
     const radius = 44.0;
@@ -518,7 +529,8 @@ class _MapPageContentState extends State<_MapPageContent> {
             coordinates: Position(_lng, _lat),
           ),
           image: iconBytes,
-          iconSize: 0.6,
+          // 300px raster * 0.55 -> ekranda ~165px (eskiden 200 * 0.6 = 120).
+          iconSize: 0.55,
           iconAnchor: IconAnchor.CENTER,
         ),
       );
@@ -529,8 +541,13 @@ class _MapPageContentState extends State<_MapPageContent> {
 
   Future<Uint8List> _createCurrentLocationIcon() async {
     const size = 200.0;
+    const rasterBoyutu = 300.0;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, size, size));
+    final canvas = Canvas(
+      recorder,
+      const Rect.fromLTWH(0, 0, rasterBoyutu, rasterBoyutu),
+    );
+    canvas.scale(rasterBoyutu / size);
     const center = Offset(size / 2, size / 2);
 
     final pulsePaint = Paint()
@@ -556,7 +573,10 @@ class _MapPageContentState extends State<_MapPageContent> {
     canvas.drawCircle(center, size / 14, dotPaint);
 
     final picture = recorder.endRecording();
-    final image = await picture.toImage(size.toInt(), size.toInt());
+    final image = await picture.toImage(
+      rasterBoyutu.toInt(),
+      rasterBoyutu.toInt(),
+    );
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     return byteData!.buffer.asUint8List();
   }

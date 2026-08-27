@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../data/models/package_model.dart';
@@ -69,12 +70,7 @@ class _PackageDetailView extends StatelessWidget {
           }
         } else if (state is ReservationError) {
           Navigator.of(context).pop(); // Close confirm sheet
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          AppNotice.error(context, state.message);
         }
       },
       child: Scaffold(

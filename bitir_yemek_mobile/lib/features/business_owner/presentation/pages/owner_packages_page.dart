@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../bloc/owner_packages_bloc.dart';
 import '../widgets/owner_package_tile.dart';
 import 'package_form_page.dart';
@@ -35,12 +36,7 @@ class _OwnerPackagesPageState extends State<OwnerPackagesPage>
       body: BlocConsumer<OwnerPackagesBloc, OwnerPackagesState>(
         listener: (context, state) {
           if (state is PackageDeleteError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            AppNotice.error(context, state.message);
           }
         },
         buildWhen: (previous, current) =>

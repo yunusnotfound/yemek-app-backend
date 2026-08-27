@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../data/datasources/business_owner_remote_datasource.dart';
 import '../../data/repositories/business_owner_repository_impl.dart';
@@ -44,12 +45,7 @@ class _VerifyOrderPageState extends State<VerifyOrderPage> {
   Future<void> _verify() async {
     final code = _codeController.text.trim();
     if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen teslim alma kodunu girin'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppNotice.warning(context, 'Lütfen teslim alma kodunu girin');
       return;
     }
 
@@ -69,12 +65,7 @@ class _VerifyOrderPageState extends State<VerifyOrderPage> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppNotice.error(context, e.toString());
       }
     }
   }

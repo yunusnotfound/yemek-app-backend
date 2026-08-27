@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../shared/widgets/shimmer_loader.dart';
 import '../bloc/orders_bloc.dart';
 import '../widgets/order_card.dart';
@@ -91,19 +92,9 @@ class _OrdersPageState extends State<OrdersPage> {
               child: BlocConsumer<OrdersBloc, OrdersState>(
                 listener: (context, state) {
                   if (state is OrderCancelSuccess) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Siparis iptal edildi'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
+                    AppNotice.success(context, 'Siparis iptal edildi');
                   } else if (state is OrderCancelError) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(state.message),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
+                    AppNotice.error(context, state.message);
                   }
                 },
                 buildWhen: (prev, curr) {

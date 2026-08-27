@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_dialog.dart';
 import '../../data/models/order_model.dart';
 
 class OrderCard extends StatelessWidget {
@@ -243,28 +244,15 @@ class OrderCard extends StatelessWidget {
   }
 
   void _showCancelDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Siparisi Iptal Et'),
-        content: const Text(
-          'Bu siparisi iptal etmek istediginizden emin misiniz?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Vazgec'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              onCancel?.call();
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Iptal Et'),
-          ),
-        ],
-      ),
-    );
+    AppDialog.confirm(
+      context,
+      icon: Icons.event_busy_rounded,
+      title: 'Siparisi iptal et',
+      message: 'Bu siparisi iptal etmek istediginizden emin misiniz?',
+      cancelLabel: 'Vazgec',
+      confirmLabel: 'Iptal Et',
+    ).then((confirmed) {
+      if (confirmed) onCancel?.call();
+    });
   }
 }

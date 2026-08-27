@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_dialog.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../home/data/models/package_model.dart';
 import '../../../home/data/models/reservation_model.dart';
@@ -70,23 +72,16 @@ class _PaymentViewState extends State<_PaymentView> {
 
   Future<void> _handleBack(BuildContext context, bool locked) async {
     if (locked) return; // doğrulama sürerken çıkışı engelle
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Ödemeden vazgeç'),
-        content: const Text(
+    final ok = await AppDialog.confirm(
+      context,
+      icon: Icons.credit_card_off_rounded,
+      title: 'Ödemeden vazgeç',
+      message:
           'Ödemeden vazgeçmek istediğinize emin misiniz? Rezervasyonunuz iptal edilecek.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Devam et')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Vazgeç', style: TextStyle(color: AppColors.error)),
-          ),
-        ],
-      ),
+      cancelLabel: 'Devam et',
+      confirmLabel: 'Vazgeç',
     );
-    if ((ok ?? false) && context.mounted) Navigator.of(context).pop();
+    if (ok && context.mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -108,9 +103,7 @@ class _PaymentViewState extends State<_PaymentView> {
             ),
           );
         } else if (state is PaymentFailedState) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: AppColors.error),
-          );
+          AppNotice.error(context, state.message);
           Navigator.of(context).pop();
         }
       },

@@ -25,6 +25,15 @@ class AppColors {
   static const Color divider = Color(0xFFEEEEEE);
   static const Color shadow = Color(0x1F000000);
 
+  // Sıcak yüzeyler — açılış sahnesiyle (ScenePalette) aynı tonlar.
+  // Krem zeminde saf siyah/gri soğuk bir yama gibi durduğu için bildirim ve
+  // diyalog gibi "öne çıkan" yüzeyler bu mürekkebi ve kremi kullanır.
+  static const Color ink = Color(0xFF2E2019);
+  static const Color inkSoft = Color(0xFF8A7263);
+  static const Color creamTop = Color(0xFFFFFDFA);
+  static const Color creamBottom = Color(0xFFF7E9DB);
+  static const Color sand = Color(0xFFEFC1A2);
+
   // Social buttons
   static const Color appleButton = Color(0xFF000000);
   static const Color googleButton = Color(0xFF00796B);

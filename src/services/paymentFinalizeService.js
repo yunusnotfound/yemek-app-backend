@@ -201,7 +201,7 @@ const expireUnpaidHold = async (orderId) => {
     const released = await releaseStockGuarded(order, 'hold_expired', t);
     await t.commit();
     if (released) {
-      await cacheService.delPattern('packages:list:*');
+      await cacheService.invalidateNamespace('packages:list');
       try {
         await createNotification(
           order.userId,

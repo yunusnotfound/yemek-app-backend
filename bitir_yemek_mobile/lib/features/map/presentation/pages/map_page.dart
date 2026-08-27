@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -13,8 +14,6 @@ import '../../../home/presentation/pages/business_detail_page.dart';
 import '../../../home/presentation/pages/package_detail_page.dart';
 import '../../../home/presentation/widgets/package_card.dart';
 import '../../../favorites/presentation/bloc/favorites_bloc.dart';
-import '../../data/datasources/map_remote_datasource.dart';
-import '../../data/repositories/map_repository_impl.dart';
 import '../bloc/map_bloc.dart';
 import '../bloc/map_event.dart';
 import '../bloc/map_state.dart';
@@ -37,21 +36,12 @@ class MapPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) =>
-          MapBloc(
-            repository: MapRepositoryImpl(
-              remoteDataSource: MapRemoteDataSource(dioClient: dioClient),
-            ),
-          )..add(
-            LoadBusinessesForMap(
-              latitude: latitude,
-              longitude: longitude,
-              radius: 10.0,
-            ),
-          ),
-      child: _MapPageContent(latitude: latitude, longitude: longitude),
-    );
+    // MapBloc artık MainScaffold'da sağlanıyor. Bu sayfa Mapbox PlatformView'i
+    // yüzünden IndexedStack dışında tutulduğundan sekmeye her girişte baştan
+    // kurulur; bloc'u burada yaratmak her girişte /maps/nearby + /packages
+    // çiftini yeniden çağırıyordu. İlk yükleme _MapPageContentState.initState
+    // içinde, yalnız durum MapInitial ise tetiklenir.
+    return _MapPageContent(latitude: latitude, longitude: longitude);
   }
 }
 
@@ -68,7 +58,21 @@ class _MapPageContent extends StatefulWidget {
 class _MapPageContentState extends State<_MapPageContent> {
   // Marka renkleri (badge için teal — AppColors.primary turuncu olduğundan kullanılmıyor).
   static const int _tealColor = 0xFF0E5A4F;
-  static const int _iconSize = 120;
+  /// Marker ikonunun çizim (logical) boyutu; içindeki tüm ölçüler buna göre.
+  static const double _ikonCizimBoyutu = 120.0;
+
+  /// Rasterlenen PNG'nin piksel boyutu. Çizim boyutundan büyük tutulur ki
+  /// haritada daha iri gösterilen marker keskin kalsın.
+  static const int _iconSize = 192;
+
+  /// Rasterlenmiş marker ikonları (PNG bayt), görünümü belirleyen anahtara göre.
+  ///
+  /// `static`: bu sayfa Mapbox PlatformView'i yüzünden IndexedStack dışında
+  /// tutuluyor ve Ara sekmesine her girişte baştan kuruluyor. State'e bağlı bir
+  /// önbellek her geçişte boşalır, tüm logolar yeniden indirilir ve her ikon
+  /// yeniden çizilirdi. Sınıf düzeyinde tutulunca sekme geçişleri bedava olur.
+  static final Map<String, Uint8List> _ikonOnbellegi = {};
+  static const int _ikonOnbellegiKapasitesi = 200;
 
   MapboxMap? _mapController;
   PointAnnotationManager? _pointAnnotationManager;
@@ -96,6 +100,24 @@ class _MapPageContentState extends State<_MapPageContent> {
   double get _lat => _latOverride ?? widget.latitude;
   double get _lng => _lngOverride ?? widget.longitude;
   double _radius = 10.0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Bloc sekmeler arası paylaşıldığı için veri zaten yüklenmiş olabilir;
+    // yalnızca hiç yüklenmemişse ağa çık. Marker'lar mevcut bloc durumundan
+    // yeniden çizildiği için sekmeye dönüş ağ isteği üretmez.
+    final bloc = context.read<MapBloc>();
+    if (bloc.state is MapInitial) {
+      bloc.add(
+        LoadBusinessesForMap(
+          latitude: _lat,
+          longitude: _lng,
+          radius: _radius,
+        ),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -221,30 +243,82 @@ class _MapPageContentState extends State<_MapPageContent> {
     // Kullanıcı konumu marker'ı.
     await _addCurrentLocationMarker();
 
-    // Ağ logoları paralel yüklenir; render + create sırayla yapılır.
-    final logos = await Future.wait(
-      businesses.map((b) => _loadNetworkImage(b.imageUrl)),
-    );
+    // İkonları hazırla. Önbellekte olanlar ne indirilir ne yeniden çizilir;
+    // yalnızca eksik olanlar için ağdan logo çekilip canvas'ta rasterize edilir.
+    final iconlar = await Future.wait(businesses.map(_ikonBaytlariniAl));
+
+    // Marker'lar TEK platform çağrısıyla oluşturulur. Eskiden her işletme için
+    // ayrı `create()` await ediliyordu; 100 işletmelik bir haritada bu 100 ayrı
+    // platform kanalı gidiş-dönüşü demekti ve UI thread'ini kilitliyordu.
+    final secenekler = <PointAnnotationOptions>[];
+    final sirali = <BusinessModel>[];
     for (var i = 0; i < businesses.length; i++) {
-      final business = businesses[i];
-      try {
-        final iconBytes = await _createLogoMarkerIcon(business, logos[i]);
-        final annotation = await manager.create(
-          PointAnnotationOptions(
-            geometry: Point(
-              coordinates: Position(business.longitude, business.latitude),
+      final iconBytes = iconlar[i];
+      if (iconBytes == null) continue; // ikon üretilemedi -> bu marker atlanır
+      secenekler.add(
+        PointAnnotationOptions(
+          geometry: Point(
+            coordinates: Position(
+              businesses[i].longitude,
+              businesses[i].latitude,
             ),
-            image: iconBytes,
-            iconSize: 0.85,
-            iconAnchor: IconAnchor.CENTER,
           ),
-        );
-        _businessAnnotations.add(annotation);
-        _annotationIdToBusiness[annotation.id] = business;
-      } catch (e) {
-        if (kDebugMode) debugPrint('Error creating marker for ${business.name}: $e');
-      }
+          image: iconBytes,
+          // 192px raster * 0.72 -> ekranda ~138px (eskiden 120 * 0.85 = 102).
+          iconSize: 0.72,
+          iconAnchor: IconAnchor.CENTER,
+        ),
+      );
+      sirali.add(businesses[i]);
     }
+
+    if (secenekler.isEmpty) return;
+
+    try {
+      final annotations = await manager.createMulti(secenekler);
+      for (var i = 0; i < annotations.length; i++) {
+        final annotation = annotations[i];
+        if (annotation == null) continue;
+        _businessAnnotations.add(annotation);
+        _annotationIdToBusiness[annotation.id] = sirali[i];
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error creating markers: $e');
+    }
+  }
+
+  /// Bir işletmenin marker ikonunu önbellekten verir, yoksa üretip önbelleğe alır.
+  ///
+  /// Önbellek [_ikonOnbellegi] `static` — bu sayfa Ara sekmesine her girişte
+  /// sıfırdan kurulduğu için State'e bağlı bir önbellek her seferinde boşalır ve
+  /// bütün logolar yeniden indirilirdi.
+  Future<Uint8List?> _ikonBaytlariniAl(BusinessModel business) async {
+    final anahtar = _ikonAnahtari(business);
+    final onbellekli = _ikonOnbellegi[anahtar];
+    if (onbellekli != null) return onbellekli;
+
+    try {
+      final logo = await _loadNetworkImage(business.imageUrl);
+      final bytes = await _createLogoMarkerIcon(business, logo);
+      // Sınırsız büyümesin: kapasite dolduğunda en eski giriş atılır.
+      if (_ikonOnbellegi.length >= _ikonOnbellegiKapasitesi) {
+        _ikonOnbellegi.remove(_ikonOnbellegi.keys.first);
+      }
+      _ikonOnbellegi[anahtar] = bytes;
+      return bytes;
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error creating marker icon for ${business.name}: $e');
+      return null;
+    }
+  }
+
+  /// İkonun görünümünü belirleyen her şey anahtara girer: logo, baş harf
+  /// (logo yoksa) ve rozetteki paket sayısı.
+  String _ikonAnahtari(BusinessModel business) {
+    final gorsel = (business.imageUrl != null && business.imageUrl!.isNotEmpty)
+        ? business.imageUrl!
+        : 'harf:${business.name.isNotEmpty ? business.name[0].toUpperCase() : '?'}';
+    return '$gorsel|${business.packageCount}';
   }
 
   Future<void> _fitCameraToMarkers(List<BusinessModel> businesses) async {
@@ -294,9 +368,14 @@ class _MapPageContentState extends State<_MapPageContent> {
     BusinessModel business,
     ui.Image? logo,
   ) async {
-    const double size = 120.0;
+    const double size = _ikonCizimBoyutu;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, size, size));
+    final canvas = Canvas(
+      recorder,
+      Rect.fromLTWH(0, 0, _iconSize.toDouble(), _iconSize.toDouble()),
+    );
+    // Çizim 120 birim üzerinden yapılır, raster daha büyük: ölçekle.
+    canvas.scale(_iconSize / size);
 
     const center = Offset(size / 2, size / 2);
     const radius = 44.0;
@@ -409,7 +488,12 @@ class _MapPageContentState extends State<_MapPageContent> {
     if (url == null || url.isEmpty) return null;
     try {
       final completer = Completer<ui.Image?>();
-      final stream = NetworkImage(url).resolve(const ImageConfiguration());
+      // CachedNetworkImageProvider, uygulamanın geri kalanıyla (app_cached_image)
+      // aynı DISK önbelleğini kullanır. Düz NetworkImage yalnız bellekte tutuyordu,
+      // yani logolar uygulama her açılışında yeniden indiriliyordu.
+      final stream = CachedNetworkImageProvider(
+        url,
+      ).resolve(const ImageConfiguration());
       late ImageStreamListener listener;
       listener = ImageStreamListener(
         (info, _) {
@@ -445,7 +529,8 @@ class _MapPageContentState extends State<_MapPageContent> {
             coordinates: Position(_lng, _lat),
           ),
           image: iconBytes,
-          iconSize: 0.6,
+          // 300px raster * 0.55 -> ekranda ~165px (eskiden 200 * 0.6 = 120).
+          iconSize: 0.55,
           iconAnchor: IconAnchor.CENTER,
         ),
       );
@@ -456,8 +541,13 @@ class _MapPageContentState extends State<_MapPageContent> {
 
   Future<Uint8List> _createCurrentLocationIcon() async {
     const size = 200.0;
+    const rasterBoyutu = 300.0;
     final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder, const Rect.fromLTWH(0, 0, size, size));
+    final canvas = Canvas(
+      recorder,
+      const Rect.fromLTWH(0, 0, rasterBoyutu, rasterBoyutu),
+    );
+    canvas.scale(rasterBoyutu / size);
     const center = Offset(size / 2, size / 2);
 
     final pulsePaint = Paint()
@@ -483,7 +573,10 @@ class _MapPageContentState extends State<_MapPageContent> {
     canvas.drawCircle(center, size / 14, dotPaint);
 
     final picture = recorder.endRecording();
-    final image = await picture.toImage(size.toInt(), size.toInt());
+    final image = await picture.toImage(
+      rasterBoyutu.toInt(),
+      rasterBoyutu.toInt(),
+    );
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     return byteData!.buffer.asUint8List();
   }

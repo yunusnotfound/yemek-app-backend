@@ -87,3 +87,128 @@ describe('Onaysız işletme herkese görünmez (KRİTİK moderasyon kapısı)', 
     expect(res.status).toBe(404);
   });
 });
+
+describe('İşletme PII sızıntısı (KRİTİK — iyzico sub-merchant alanları)', () => {
+  // Business modeli Pazaryeri için IBAN, TC kimlik, GSM ve iletişim adı tutuyor.
+  // Bu alanlar YALNIZCA işletme sahibinin kendi paneline ve admin'e aittir.
+  // Müşteri/public uçlarda `attributes` whitelist'i unutulursa Sequelize tüm
+  // satırı JSON'a çevirip dışarı verir (bkz. Business.PUBLIC_ATTRIBUTES).
+  const GIZLI_ALANLAR = [
+    'iban',
+    'identityNumber',
+    'taxNumber',
+    'gsmNumber',
+    'contactName',
+    'contactSurname',
+    'subMerchantKey',
+    'subMerchantError',
+    'ownerId',
+  ];
+
+  const hassasVeriliIsletme = () =>
+    createBusiness({
+      iban: 'TR000000000000000000000000',
+      identityNumber: '11111111111',
+      gsmNumber: '5550000000',
+      contactName: 'Gizli',
+      contactSurname: 'Kisi',
+    });
+
+  const sizintiYok = (obj) => {
+    for (const alan of GIZLI_ALANLAR) {
+      expect(obj).not.toHaveProperty(alan);
+    }
+  };
+
+  test('GET /api/businesses (public, token yok) hassas alan döndürmez', async () => {
+    await hassasVeriliIsletme();
+
+    const res = await request(app).get('/api/businesses');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeGreaterThan(0);
+    res.body.data.forEach(sizintiYok);
+  });
+
+  test('GET /api/businesses/:id (public, token yok) hassas alan döndürmez', async () => {
+    const business = await hassasVeriliIsletme();
+
+    const res = await request(app).get(`/api/businesses/${business.id}`);
+
+    expect(res.status).toBe(200);
+    // Doğru işletme geldiğini teyit et ki test boş yanıtla "geçmiş" olmasın.
+    expect(res.body.business.id).toBe(business.id);
+    sizintiYok(res.body.business);
+  });
+
+  test('GET /api/packages/:id (public, token yok) hassas alan döndürmez', async () => {
+    const business = await hassasVeriliIsletme();
+    const pkg = await createPackage({ businessId: business.id });
+
+    const res = await request(app).get(`/api/packages/${pkg.id}`);
+
+    expect(res.status).toBe(200);
+    // Doğru paket geldiğini teyit et ki test boş yanıtla "geçmiş" olmasın.
+    expect(res.body.package.id).toBe(pkg.id);
+    sizintiYok(res.body.package.business);
+  });
+
+  test('GET /api/maps/nearby hassas alan döndürmez', async () => {
+    const business = await hassasVeriliIsletme(); // helper: lat 41.0, lng 29.0
+    const customer = await createUser({ role: 'customer' });
+
+    const res = await request(app)
+      .get('/api/maps/nearby?lat=41.0&lng=29.0&radius=5')
+      .set(authHeader(customer));
+
+    expect(res.status).toBe(200);
+    const ids = res.body.businesses.map((b) => b.id);
+    expect(ids).toContain(business.id);
+    res.body.businesses.forEach(sizintiYok);
+  });
+});
+
+describe('Business modeli — varsayılan koruma', () => {
+  const { Business } = require('../src/models');
+
+  // Sızıntı her seferinde aynı sebepten oldu: bir sorguda `attributes`
+  // whitelist'i yazılmayı unutuldu. Bu testler korumanın MODELDE olduğunu
+  // sabitler; yeni bir uç yazılırken whitelist unutulsa bile satır JSON'a
+  // çevrilirken temizlenir.
+
+  test('PUBLIC_ATTRIBUTES hiçbir hassas alan içermez', () => {
+    const kesisim = Business.PUBLIC_ATTRIBUTES.filter((a) =>
+      Business.SENSITIVE_FIELDS.includes(a),
+    );
+    expect(kesisim).toEqual([]);
+  });
+
+  test('toJSON hassas alanları düşürür', async () => {
+    const business = await createBusiness({
+      iban: 'TR000000000000000000000000',
+      identityNumber: '11111111111',
+      gsmNumber: '5550000000',
+      contactName: 'Gizli',
+      contactSurname: 'Kisi',
+    });
+
+    const json = business.toJSON();
+    for (const alan of Business.SENSITIVE_FIELDS) {
+      expect(json).not.toHaveProperty(alan);
+    }
+    // Public alanlar yerinde kalmalı — koruma fazla eleme yapmamalı.
+    expect(json.id).toBe(business.id);
+    expect(json.name).toBeTruthy();
+  });
+
+  test('toOwnerJSON hassas alanları KORUR (admin/sahip görünümü)', async () => {
+    const business = await createBusiness({
+      iban: 'TR000000000000000000000000',
+      identityNumber: '11111111111',
+    });
+
+    const json = business.toOwnerJSON();
+    expect(json.iban).toBe('TR000000000000000000000000');
+    expect(json.identityNumber).toBe('11111111111');
+  });
+});

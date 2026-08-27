@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/services/location_service.dart';
 import '../../data/datasources/business_owner_remote_datasource.dart';
@@ -96,21 +97,11 @@ class _RegisterBusinessPageState extends State<RegisterBusinessPage> {
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_selectedCategoryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen bir kategori seçin'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppNotice.warning(context, 'Lütfen bir kategori seçin');
       return;
     }
     if (_latitude == null || _longitude == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Konum bilgisi alınması gerekiyor'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppNotice.warning(context, 'Konum bilgisi alınması gerekiyor');
       return;
     }
 
@@ -134,26 +125,13 @@ class _RegisterBusinessPageState extends State<RegisterBusinessPage> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'İşletmeniz oluşturuldu! Onay sürecindeyken siparişlere kapalıdır.',
-            ),
-            backgroundColor: AppColors.success,
-            duration: Duration(seconds: 4),
-          ),
-        );
+        AppNotice.success(context, 'İşletmeniz oluşturuldu! Onay sürecindeyken siparişlere kapalıdır.', duration: const Duration(seconds: 4));
         Navigator.of(context).pop(true); // pop with true = business created
       }
     } catch (e) {
       if (mounted) {
         setState(() => _submitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppNotice.error(context, e.toString());
       }
     }
   }

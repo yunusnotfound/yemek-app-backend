@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_dialog.dart';
 import '../../data/models/owner_package_model.dart';
 
 class OwnerPackageTile extends StatelessWidget {
@@ -131,31 +132,14 @@ class OwnerPackageTile extends StatelessWidget {
     );
   }
 
-  Future<bool> _showDeleteConfirmation(BuildContext context) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        title: const Text('Paketi Sil'),
-        content: Text(
-          '"${package.title}" paketini silmek istediğinize emin misiniz?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('İptal'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Sil'),
-          ),
-        ],
-      ),
+  Future<bool> _showDeleteConfirmation(BuildContext context) {
+    return AppDialog.confirm(
+      context,
+      icon: Icons.delete_outline_rounded,
+      title: 'Paketi sil',
+      message: '"${package.title}" paketini silmek istediğinize emin misiniz?',
+      confirmLabel: 'Sil',
     );
-    return result ?? false;
   }
 }
 

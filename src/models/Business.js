@@ -134,4 +134,77 @@ const Business = sequelize.define('Business', {
   paranoid: true,
 });
 
+/**
+ * Müşteri/public uçlarda döndürülmesi GÜVENLİ olan alanlar.
+ *
+ * Bu model iyzico Pazaryeri için iban, identityNumber (TC kimlik), gsmNumber,
+ * contactName/contactSurname, subMerchantKey, taxNumber gibi alanlar tutuyor.
+ * Bunlar YALNIZCA işletme sahibinin kendi paneline ve admin'e aittir.
+ * Public/müşteri sorgularında `attributes: Business.PUBLIC_ATTRIBUTES` kullanın —
+ * filtresiz bir findAll/findByPk tüm satırı JSON'a çevirip dışarı sızdırır.
+ *
+ * Yeni bir hassas kolon eklenince buraya EKLEMEYİN; liste allowlist mantığıyla
+ * çalışır, eklenmeyen alan dışarı çıkmaz.
+ */
+Business.PUBLIC_ATTRIBUTES = [
+  'id', 'name', 'description', 'address', 'city', 'district',
+  'latitude', 'longitude', 'phone', 'imageUrl', 'rating',
+  'isActive', 'isApproved', 'approvalStatus', 'categoryId',
+  'createdAt', 'updatedAt',
+];
+
+/**
+ * Yalnızca işletme sahibine ve admin'e ait, dışarı çıkmaması gereken alanlar.
+ * Aşağıdaki `toJSON` bunları serileştirmeden düşürür.
+ */
+Business.SENSITIVE_FIELDS = [
+  'iban',
+  'identityNumber',
+  'taxNumber',
+  'taxOffice',
+  'legalCompanyTitle',
+  'gsmNumber',
+  'contactName',
+  'contactSurname',
+  'subMerchantKey',
+  'subMerchantType',
+  'subMerchantError',
+];
+
+/**
+ * Varsayılan JSON serileştirmesinden hassas alanları düşürür.
+ *
+ * NEDEN: `PUBLIC_ATTRIBUTES` whitelist'i her sorguda ELLE yazılmak zorunda,
+ * yani unutulmaya açık — nitekim beş ayrı uçtan sızdı. `User` modeli hiç
+ * sızmadı çünkü korumasi tam olarak burada, modelin içinde
+ * (bkz. User.prototype.toJSON). Aynı simetriyi Business'a getiriyoruz:
+ * bir sorguda whitelist unutulsa bile satır JSON'a çevrilirken temizlenir.
+ *
+ * ÖNEMLİ: Bu yalnızca JSON'a çevirmeyi etkiler, ÖZELLİK ERİŞİMİNİ DEĞİL.
+ * `business.iban` gibi doğrudan okumalar çalışmaya devam eder — iyzico
+ * sub-merchant akışı (services/iyzicoService.js) ve işletme paneli
+ * güncellemeleri bu şekilde okuduğu için etkilenmez.
+ *
+ * Sahibin/admin'in kendi hassas verisini görmesi gereken yerlerde
+ * [toOwnerJSON] kullanın.
+ */
+Business.prototype.toJSON = function () {
+  const values = { ...this.get() };
+  for (const field of Business.SENSITIVE_FIELDS) {
+    delete values[field];
+  }
+  return values;
+};
+
+/**
+ * Hassas alanlar DAHİL tam kayıt.
+ *
+ * Yalnızca işletme sahibinin kendi kaydını ya da admin'in yönetim ekranını
+ * beslerken kullanılır. İsmi bilerek açıktır: kazara çağrılmasın, çağrıldığında
+ * kod incelemesinde göze çarpsın.
+ */
+Business.prototype.toOwnerJSON = function () {
+  return this.get({ plain: true });
+};
+
 module.exports = Business;

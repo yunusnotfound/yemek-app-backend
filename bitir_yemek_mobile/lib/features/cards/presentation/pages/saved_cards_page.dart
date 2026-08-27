@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_dialog.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../data/datasources/cards_remote_datasource.dart';
 import '../../data/models/saved_card_model.dart';
@@ -40,12 +42,7 @@ class _SavedCardsView extends StatelessWidget {
       body: BlocConsumer<CardsBloc, CardsState>(
         listener: (context, state) {
           if (state is CardActionError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            AppNotice.error(context, state.message);
           }
         },
         builder: (context, state) {
@@ -212,31 +209,16 @@ class _SavedCardTile extends StatelessWidget {
 
   void _confirmDelete(BuildContext context) {
     final bloc = context.read<CardsBloc>();
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Karti Sil'),
-        content: Text(
+    AppDialog.confirm(
+      context,
+      icon: Icons.credit_card_off_rounded,
+      title: 'Karti sil',
+      message:
           '${card.displayName} (${card.maskedNumber}) kartini silmek istediginize emin misiniz?',
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Iptal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              bloc.add(DeleteCard(cardToken: card.cardToken));
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Sil'),
-          ),
-        ],
-      ),
-    );
+      cancelLabel: 'Iptal',
+      confirmLabel: 'Sil',
+    ).then((confirmed) {
+      if (confirmed) bloc.add(DeleteCard(cardToken: card.cardToken));
+    });
   }
 }

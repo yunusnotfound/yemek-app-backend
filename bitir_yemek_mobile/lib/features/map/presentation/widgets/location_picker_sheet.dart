@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/services/location_service.dart';
 
 /// TGTG tarzı konum seçici panel. Mesafe (yarıçap) slider'ı ve
@@ -29,9 +30,7 @@ class _LocationPickerSheetState extends State<LocationPickerSheet> {
   bool _loading = false;
 
   void _toast(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    AppNotice.warning(context, message);
   }
 
   Future<void> _useCurrentLocation() async {

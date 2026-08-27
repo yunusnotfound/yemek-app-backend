@@ -60,6 +60,33 @@ const haversineDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+/**
+ * Haversine mesafesini (km) SQL ifadesi olarak üretir — JS'te değil, veritabanında
+ * hesaplansın diye.
+ *
+ * Neden gerekli: eskiden coğrafi listeleme bounding box'tan `pickupDate`'e göre
+ * ilk 500 satırı çekip mesafeyi JS'te hesaplıyor, orada sıralayıp orada
+ * sayfalıyordu. Kutu içinde 500'den fazla aday olduğunda kullanıcının 50 metre
+ * yanındaki kayıt listeye HİÇ girmiyordu (çünkü tarih sıralamasında 500'ün
+ * dışında kalıyordu) ve `total` gerçek toplamı göstermiyordu. Mesafe SQL'e
+ * taşınınca sıralama ve LIMIT/OFFSET veritabanında doğru şekilde yapılır.
+ *
+ * `lat`/`lng` sayı olarak gömülür; çağıran taraf Number.isFinite ile doğrulamalı.
+ * `latCol`/`lngCol` çift tırnaklı, şemadan gelen sabit kolon adlarıdır.
+ *
+ * acos girdisi LEAST/GREATEST ile [-1, 1] aralığına kıstırılır: kayan nokta
+ * yuvarlaması 1'i bir tık aşarsa acos NaN döner ve satır sessizce kaybolurdu.
+ */
+const haversineSql = (lat, lng, latCol, lngCol) => `(
+  6371 * acos(
+    LEAST(1, GREATEST(-1,
+      cos(radians(${lat})) * cos(radians(${latCol}))
+        * cos(radians(${lngCol}) - radians(${lng}))
+      + sin(radians(${lat})) * sin(radians(${latCol}))
+    ))
+  )
+)`;
+
 const generateToken = () => {
   return crypto.randomBytes(32).toString('hex');
 };
@@ -75,6 +102,7 @@ module.exports = {
   paginate,
   paginatedResponse,
   haversineDistance,
+  haversineSql,
   generateToken,
   getSortOptions,
 };

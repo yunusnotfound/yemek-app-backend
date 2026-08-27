@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../data/datasources/business_owner_remote_datasource.dart';
 import '../../data/models/owner_package_model.dart';
@@ -121,9 +122,7 @@ class _PackageFormPageState extends State<PackageFormPage> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppColors.error),
-    );
+    AppNotice.error(context, msg);
   }
 
   @override
@@ -533,12 +532,7 @@ class _SubmitButtonState extends State<_SubmitButton> {
     } catch (e) {
       widget.onSetSubmitting(false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppNotice.error(context, e.toString());
       }
     }
   }

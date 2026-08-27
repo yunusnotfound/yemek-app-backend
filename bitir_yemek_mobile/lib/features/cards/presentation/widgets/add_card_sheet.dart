@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../bloc/cards_bloc.dart';
 import 'card_form_fields.dart';
 
@@ -40,19 +41,9 @@ class _AddCardSheetState extends State<AddCardSheet> {
         listener: (context, state) {
           if (state is CardAdded) {
             Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Kart kaydedildi'),
-                backgroundColor: AppColors.success,
-              ),
-            );
+            AppNotice.success(context, 'Kart kaydedildi');
           } else if (state is CardActionError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            AppNotice.error(context, state.message);
           }
         },
         child: Padding(

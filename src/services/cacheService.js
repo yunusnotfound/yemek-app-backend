@@ -72,12 +72,68 @@ const del = async (key) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Namespace sürümleme ile O(1) geçersiz kılma
+// ---------------------------------------------------------------------------
+//
+// Liste cache'leri (paket/işletme listeleri) anahtarına konum, sayfa, kategori
+// gibi çok sayıda parametre gömüyor; bu yüzden namespace başına binlerce anahtar
+// oluşabiliyor. Bunları `KEYS pattern` ile silmek Redis'in TEK thread'ini
+// keyspace boyunca bloke eder ve KEYS eşleşenleri değil TÜM anahtarları gezer —
+// aynı Redis'te refresh token'lar da durduğu için o an giriş yapan herkes bekler.
+// Sipariş oluşturma gibi sıcak yollardan çağrıldığı düşünülürse kabul edilemez.
+//
+// Bunun yerine namespace'in bir sürüm sayacı tutulur ve anahtara gömülür:
+//   packages:list:v7:{"city":"istanbul",...}
+// Geçersiz kılmak tek bir INCR (O(1)); eski sürümdeki anahtarlar okunmaz olur ve
+// kendi TTL'leriyle sessizce ölür. Tarama yok, bloke yok.
+
+const VERSION_PREFIX = 'cachever:';
+
+/** Namespace'in geçerli sürümü. Redis yoksa 0 (cache devre dışı gibi davranır). */
+const getVersion = async (namespace) => {
+  const client = getRedis();
+  if (!client) return 0;
+  try {
+    const v = await client.get(VERSION_PREFIX + namespace);
+    return v ? Number(v) : 0;
+  } catch {
+    return 0;
+  }
+};
+
+/** Namespace'i geçersiz kılar — O(1). `delPattern`'in yerini alır. */
+const invalidateNamespace = async (namespace) => {
+  const client = getRedis();
+  if (!client) return;
+  try {
+    await client.incr(VERSION_PREFIX + namespace);
+  } catch {
+    // Redis unavailable
+  }
+};
+
+/** `namespace` + parametre objesinden sürümlü cache anahtarı üretir. */
+const versionedKey = async (namespace, parts) => {
+  const version = await getVersion(namespace);
+  return `${namespace}:v${version}:${JSON.stringify(parts)}`;
+};
+
+/**
+ * Desen bazlı silme. Artık `KEYS` değil `SCAN` kullanır (cursor'lı, bloke etmez).
+ * Sıcak yollarda YİNE DE kullanmayın — tercih `invalidateNamespace`'tir; bu yalnız
+ * tek seferlik/bakım amaçlı temizlik için bırakıldı.
+ */
 const delPattern = async (pattern) => {
   const client = getRedis();
   if (!client) return;
   try {
-    const keys = await client.keys(pattern);
-    if (keys.length > 0) await client.del(...keys);
+    let cursor = '0';
+    do {
+      const [next, keys] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 200);
+      cursor = next;
+      if (keys.length > 0) await client.del(...keys);
+    } while (cursor !== '0');
   } catch {
     // Redis unavailable
   }
@@ -125,4 +181,9 @@ const isRefreshTokenStored = async (tokenHash) => {
   return val !== null;
 };
 
-module.exports = { get, set, del, delPattern, isRedisAvailable, ping, quit, storeRefreshToken, revokeRefreshToken, isRefreshTokenStored };
+module.exports = {
+  get, set, del, delPattern,
+  getVersion, invalidateNamespace, versionedKey,
+  isRedisAvailable, ping, quit,
+  storeRefreshToken, revokeRefreshToken, isRefreshTokenStored,
+};

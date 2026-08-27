@@ -290,6 +290,9 @@ const otpVerifySchema = z.object({
   code: z.string().length(6, "Kod 6 haneli olmalı"),
   name: z.string().min(2, "Ad soyad en az 2 karakter olmalı").optional(),
   phone: z.string().optional(),
+  // YENİ hesap açılırken kullanılır; mevcut hesapların rolü asla değişmez.
+  // Google/Apple girişindeki ile aynı kısıt: 'admin' dışarıdan atanamaz.
+  role: z.enum(["customer", "business_owner"]).optional(),
 });
 
 // --- Admin paneli ---

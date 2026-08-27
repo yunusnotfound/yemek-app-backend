@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_dialog.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../auth/data/models/user_model.dart';
-import '../../../auth/presentation/pages/welcome_page.dart';
+import '../../../auth/presentation/pages/email_entry_page.dart';
 import '../../../cards/presentation/pages/saved_cards_page.dart';
+import 'notifications_page.dart';
 import '../bloc/profile_bloc.dart';
 import '../widgets/edit_profile_sheet.dart';
 import '../widgets/profile_header.dart';
@@ -19,31 +22,19 @@ class ProfilePage extends StatelessWidget {
     return BlocConsumer<ProfileBloc, ProfileState>(
       listener: (context, state) {
         if (state is ProfileLoggedOut || state is AccountDeleted) {
+          // Çıkış yapan kullanıcı tanıtımı zaten görmüştür; doğrudan girişe
+          // götürülür. (Hesap silmede de aynı: cihazda bir kez giriş yapılmış
+          // olması değişmiyor.)
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const WelcomePage()),
+            MaterialPageRoute(builder: (_) => const EmailEntryPage()),
             (route) => false,
           );
         } else if (state is ProfileUpdateSuccess) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          AppNotice.success(context, state.message);
         } else if (state is ProfileUpdateError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          AppNotice.error(context, state.message);
         } else if (state is AccountDeleteError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          AppNotice.error(context, state.message);
         }
       },
       builder: (context, state) {
@@ -140,6 +131,15 @@ class ProfilePage extends StatelessWidget {
               context,
               title: 'Ayarlar',
               children: [
+                ProfileMenuItem(
+                  icon: Icons.notifications_none_rounded,
+                  title: 'Bildirimler',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsPage(),
+                    ),
+                  ),
+                ),
                 ProfileMenuItem(
                   icon: Icons.credit_card_outlined,
                   title: 'Kayitli Kartlarim',
@@ -323,110 +323,157 @@ class ProfilePage extends StatelessWidget {
   }
 
   void _showAboutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        content: Column(
+    AppDialog.show<void>(
+      context,
+      builder: (dialogContext) => AppDialogShell(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Gerçek uygulama logosu — açılış sahnesindeki rozetin küçüğü.
             Container(
-              width: 72,
-              height: 72,
+              width: 76,
+              height: 76,
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.32),
+                    blurRadius: 26,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
-              child: const Icon(Icons.eco, size: 40, color: Colors.white),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/icon/app_icon.png',
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
-            Text('BitirGitsin', style: AppTypography.h2),
+            Text(
+              'BitirGitsin',
+              style: AppTypography.h2.copyWith(color: AppColors.ink),
+            ),
             const SizedBox(height: AppSpacing.xs),
-            Text('Versiyon 1.0.0', style: AppTypography.bodySmall),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+              ),
+              child: Text(
+                'Versiyon 1.0.0',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
             const SizedBox(height: AppSpacing.md),
             Text(
               'Gida israfini onlemek icin isletmeler ve musterileri bulusturan platform.',
               style: AppTypography.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.inkSoft,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // İnce ayraç — logonun altındaki bloğu sloganla ayırır.
+            Container(
+              width: 46,
+              height: 2,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(AppRadius.full),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Birlikte israfi bitirelim, gitsin!',
+              style: AppTypography.bodyLarge.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text(
-              'Birlikte israfi bitirelim, gitsin!',
-              style: AppTypography.bodyMedium.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
+            _AboutCloseButton(
+              onTap: () => Navigator.of(dialogContext).pop(),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Tamam'),
-          ),
-        ],
       ),
     );
   }
 
   void _showLogoutDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Cikis Yap'),
-        content: const Text(
-          'Hesabinizdan cikis yapmak istediginize emin misiniz?',
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Iptal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              context.read<ProfileBloc>().add(ProfileLogoutRequested());
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Cikis Yap'),
-          ),
-        ],
-      ),
-    );
+    AppDialog.confirm(
+      context,
+      icon: Icons.logout_rounded,
+      title: 'Cikis yap',
+      message: 'Hesabinizdan cikis yapmak istediginize emin misiniz?',
+      cancelLabel: 'Iptal',
+      confirmLabel: 'Cikis Yap',
+    ).then((confirmed) {
+      if (confirmed && context.mounted) {
+        context.read<ProfileBloc>().add(ProfileLogoutRequested());
+      }
+    });
   }
 
   void _showDeleteAccountDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Hesabi Sil'),
-        content: const Text(
+    AppDialog.confirm(
+      context,
+      icon: Icons.person_off_rounded,
+      title: 'Hesabi sil',
+      message:
           'Hesabinizi silmek istediginize emin misiniz? Bu islem geri alinamaz ve tum verileriniz kalici olarak silinecektir.',
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Iptal'),
+      cancelLabel: 'Iptal',
+      confirmLabel: 'Hesabi Sil',
+    ).then((confirmed) {
+      if (confirmed && context.mounted) {
+        context.read<ProfileBloc>().add(DeleteAccountRequested());
+      }
+    });
+  }
+}
+
+/// "Hakkında" panelini kapatan tam genişlikte hayalet düğme.
+class _AboutCloseButton extends StatelessWidget {
+  const _AboutCloseButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 50,
+        width: double.infinity,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.primaryLight, AppColors.primary],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              context.read<ProfileBloc>().add(DeleteAccountRequested());
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Hesabi Sil'),
-          ),
-        ],
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.34),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Text(
+          'Tamam',
+          style: AppTypography.button.copyWith(fontSize: 15),
+        ),
       ),
     );
   }

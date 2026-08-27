@@ -118,3 +118,73 @@ describe('POST /api/auth/otp — deneme kilidi', () => {
     expect(sixth.status).toBe(429);
   });
 });
+
+describe('OTP girişinde rol — onboarding rol seçimi', () => {
+  /// Yeni bir OTP oturumu başlatıp geçerli kodu döndürür.
+  async function kodAl(email) {
+    await request(app).post('/api/auth/otp/request').send({ email });
+    return emailService.sendOtpEmail.mock.calls.at(-1)[1];
+  }
+
+  test('yeni hesap business_owner rolüyle açılabilir', async () => {
+    const email = 'otp-owner@test.local';
+    const code = await kodAl(email);
+
+    const res = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ email, code, name: 'Isletme Sahibi', role: 'business_owner' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.role).toBe('business_owner');
+  });
+
+  test('rol verilmezse müşteri olur (geriye dönük uyum)', async () => {
+    const email = 'otp-default@test.local';
+    const code = await kodAl(email);
+
+    const res = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ email, code, name: 'Varsayilan Kullanici' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.role).toBe('customer');
+  });
+
+  // KRİTİK: rol artık dışarıdan gelen bir girdi. Mevcut bir hesabın rolünü
+  // OTP girişiyle yükseltebilmek yetki yükseltme açığı olurdu.
+  test('MEVCUT hesabın rolü OTP girişiyle DEĞİŞTİRİLEMEZ', async () => {
+    const email = 'otp-existing@test.local';
+    await createUser({ email, role: 'customer' });
+
+    const code = await kodAl(email);
+    const res = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ email, code, role: 'business_owner' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.role).toBe('customer');
+  });
+
+  test('role=admin şema katmanında reddedilir (400)', async () => {
+    const email = 'otp-admin@test.local';
+    const code = await kodAl(email);
+
+    const res = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ email, code, name: 'Sahte Admin', role: 'admin' });
+
+    expect(res.status).toBe(400);
+  });
+
+  test('tanınmayan bir rol değeri hesabı admin yapmaz', async () => {
+    const email = 'otp-bogus@test.local';
+    const code = await kodAl(email);
+
+    const res = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ email, code, name: 'Bos Rol', role: 'superuser' });
+
+    // Şema enum'u tutmadığı için 400; hesap da açılmamalı.
+    expect(res.status).toBe(400);
+  });
+});

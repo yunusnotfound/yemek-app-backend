@@ -2,14 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
-import '../../../../core/di/service_locator.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../shared/widgets/shimmer_loader.dart';
-import '../../data/datasources/businesses_remote_datasource.dart';
 import '../../data/models/category_model.dart';
-import '../../data/repositories/businesses_repository_impl.dart';
 import '../bloc/home_bloc.dart';
 import '../bloc/packages_bloc.dart';
-import '../widgets/category_chips.dart';
+import '../widgets/category_tiles.dart';
 import '../widgets/location_header.dart';
 import '../widgets/package_card.dart';
 import '../../../favorites/presentation/bloc/favorites_bloc.dart';
@@ -24,29 +22,11 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (context) => PackagesBloc(
-            repository: BusinessesRepositoryImpl(
-              remoteDataSource: BusinessesRemoteDataSource(
-                dioClient: appDioClient,
-              ),
-            ),
-          )..add(LoadNearbyPackages(latitude: latitude, longitude: longitude)),
-        ),
-        BlocProvider(
-          create: (context) => HomeBloc(
-            repository: BusinessesRepositoryImpl(
-              remoteDataSource: BusinessesRemoteDataSource(
-                dioClient: appDioClient,
-              ),
-            ),
-          )..add(LoadCategories()),
-        ),
-      ],
-      child: HomeView(latitude: latitude, longitude: longitude),
-    );
+    // PackagesBloc ve HomeBloc artık MainScaffold'da sağlanıyor; bu sayfa Ara
+    // sekmesine geçilince yeniden kurulduğu için bloc'u burada yaratmak her
+    // dönüşte aynı veriyi tekrar ağdan çekiyordu. İlk yükleme
+    // _HomeViewState.initState içinde, yalnız durum initial ise tetiklenir.
+    return HomeView(latitude: latitude, longitude: longitude);
   }
 }
 
@@ -61,7 +41,6 @@ class HomeView extends StatefulWidget {
 }
 
 class _HomeViewState extends State<HomeView> {
-  final ScrollController _scrollController = ScrollController();
   int _selectedCategoryIndex = 0;
   List<CategoryModel> _categories = [];
 
@@ -71,31 +50,35 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-  }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_isBottom) {
-      context.read<PackagesBloc>().add(
-        LoadMorePackages(
+    // Bloc'lar sekmeler arası paylaşıldığı için veri zaten yüklenmiş olabilir.
+    // Yalnızca hiç yüklenmemişse ağa çık — sekmeye her dönüşte tekrar istek
+    // atılmasını bu koşul engelliyor.
+    final packagesBloc = context.read<PackagesBloc>();
+    if (packagesBloc.state is PackagesInitial) {
+      packagesBloc.add(
+        LoadNearbyPackages(
           latitude: widget.latitude,
           longitude: widget.longitude,
         ),
       );
     }
+
+    final homeBloc = context.read<HomeBloc>();
+    if (homeBloc.state is HomeInitial) {
+      homeBloc.add(LoadCategories());
+    }
   }
 
-  bool get _isBottom {
-    if (!_scrollController.hasClients) return false;
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    final currentScroll = _scrollController.offset;
-    return currentScroll >= (maxScroll * 0.9);
+  /// İkinci bölümde ("Yerel En İyiler") gösterilecek kart sayısı.
+  ///
+  /// Üstteki bölüm ilk 5'i gösteriyor; bu bölüm listenin sonundan besleniyor.
+  /// Toplam 5 veya altındaysa iki bölüm tamamen çakışacağı için en fazla
+  /// `toplam - 5` kart gösterilir (yoksa hiç gösterilmez).
+  int _sonSansSayisi(int toplam) {
+    final kalan = toplam - 5;
+    if (kalan <= 0) return 0;
+    return kalan > 5 ? 5 : kalan;
   }
 
   void _onCategorySelected(int index) {
@@ -149,41 +132,55 @@ class _HomeViewState extends State<HomeView> {
               builder: (context, state) {
                 if (state is HomeLoaded) {
                   _categories = state.categories;
-                  return CategoryChips(
-                    categories: state.categories.map((c) => c.name).toList(),
+                  return CategoryTiles(
+                    categories: state.categories,
                     selectedIndex: _selectedCategoryIndex,
                     onCategorySelected: _onCategorySelected,
                   );
                 }
                 if (state is HomeLoading) {
-                  // Shimmer loading for categories
+                  // Kategori şeridi yüklenirken: kutucuklarla AYNI ölçülerde
+                  // iskelet. Aynı yükseklik/genişlik kullanılmazsa veri gelince
+                  // sayfa zıplar.
                   return SizedBox(
-                    height: 56,
-                    child: ListView.builder(
+                    height: 132,
+                    child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.screenPadding,
                         vertical: AppSpacing.xs,
                       ),
                       itemCount: 5,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(width: AppSpacing.md),
                       itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: AppSpacing.sm),
-                          child: ShimmerLoader(
-                            isLoading: true,
-                            child: Container(
-                              width: 80,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.lg,
-                                vertical: AppSpacing.sm,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.full,
+                        return ShimmerLoader(
+                          isLoading: true,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 84,
+                                height: 84,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.lg,
+                                  ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Container(
+                                width: 60,
+                                height: 12,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.sm,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -191,14 +188,17 @@ class _HomeViewState extends State<HomeView> {
                   );
                 }
                 if (state is HomeError) {
-                  // Show only "Hepsi" category on error
-                  return CategoryChips(
-                    categories: const ['Hepsi'],
+                  // Kategoriler alınamadıysa yalnız "Hepsi" göster; sayfa
+                  // kategorisiz de çalışmaya devam etsin.
+                  return CategoryTiles(
+                    categories: const [
+                      CategoryModel(id: 0, name: 'Hepsi', slug: 'all'),
+                    ],
                     selectedIndex: 0,
                     onCategorySelected: (_) {},
                   );
                 }
-                return const SizedBox(height: 56);
+                return const SizedBox(height: 132);
               },
             ),
 
@@ -207,12 +207,7 @@ class _HomeViewState extends State<HomeView> {
               child: BlocConsumer<PackagesBloc, PackagesState>(
                 listener: (context, state) {
                   if (state is PackagesError && state.packages == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(state.message),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
+                    AppNotice.error(context, state.message);
                   }
                 },
                 builder: (context, state) {
@@ -262,8 +257,6 @@ class _HomeViewState extends State<HomeView> {
                         ? state.packages!
                         : (state as PackagesLoadingMore).packages;
 
-                    final isLoadingMore = state is PackagesLoadingMore;
-
                     if (packages.isEmpty) {
                       return _buildEmptyState();
                     }
@@ -291,7 +284,6 @@ class _HomeViewState extends State<HomeView> {
                           },
                           color: AppColors.primary,
                           child: CustomScrollView(
-                            controller: _scrollController,
                             slivers: [
                               // Popular Section Title
                               SliverToBoxAdapter(
@@ -441,51 +433,51 @@ class _HomeViewState extends State<HomeView> {
                                 ),
                               ),
 
-                              // Vertical Package List
-                              SliverPadding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.screenPadding,
-                                ),
-                                sliver: SliverList.builder(
-                                  itemCount:
-                                      packages.length + (isLoadingMore ? 1 : 0),
-                                  itemBuilder: (context, index) {
-                                    if (index >= packages.length) {
-                                      return const Padding(
-                                        padding: EdgeInsets.all(AppSpacing.md),
-                                        child: Center(
-                                          child: CircularProgressIndicator(
-                                            color: AppColors.primary,
-                                          ),
+                              // İkinci bölüm de yatay karusel. Keşfet artık
+                              // dikey sonsuz liste değil, bölümlerden oluşuyor;
+                              // tam liste "Hepsini Gör" ile açılan
+                              // AllPackagesPage'de (sayfalama orada).
+                              SliverToBoxAdapter(
+                                child: SizedBox(
+                                  height: 320,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.screenPadding,
+                                    ),
+                                    itemCount: _sonSansSayisi(packages.length),
+                                    itemBuilder: (context, index) {
+                                      // Bu bölüm listenin SONUNDAN besleniyor:
+                                      // üstteki bölüm ilk 5'i gösterdiği için
+                                      // aynı kartları tekrar etmesin.
+                                      final pkg =
+                                          packages[packages.length - 1 - index];
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: AppSpacing.md,
+                                        ),
+                                        child: PackageCard(
+                                          package: pkg,
+                                          isHorizontal: true,
+                                          onTap: () {
+                                            final favBloc = context
+                                                .read<FavoritesBloc>();
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    BlocProvider.value(
+                                                      value: favBloc,
+                                                      child: PackageDetailPage(
+                                                        package: pkg,
+                                                      ),
+                                                    ),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       );
-                                    }
-
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: AppSpacing.md,
-                                      ),
-                                      child: PackageCard(
-                                        package: packages[index],
-                                        isHorizontal: false,
-                                        onTap: () {
-                                          final favBloc = context
-                                              .read<FavoritesBloc>();
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  BlocProvider.value(
-                                                    value: favBloc,
-                                                    child: PackageDetailPage(
-                                                      package: packages[index],
-                                                    ),
-                                                  ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    );
-                                  },
+                                    },
+                                  ),
                                 ),
                               ),
                             ],

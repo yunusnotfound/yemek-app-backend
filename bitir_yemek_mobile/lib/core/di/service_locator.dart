@@ -1,4 +1,5 @@
 import '../network/dio_client.dart';
+import '../storage/onboarding_storage.dart';
 import '../storage/token_storage.dart';
 
 /// Uygulama ömrü boyunca paylaşılan tekil örnekler.
@@ -10,3 +11,7 @@ import '../storage/token_storage.dart';
 /// Dart top-level `final` değişkenleri ilk erişimde tembel (lazy) kurulur.
 final TokenStorage appTokenStorage = createDefaultTokenStorage();
 final DioClient appDioClient = DioClient(tokenStorage: appTokenStorage);
+
+/// Tanıtım ekranının bir daha gösterilip gösterilmeyeceğini belirleyen işaret.
+/// Bilerek [appTokenStorage]'tan ayrıdır — çıkışta silinmemesi gerekir.
+final OnboardingStorage appOnboardingStorage = createDefaultOnboardingStorage();

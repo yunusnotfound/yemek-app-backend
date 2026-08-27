@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../data/models/package_model.dart';
@@ -69,12 +70,7 @@ class _PackageDetailView extends StatelessWidget {
           }
         } else if (state is ReservationError) {
           Navigator.of(context).pop(); // Close confirm sheet
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.error,
-            ),
-          );
+          AppNotice.error(context, state.message);
         }
       },
       child: Scaffold(
@@ -603,6 +599,10 @@ class _PackageDetailView extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      // isScrollControlled ile sayfa tüm ekranı kaplayabiliyor; safe area olmadan
+      // üst kısım (tutamaç + başlık) status bar/dynamic island altında kalıyor ve
+      // kapatmak için hiçbir tutamak görünmüyordu.
+      useSafeArea: true,
       backgroundColor: AppColors.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),

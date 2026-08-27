@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../core/utils/responsive.dart';
@@ -11,12 +12,17 @@ import '../../../main/presentation/pages/main_scaffold.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../bloc/auth_bloc.dart';
+import '../../domain/app_role.dart';
 import 'otp_verify_page.dart';
 
 /// Entry point of the passwordless flow: the user types their email and
 /// receives a one-time login code. Google/Apple sign-in remain available here.
 class EmailEntryPage extends StatelessWidget {
-  const EmailEntryPage({super.key});
+  /// Onboarding'in son sayfasında seçilen rol. Google/Apple girişine `role`
+  /// olarak geçer; doğrudan bu sayfaya gelinen durumlarda müşteri varsayılır.
+  final AppRole role;
+
+  const EmailEntryPage({super.key, this.role = AppRole.customer});
 
   @override
   Widget build(BuildContext context) {
@@ -29,13 +35,15 @@ class EmailEntryPage extends StatelessWidget {
           tokenStorage: appTokenStorage,
         ),
       ),
-      child: const EmailEntryView(),
+      child: EmailEntryView(role: role),
     );
   }
 }
 
 class EmailEntryView extends StatefulWidget {
-  const EmailEntryView({super.key});
+  final AppRole role;
+
+  const EmailEntryView({super.key, this.role = AppRole.customer});
 
   @override
   State<EmailEntryView> createState() => _EmailEntryViewState();
@@ -117,10 +125,17 @@ class _EmailEntryViewState extends State<EmailEntryView> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        // Bu sayfa artık KÖK ekran da olabiliyor (daha önce giriş yapmış
+        // kullanıcıda açılış doğrudan buraya düşer, çıkışta da öyle). Geri
+        // basacak bir yer yokken geri oku göstermek çalışmayan bir buton
+        // bırakırdı — o yüzden yalnızca pop edilebiliyorsa çizilir.
+        automaticallyImplyLeading: false,
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
       ),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) async {
@@ -130,6 +145,7 @@ class _EmailEntryViewState extends State<EmailEntryView> {
                 builder: (context) => OtpVerifyPage(
                   email: state.email,
                   isNewUser: state.isNewUser,
+                  role: widget.role.apiValue,
                 ),
               ),
             );
@@ -137,12 +153,7 @@ class _EmailEntryViewState extends State<EmailEntryView> {
             // Reached via Google/Apple sign-in.
             await _navigateAfterLogin(context, state.user.role);
           } else if (state is AuthError) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            AppNotice.error(context, state.message);
           }
         },
         builder: (context, state) {
@@ -270,7 +281,9 @@ class _EmailEntryViewState extends State<EmailEntryView> {
                             ? null
                             : () {
                                 context.read<AuthBloc>().add(
-                                  const GoogleSignInRequested(role: 'customer'),
+                                  GoogleSignInRequested(
+                                    role: widget.role.apiValue,
+                                  ),
                                 );
                               },
                         icon: const Icon(Icons.g_mobiledata, size: 28),
@@ -300,7 +313,9 @@ class _EmailEntryViewState extends State<EmailEntryView> {
                               ? null
                               : () {
                                   context.read<AuthBloc>().add(
-                                    const AppleSignInRequested(role: 'customer'),
+                                    AppleSignInRequested(
+                                      role: widget.role.apiValue,
+                                    ),
                                   );
                                 },
                           icon: const Icon(

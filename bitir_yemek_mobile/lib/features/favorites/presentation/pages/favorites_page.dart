@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../../../shared/widgets/shimmer_loader.dart';
 import '../../../home/presentation/pages/business_detail_page.dart';
 import '../bloc/favorites_bloc.dart';
@@ -73,19 +74,9 @@ class _FavoritesPageState extends State<FavoritesPage> {
               child: BlocConsumer<FavoritesBloc, FavoritesState>(
                 listener: (context, state) {
                   if (state is FavoriteRemoveSuccess) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Favorilerden kaldirildi'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
+                    AppNotice.success(context, 'Favorilerden kaldirildi');
                   } else if (state is FavoriteRemoveError) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(state.message),
-                        backgroundColor: AppColors.error,
-                      ),
-                    );
+                    AppNotice.error(context, state.message);
                   }
                 },
                 buildWhen: (prev, curr) {

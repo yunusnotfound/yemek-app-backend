@@ -103,52 +103,63 @@ const GEO_CANDIDATE_LIMIT = 500;
 const NEARBY_CACHE_TTL = 60; // sn — availableNow zamana duyarlı olduğundan kısa tutulur
 
 const findNearbyBusinesses = async (lat, lng, radius = 5) => {
-  const { Business, Category, SurprisePackage } = require('../models');
+  const { Business, Category, SurprisePackage, sequelize } = require('../models');
   const { Op } = require('sequelize');
-  const { haversineDistance } = require('../utils/helpers');
+  const { haversineSql } = require('../utils/helpers');
   const cacheService = require('./cacheService');
 
   const userLat = parseFloat(lat);
   const userLng = parseFloat(lng);
   const maxRadius = parseFloat(radius);
 
-  // Kısa TTL cache. Koordinat 3 haneye (~110 m hücre) yuvarlanır ki yakın konumlar
-  // aynı anahtarı paylaşsın (Redis anahtar patlamasını önler).
-  const cacheKey = `maps:nearby:${userLat.toFixed(3)}:${userLng.toFixed(3)}:${maxRadius}`;
+  // Mesafe SQL ifadesine sayı olarak gömüldüğünden sonlu olmaları zorunlu.
+  if (!Number.isFinite(userLat) || !Number.isFinite(userLng) || !Number.isFinite(maxRadius) || maxRadius <= 0) {
+    return [];
+  }
+
+  // Kısa TTL cache. Koordinat 2 haneye (~1.1 km hücre) yuvarlanır ki yakın konumlar
+  // aynı anahtarı paylaşsın. 3 hane (~110 m) neredeyse her istekte yeni anahtar
+  // üretiyordu; yarıçap km mertebesinde olduğu için 1.1 km'lik hücre yeterli.
+  const cacheKey = `maps:nearby:${userLat.toFixed(2)}:${userLng.toFixed(2)}:${maxRadius}`;
   const cached = await cacheService.get(cacheKey);
   if (cached) return cached;
 
-  // Bounding-box ön filtresi (idx_businesses_lat_lng): merkez + yarıçaptan min/max
-  // lat/lng hesaplanır ve SQL'e itilir; kesin Haversine filtresi JS'te sonra koşar.
-  // BETWEEN, latitude/longitude'u NULL olan satırları da eler.
+  // Bounding-box ön filtresi (idx_businesses_lat_lng): indeksten faydalanmak için
+  // önce kutuyla daralt. BETWEEN, latitude/longitude'u NULL olan satırları da eler.
   const latDelta = maxRadius / 111.32;
   const cosLat = Math.cos((userLat * Math.PI) / 180);
   const lngDelta = maxRadius / (111.32 * Math.max(Math.abs(cosLat), 1e-6));
 
+  // Kesin dairesel filtre + sıralama + LIMIT artık SQL'de. Eskiden kutudan 500 aday
+  // çekilip mesafe JS'te hesaplanıyordu; yoğun bir bölgede en yakın işletmeler
+  // aday penceresine hiç giremeyebiliyordu.
+  const distanceSql = haversineSql(userLat, userLng, '"Business"."latitude"', '"Business"."longitude"');
+
+  // Yalnız public alanlar (bkz. Business.PUBLIC_ATTRIBUTES) + hesaplanan mesafe.
+  // AÇIK liste: `{ include: [...] }` biçimi tüm kolonları geri getirir ve
+  // iban/identityNumber gibi alanları yeniden sızdırırdı.
   const businesses = await Business.findAll({
+    attributes: [
+      ...Business.PUBLIC_ATTRIBUTES,
+      [sequelize.literal(distanceSql), 'distance'],
+    ],
     where: {
-      isActive: true,
-      isApproved: true,
-      latitude: { [Op.between]: [userLat - latDelta, userLat + latDelta] },
-      longitude: { [Op.between]: [userLng - lngDelta, userLng + lngDelta] },
+      [Op.and]: [
+        {
+          isActive: true,
+          isApproved: true,
+          latitude: { [Op.between]: [userLat - latDelta, userLat + latDelta] },
+          longitude: { [Op.between]: [userLng - lngDelta, userLng + lngDelta] },
+        },
+        sequelize.where(sequelize.literal(distanceSql), { [Op.lte]: maxRadius }),
+      ],
     },
     include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
+    order: [[sequelize.literal(distanceSql), 'ASC']],
     limit: GEO_CANDIDATE_LIMIT,
   });
 
-  // Mesafe hesapla ve filtrele
-  const nearbyBusinesses = businesses
-    .map((business) => {
-      const distance = haversineDistance(
-        userLat,
-        userLng,
-        business.latitude,
-        business.longitude
-      );
-      return { ...business.toJSON(), distance };
-    })
-    .filter((b) => b.distance <= maxRadius)
-    .sort((a, b) => a.distance - b.distance);
+  const nearbyBusinesses = businesses.map((business) => business.toJSON());
 
   if (nearbyBusinesses.length === 0) {
     await cacheService.set(cacheKey, nearbyBusinesses, NEARBY_CACHE_TTL);

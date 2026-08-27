@@ -22,15 +22,19 @@ class OtpVerifyRequested extends AuthEvent {
   final String? name;
   final String? phone;
 
+  /// Onboarding'de seçilen rol. YALNIZ yeni hesap açılırken uygulanır.
+  final String role;
+
   const OtpVerifyRequested({
     required this.email,
     required this.code,
     this.name,
     this.phone,
+    this.role = 'customer',
   });
 
   @override
-  List<Object?> get props => [email, code, name, phone];
+  List<Object?> get props => [email, code, name, phone, role];
 }
 
 class LogoutRequested extends AuthEvent {

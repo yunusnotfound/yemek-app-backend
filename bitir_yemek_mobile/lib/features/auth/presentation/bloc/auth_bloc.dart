@@ -52,6 +52,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       code: event.code,
       name: event.name,
       phone: event.phone,
+      role: event.role,
     );
 
     if (result.isSuccess) {

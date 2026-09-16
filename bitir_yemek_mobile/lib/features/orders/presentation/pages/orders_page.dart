@@ -135,6 +135,9 @@ class _OrdersPageState extends State<OrdersPage> {
           ? state.filteredOrders
           : (state as OrdersLoadingMore).filteredOrders;
       final isLoadingMore = state is OrdersLoadingMore;
+      final hasMore =
+          state is OrdersLoadingMore ||
+          (state is OrdersLoaded && !state.hasReachedMax);
       final filter = state is OrdersLoaded
           ? state.filter
           : (state as OrdersLoadingMore).filter;
@@ -142,7 +145,16 @@ class _OrdersPageState extends State<OrdersPage> {
       if (filteredOrders.isEmpty) {
         return CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [SliverFillRemaining(child: _buildEmptyState(filter))],
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _buildEmptyState(
+                filter,
+                hasMore: hasMore,
+                isLoadingMore: isLoadingMore,
+              ),
+            ),
+          ],
         );
       }
 
@@ -153,15 +165,10 @@ class _OrdersPageState extends State<OrdersPage> {
           horizontal: AppSpacing.screenPadding,
           vertical: AppSpacing.sm,
         ),
-        itemCount: filteredOrders.length + (isLoadingMore ? 1 : 0),
+        itemCount: filteredOrders.length + (hasMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= filteredOrders.length) {
-            return const Padding(
-              padding: EdgeInsets.all(AppSpacing.md),
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-            );
+            return _buildLoadMore(isLoadingMore);
           }
 
           final order = filteredOrders[index];
@@ -256,27 +263,53 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  Widget _buildEmptyState(OrderFilter filter) {
+  Widget _buildLoadMore(bool isLoadingMore) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+      child: Center(
+        child: isLoadingMore
+            ? const CircularProgressIndicator(color: AppColors.primary)
+            : OutlinedButton.icon(
+                onPressed: () =>
+                    context.read<OrdersBloc>().add(const LoadMoreOrders()),
+                icon: const Icon(Icons.expand_more),
+                label: const Text('Diğer siparişleri yükle'),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(
+    OrderFilter filter, {
+    required bool hasMore,
+    required bool isLoadingMore,
+  }) {
     String title;
     String subtitle;
     IconData icon;
 
     switch (filter) {
       case OrderFilter.active:
-        title = 'Aktif siparisiniz yok';
-        subtitle = 'Yeni bir surpriz paket kesfetmeye ne dersiniz?';
+        title = 'Aktif siparişiniz yok';
+        subtitle = 'Yeni bir sürpriz paket keşfetmeye ne dersiniz?';
         icon = Icons.shopping_bag_outlined;
         break;
       case OrderFilter.completed:
-        title = 'Tamamlanan siparisiniz yok';
-        subtitle = 'Teslim aldiginiz siparisler burada gorunecek';
+        title = 'Tamamlanan siparişiniz yok';
+        subtitle = 'Teslim aldığınız siparişler burada görünecek';
         icon = Icons.check_circle_outline;
         break;
       case OrderFilter.cancelled:
-        title = 'Iptal edilen siparisiniz yok';
-        subtitle = 'Iptal ettiginiz siparisler burada gorunecek';
+        title = 'İptal edilen siparişiniz yok';
+        subtitle = 'İptal ettiğiniz siparişler burada görünecek';
         icon = Icons.cancel_outlined;
         break;
+    }
+
+    if (hasMore) {
+      title = 'Diğer siparişlerinizi kontrol edin';
+      subtitle =
+          'Bu filtrede henüz sipariş görünmüyor. Önceki siparişlerinizi yükleyerek devam edebilirsiniz.';
     }
 
     return Center(
@@ -312,12 +345,13 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
               textAlign: TextAlign.center,
             ),
-            if (filter == OrderFilter.active) ...[
+            if (hasMore) _buildLoadMore(isLoadingMore),
+            if (!hasMore && filter == OrderFilter.active) ...[
               const SizedBox(height: AppSpacing.xl),
               ElevatedButton.icon(
                 onPressed: widget.onNavigateToHome,
                 icon: const Icon(Icons.explore),
-                label: const Text('Kesfe Basla'),
+                label: const Text('Keşfe Başla'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

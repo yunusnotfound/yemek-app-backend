@@ -125,13 +125,18 @@ cp .env.example .env        # fill in DB, JWT secrets, etc.
 
 # 3. Run migrations
 npm run db:migrate
-npm run db:seed             # optional: sample data (dev only)
+npm run db:seed             # optional: category definitions only (dev only)
 
 # 4. Start (auto-reload)
 npm run dev                 # → http://localhost:3000
 ```
 
 Interactive API docs at **`http://localhost:3000/api-docs`** (Swagger).
+
+Restaurants and packages come from the business panel and the shared API database.
+Startup and seeding do not create demo users, restaurants, packages, or coupons.
+See [catalog data and refresh behavior](docs/live-catalog.md) for visibility rules
+and panel/mobile API configuration.
 
 ### Mobile
 
@@ -140,10 +145,16 @@ cd bitir_yemek_mobile
 flutter pub get
 
 flutter run \
-  --dart-define=API_BASE_URL=http://localhost:3000/api \
+  --dart-define=API_BASE_URL=https://api.bitirgitsin.com/api \
   --dart-define=MAPBOX_ACCESS_TOKEN=pk.xxx \
   --dart-define=GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 ```
+
+Debug and release builds use the deployed API by default. A local test backend
+requires an explicit `API_BASE_URL` override. Catalog refresh defaults to 15
+seconds and can be overridden with `--dart-define=CATALOG_REFRESH_SECONDS=...`
+(minimum 15). Deploy the updated catalog limiter to support this frequency;
+the previous 100 requests / 15 minute limit can throttle prolonged map use.
 
 ### With Docker
 

@@ -129,6 +129,11 @@ const userOrIpKey = (req, res) => {
   return ipKeyGenerator(req.ip);
 };
 
+// Foreground catalog refresh can make 2–3 reads every 15 seconds. Give only
+// these read routes their own budget; writes and unrelated APIs retain theirs.
+const catalogPath = /^\/api\/(?:(?:businesses|packages)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?|maps\/nearby)\/?$/i;
+const isCatalogRead = (req) => req.method === 'GET' && catalogPath.test(req.path);
+
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -136,7 +141,17 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userOrIpKey,
-  skip: req => isIyzicoServerHook(req) || /^\/api\/(auth|cards|business-dashboard|admin|payments)(\/|$)/.test(req.originalUrl),
+  skip: req => isCatalogRead(req) || isIyzicoServerHook(req) || /^\/api\/(auth|cards|business-dashboard|admin|payments)(\/|$)/.test(req.originalUrl),
+});
+
+const catalogLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+  skip: req => !isCatalogRead(req),
 });
 
 // Ödeme durumu poll (mobil) için cömert limit; iyzico hook'ları muaf.
@@ -190,6 +205,7 @@ const cardsLimiter = rateLimit({
 // kullandığından global/auth limitleri spurious 429 üretirdi.
 if (process.env.NODE_ENV !== 'test') {
   app.use(generalLimiter);
+  app.use(catalogLimiter);
   app.use('/api/auth', authLimiter);
   app.use('/api/cards', cardsLimiter);
   app.use('/api/business-dashboard', businessDashboardLimiter);

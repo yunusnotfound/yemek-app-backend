@@ -25,8 +25,8 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     // PackagesBloc ve HomeBloc artık MainScaffold'da sağlanıyor; bu sayfa Ara
     // sekmesine geçilince yeniden kurulduğu için bloc'u burada yaratmak her
-    // dönüşte aynı veriyi tekrar ağdan çekiyordu. İlk yükleme
-    // _HomeViewState.initState içinde, yalnız durum initial ise tetiklenir.
+    // dönüşte aynı veriyi tekrar ağdan çekiyordu. İlk yükleme initState'te;
+    // sonraki sessiz güncellemeler MainScaffold'daki CatalogRefresh ile yapılır.
     return HomeView(latitude: latitude, longitude: longitude);
   }
 }
@@ -53,8 +53,8 @@ class _HomeViewState extends State<HomeView> {
     super.initState();
 
     // Bloc'lar sekmeler arası paylaşıldığı için veri zaten yüklenmiş olabilir.
-    // Yalnızca hiç yüklenmemişse ağa çık — sekmeye her dönüşte tekrar istek
-    // atılmasını bu koşul engelliyor.
+    // Burada yalnız ilk yükleme yapılır; CatalogRefresh görünür sekmenin
+    // güncellemelerini devam eden isteklerle çakıştırmadan tetikler.
     final packagesBloc = context.read<PackagesBloc>();
     if (packagesBloc.state is PackagesInitial) {
       packagesBloc.add(

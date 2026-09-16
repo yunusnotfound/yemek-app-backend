@@ -1,20 +1,22 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:math';
 
-import '../../../../config/constants.dart';
 import '../../../../core/storage/onboarding_storage.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../models/user_model.dart';
+import '../google_sign_in_config.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
   final TokenStorage _tokenStorage;
+  final GoogleSignIn? _googleSignIn;
 
   /// Tanıtım ekranının bir daha gösterilmemesi için "girildi" işaretini yazar.
   /// Varsayılanı olan bir parametre: mevcut çağrı yerlerinin hiçbiri
@@ -25,8 +27,10 @@ class AuthRepositoryImpl implements AuthRepository {
     required AuthRemoteDataSource remoteDataSource,
     required TokenStorage tokenStorage,
     OnboardingStorage? onboardingStorage,
+    GoogleSignIn? googleSignIn,
   }) : _remoteDataSource = remoteDataSource,
        _tokenStorage = tokenStorage,
+       _googleSignIn = googleSignIn,
        _onboardingStorage =
            onboardingStorage ?? createDefaultOnboardingStorage();
 
@@ -35,8 +39,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final response = await _remoteDataSource.requestOtp(email);
       final isNewUser = response['isNewUser'] as bool? ?? false;
-      final message =
-          response['message'] as String? ?? 'Giriş kodu gönderildi';
+      final message = response['message'] as String? ?? 'Giriş kodu gönderildi';
       return OtpRequestResult.success(isNewUser: isNewUser, message: message);
     } on AuthException catch (e) {
       return OtpRequestResult.failure(e.message);
@@ -99,14 +102,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<AuthResult> googleLogin({required String role}) async {
     try {
-      final clientId = AppConstants.googleClientId;
-
-      final googleSignIn = GoogleSignIn(
-        clientId: clientId.isNotEmpty ? clientId : null,
-        serverClientId: clientId.isNotEmpty ? clientId : null,
-        scopes: ['email', 'profile'],
-      );
-
+      final googleSignIn = _googleSignIn ?? createGoogleSignIn();
       final googleUser = await googleSignIn.signIn();
       if (googleUser == null) {
         return AuthResult.failure('Google ile giriş iptal edildi');
@@ -115,7 +111,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final googleAuth = await googleUser.authentication;
       final idToken = googleAuth.idToken;
 
-      if (idToken == null) {
+      if (idToken == null || idToken.trim().isEmpty) {
         return AuthResult.failure('Google kimlik doğrulama başarısız');
       }
 
@@ -146,8 +142,18 @@ class AuthRepositoryImpl implements AuthRepository {
       return AuthResult.success(user: user);
     } on AuthException catch (e) {
       return AuthResult.failure(e.message);
+    } on GoogleSignInConfigurationException catch (e) {
+      return AuthResult.failure(e.message);
+    } on PlatformException catch (e) {
+      return AuthResult.failure(
+        e.code == 'network_error'
+            ? 'Google bağlantısı kurulamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.'
+            : 'Google ile giriş tamamlanamadı. Tekrar deneyin veya e-posta ile giriş yapın.',
+      );
     } catch (e) {
-      return AuthResult.failure('Google ile giriş başarısız: $e');
+      return AuthResult.failure(
+        'Google ile giriş tamamlanamadı. Lütfen tekrar deneyin.',
+      );
     }
   }
 
@@ -270,7 +276,6 @@ class AuthRepositoryImpl implements AuthRepository {
       return null;
     }
   }
-
 }
 
 class AuthResult {
@@ -319,10 +324,7 @@ class OtpRequestResult {
     this.error,
   });
 
-  factory OtpRequestResult.success({
-    required bool isNewUser,
-    String? message,
-  }) {
+  factory OtpRequestResult.success({required bool isNewUser, String? message}) {
     return OtpRequestResult._(
       isSuccess: true,
       isNewUser: isNewUser,

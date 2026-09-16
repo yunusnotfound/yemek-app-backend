@@ -17,8 +17,7 @@ import '../widgets/scene_palette.dart';
 /// Uygulamanın açılış ekranı: her başlatmada gösterilir.
 ///
 /// İki iş paralel yürür — sahne oynar, arkada oturum/konum kontrolü yapılır.
-/// İlk tanıtımda sahnenin tamamı oynar. Dönen kullanıcıda hedef hazır olur
-/// olmaz aynı geçiş animasyonuyla uygulama açılır.
+/// Her başlatmada sahnenin tamamı oynar; ardından oturuma uygun ekran açılır.
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -33,7 +32,6 @@ class _SplashPageState extends State<SplashPage> {
 
   /// Palet açılış anında bir kez seçilir; ekran ortasında renk değiştirmesin.
   late final ScenePalette _palette;
-  bool _playFullIntro = true;
 
   @override
   void initState() {
@@ -51,7 +49,7 @@ class _SplashPageState extends State<SplashPage> {
 
   Future<void> _bootstrap() async {
     final destination = await _resolveDestination();
-    if (_playFullIntro) await _sceneDone.future;
+    await _sceneDone.future;
     if (!mounted) return;
 
     Navigator.of(context).pushReplacement(_fadeRoute(destination));
@@ -81,8 +79,6 @@ class _SplashPageState extends State<SplashPage> {
       final accessToken = results[0] as String?;
       final role = results[1] as String?;
       final signedInBefore = results[2] as bool;
-      _playFullIntro =
-          !signedInBefore && (accessToken == null || accessToken.isEmpty);
 
       // Oturum yok. Bu cihazda daha önce bir hesaba girilmişse tanıtımı
       // atlayıp doğrudan girişe götür — dönen kullanıcıyı üç tanıtım

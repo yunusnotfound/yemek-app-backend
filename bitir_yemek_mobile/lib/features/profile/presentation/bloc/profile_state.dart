@@ -60,15 +60,23 @@ class ProfileError extends ProfileState {
 
 class ProfileLoggedOut extends ProfileState {}
 
-class AccountDeleting extends ProfileState {}
+class AccountDeleting extends ProfileState {
+  final UserModel user;
+
+  const AccountDeleting({required this.user});
+
+  @override
+  List<Object?> get props => [user];
+}
 
 class AccountDeleted extends ProfileState {}
 
 class AccountDeleteError extends ProfileState {
+  final UserModel user;
   final String message;
 
-  const AccountDeleteError({required this.message});
+  const AccountDeleteError({required this.user, required this.message});
 
   @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [user, message];
 }

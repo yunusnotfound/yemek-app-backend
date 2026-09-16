@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../../../config/theme.dart';
+import '../../../main/presentation/main_tab_navigation.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/di/service_locator.dart';
@@ -250,7 +251,7 @@ class _PaymentViewState extends State<_PaymentView> {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Ödemeniz birkaç dakika içinde onaylanacak ve "Siparişlerim" bölümünde görünecek.',
+              'Ödeme sonucu henüz kesinleşmedi. Güncel durumu Siparişlerim bölümünden takip edebilirsiniz.',
               style: AppTypography.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -281,7 +282,7 @@ class _PaymentViewState extends State<_PaymentView> {
               height: 52,
               child: OutlinedButton(
                 onPressed: () =>
-                    Navigator.of(context).popUntil((route) => route.isFirst),
+                    MainTabNavigation.returnTo(context, MainTab.orders),
                 child: Text(
                   'Siparişlerime Git',
                   style: AppTypography.button.copyWith(

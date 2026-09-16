@@ -45,7 +45,7 @@ exports.getAll = async (req, res, next) => {
     }
 
     const responseData = await coalesce(cacheKey, async () => {
-    const where = { isActive: true, isApproved: true };
+    const where = { isActive: true, isApproved: true, isSuspended: false };
     if (city) where.city = city;
     if (district) where.district = district;
     if (categoryId) where.categoryId = categoryId;
@@ -107,7 +107,10 @@ exports.getAll = async (req, res, next) => {
 
 exports.getById = async (req, res, next) => {
   try {
-    const business = await Business.findByPk(req.params.id, {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const business = await Business.findOne({
+      where: { id: req.params.id, isActive: true, isApproved: true, isSuspended: false },
       // GET /businesses/:id de PUBLIC (authenticate yok) — bkz. routes/businesses.js.
       attributes: Business.PUBLIC_ATTRIBUTES,
       include: [
@@ -126,19 +129,18 @@ exports.getById = async (req, res, next) => {
         {
           model: SurprisePackage,
           as: "packages",
-          where: { isActive: true, remainingQuantity: { [Op.gt]: 0 } },
+          where: {
+            isActive: true,
+            isSuspended: false,
+            remainingQuantity: { [Op.gt]: 0 },
+            pickupDate: { [Op.gte]: today },
+          },
           required: false,
         },
       ],
     });
 
     if (!business) {
-      return res.status(404).json({ message: "İşletme bulunamadı" });
-    }
-
-    // Onaylanmamış/pasif işletme public detayda görünmez (liste ile tutarlı).
-    // Sahibi kendi işletmesini business-dashboard uçlarından yönetir.
-    if (!business.isActive || !business.isApproved) {
       return res.status(404).json({ message: "İşletme bulunamadı" });
     }
 

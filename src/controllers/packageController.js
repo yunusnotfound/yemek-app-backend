@@ -136,12 +136,14 @@ exports.getById = async (req, res, next) => {
           // (bkz. routes/packages.js). Whitelist olmadan işletmenin iban,
           // identityNumber, gsmNumber gibi alanları herkese açılırdı.
           attributes: Business.PUBLIC_ATTRIBUTES,
+          where: { isActive: true, isApproved: true, isSuspended: false },
+          required: true,
           include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
         },
       ],
     });
 
-    if (!pkg) {
+    if (!pkg || !pkg.isActive || pkg.isSuspended) {
       return res.status(404).json({ message: 'Paket bulunamadı' });
     }
 
@@ -215,13 +217,23 @@ exports.update = async (req, res, next) => {
       if (pkg.isSuspended && isActive === true && req.user.role !== 'admin') {
         throw Object.assign(new Error('Paket yönetici tarafından askıya alınmış'), { statusCode: 403 });
       }
-      if ((remainingQuantity ?? pkg.remainingQuantity) > (quantity ?? pkg.quantity)) {
+      // Read both counters under the row lock: a concurrent reservation may
+      // have reduced availability since the edit form was opened. Changing the
+      // total adds/removes only that difference, preserving committed stock.
+      const nextQuantity = quantity ?? pkg.quantity;
+      const nextRemainingQuantity = remainingQuantity ??
+        (pkg.remainingQuantity + nextQuantity - pkg.quantity);
+      if (nextRemainingQuantity < 0) {
+        throw Object.assign(new Error('Toplam adet, satılmış veya rezerve edilmiş adetten az olamaz'), { statusCode: 400 });
+      }
+      if (nextRemainingQuantity > nextQuantity) {
         throw Object.assign(new Error('Kalan miktar toplam miktardan fazla olamaz'), { statusCode: 400 });
       }
       if (Number(discountedPrice ?? pkg.discountedPrice) >= Number(originalPrice ?? pkg.originalPrice)) {
         throw Object.assign(new Error('İndirimli fiyat orijinal fiyattan düşük olmalı'), { statusCode: 400 });
       }
-      await pkg.update({ title, description, originalPrice, discountedPrice, quantity, remainingQuantity,
+      await pkg.update({ title, description, originalPrice, discountedPrice,
+        quantity: nextQuantity, remainingQuantity: nextRemainingQuantity,
         pickupStart, pickupEnd, pickupDate, imageUrl, isActive }, { transaction });
     });
 

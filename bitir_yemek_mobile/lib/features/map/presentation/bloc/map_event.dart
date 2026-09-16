@@ -12,15 +12,17 @@ class LoadBusinessesForMap extends MapEvent {
   final double latitude;
   final double longitude;
   final double radius;
+  final bool background;
 
   const LoadBusinessesForMap({
     required this.latitude,
     required this.longitude,
     this.radius = 10.0,
+    this.background = false,
   });
 
   @override
-  List<Object?> get props => [latitude, longitude, radius];
+  List<Object?> get props => [latitude, longitude, radius, background];
 }
 
 class SelectBusiness extends MapEvent {

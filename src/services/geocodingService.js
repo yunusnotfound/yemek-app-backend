@@ -155,6 +155,7 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
         {
           isActive: true,
           isApproved: true,
+          isSuspended: false,
           latitude: { [Op.between]: [userLat - latDelta, userLat + latDelta] },
           longitude: { [Op.between]: [userLng - lngDelta, userLng + lngDelta] },
         },
@@ -183,6 +184,7 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
     where: {
       businessId: { [Op.in]: ids },
       isActive: true,
+      isSuspended: false,
       remainingQuantity: { [Op.gt]: 0 },
       pickupDate: { [Op.gte]: today },
     },

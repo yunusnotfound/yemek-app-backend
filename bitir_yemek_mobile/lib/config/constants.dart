@@ -1,21 +1,21 @@
-import 'package:flutter/foundation.dart';
-
 class AppConstants {
-  // API Configuration - Environment-aware
-  // Release builds default to the production HTTPS backend (Railway/VPS).
-  // Debug builds default to the local dev backend so `flutter run` works
-  // out of the box without --dart-define. Override either with:
-  //   --dart-define=API_BASE_URL=https://<vps-domain>/api
-  // Local-dev default by platform: iOS simulator -> localhost,
-  // Android emulator -> 10.0.2.2 (host loopback), physical device -> Mac LAN IP.
-  static const String _prodBaseUrl =
-      'https://api.bitirgitsin.com/api';
-  static const String _devBaseUrl = 'http://localhost:3000/api';
+  // Simulator and release builds use the same live backend by default.
+  // Local development remains an explicit API_BASE_URL override.
+  static const String _prodBaseUrl = 'https://api.bitirgitsin.com/api';
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: kDebugMode ? _devBaseUrl : _prodBaseUrl,
+    defaultValue: _prodBaseUrl,
   );
   static const String apiVersion = 'v1';
+
+  // Refresh visible catalog data every 15 seconds unless explicitly overridden.
+  static const int _configuredCatalogRefreshSeconds = int.fromEnvironment(
+    'CATALOG_REFRESH_SECONDS',
+    defaultValue: 15,
+  );
+  static const int catalogRefreshSeconds = _configuredCatalogRefreshSeconds < 15
+      ? 15
+      : _configuredCatalogRefreshSeconds;
 
   // Storage Keys
   static const String accessTokenKey = 'access_token';
@@ -35,9 +35,17 @@ class AppConstants {
     'MAPBOX_ACCESS_TOKEN',
   );
 
-  // Google OAuth Client ID - pass via: --dart-define=GOOGLE_CLIENT_ID=xxx
+  // Legacy web/server ID for Android and web. On iOS the native client comes
+  // from Info.plist; it must not also be sent as an OAuth server audience.
   static const String googleClientId = String.fromEnvironment(
     'GOOGLE_CLIENT_ID',
+  );
+  static const String googleIosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+  );
+  // Optional WEB OAuth client. If set, the backend GOOGLE_CLIENT_ID must match.
+  static const String googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
   );
 
   // Sentry crash reporting - pass via: --dart-define=SENTRY_DSN=https://...

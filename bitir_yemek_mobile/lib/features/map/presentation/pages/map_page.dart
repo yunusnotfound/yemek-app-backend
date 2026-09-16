@@ -39,8 +39,8 @@ class MapPage extends StatelessWidget {
     // MapBloc artık MainScaffold'da sağlanıyor. Bu sayfa Mapbox PlatformView'i
     // yüzünden IndexedStack dışında tutulduğundan sekmeye her girişte baştan
     // kurulur; bloc'u burada yaratmak her girişte /maps/nearby + /packages
-    // çiftini yeniden çağırıyordu. İlk yükleme _MapPageContentState.initState
-    // içinde, yalnız durum MapInitial ise tetiklenir.
+    // çiftini yeniden çağırıyordu. İlk yükleme initState'te; sonraki sessiz
+    // güncellemeler MainScaffold'daki CatalogRefresh ile yapılır.
     return _MapPageContent(latitude: latitude, longitude: longitude);
   }
 }
@@ -76,6 +76,7 @@ class _MapPageContentState extends State<_MapPageContent> {
   bool _collectNow = false;
 
   bool _markersLoaded = false;
+  List<BusinessModel> _lastMarkerBusinesses = const [];
   bool _loadingMarkers = false;
   bool _renderPending = false;
   bool _cameraFitted = false;
@@ -93,8 +94,8 @@ class _MapPageContentState extends State<_MapPageContent> {
   void initState() {
     super.initState();
     // Bloc sekmeler arası paylaşıldığı için veri zaten yüklenmiş olabilir;
-    // yalnızca hiç yüklenmemişse ağa çık. Marker'lar mevcut bloc durumundan
-    // yeniden çizildiği için sekmeye dönüş ağ isteği üretmez.
+    // yalnızca hiç yüklenmemişse ağa çık. Sonraki yenilemeleri CatalogRefresh
+    // birleştirir; marker'lar ve kamera istek sırasında yerinde kalır.
     final bloc = context.read<MapBloc>();
     if (bloc.state is MapInitial) {
       bloc.add(
@@ -119,7 +120,7 @@ class _MapPageContentState extends State<_MapPageContent> {
 
   void _onMapCreated(MapboxMap controller) {
     _mapController = controller;
-    // Harita alt kısmındaki "mapbox" logosunu ve (i) attribution butonunu gizle.
+    // Harita üzerindeki Mapbox logosunu ve mavi bilgi düğmesini gizle.
     controller.logo.updateSettings(LogoSettings(enabled: false));
     controller.attribution.updateSettings(AttributionSettings(enabled: false));
     // Üst kısımdaki ölçek çubuğunu (scale bar) gizle.
@@ -561,7 +562,10 @@ class _MapPageContentState extends State<_MapPageContent> {
           if (state is MapLoaded) {
             if (!_markersLoaded) {
               _loadMarkers();
+            } else if (!listEquals(_lastMarkerBusinesses, state.businesses)) {
+              unawaited(_applyMarkers());
             }
+            _lastMarkerBusinesses = state.businesses;
             if (state.directions != null) {
               final geometry = state.directions!['geometry'] as List<dynamic>?;
               if (geometry != null) {

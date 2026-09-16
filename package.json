@@ -12,7 +12,7 @@
     "dev": "nodemon src/server.js",
     "db:migrate": "npx sequelize-cli db:migrate",
     "db:migrate:undo": "npx sequelize-cli db:migrate:undo",
-    "db:seed": "npx sequelize-cli db:seed:all",
+    "db:seed": "npx sequelize-cli db:seed --seed 20240101000001-categories.js",
     "test": "jest --runInBand",
     "deploy": "npm ci --omit=dev && npm run db:migrate"
   },

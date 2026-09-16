@@ -22,6 +22,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     LoadProfile event,
     Emitter<ProfileState> emit,
   ) async {
+    if (state is AccountDeleting || state is ProfileLoading) return;
     emit(ProfileLoading());
 
     final result = await _profileRepository.getProfile();
@@ -67,6 +68,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     ProfileLogoutRequested event,
     Emitter<ProfileState> emit,
   ) async {
+    if (state is AccountDeleting) return;
     await _profileRepository.logout();
     emit(ProfileLoggedOut());
   }
@@ -75,14 +77,22 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     DeleteAccountRequested event,
     Emitter<ProfileState> emit,
   ) async {
-    emit(AccountDeleting());
+    final currentState = state;
+    if (currentState is! ProfileLoaded) return;
+    emit(AccountDeleting(user: currentState.user));
 
     final result = await _profileRepository.deleteAccount();
 
     if (result.isSuccess) {
       emit(AccountDeleted());
     } else {
-      emit(AccountDeleteError(message: result.error ?? 'Hesap silinemedi'));
+      emit(
+        AccountDeleteError(
+          user: currentState.user,
+          message: result.error ?? 'Hesap silinemedi',
+        ),
+      );
+      emit(ProfileLoaded(user: currentState.user));
     }
   }
 }

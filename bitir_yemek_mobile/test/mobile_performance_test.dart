@@ -281,7 +281,7 @@ void main() {
           .setMockMethodCallHandler(storageChannel, null);
     });
 
-    testWidgets('returning signed-out user opens login before the full scene', (
+    testWidgets('returning signed-out user sees the full scene before login', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(414, 896);
@@ -292,6 +292,10 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: SplashPage()));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byType(SplashPage), findsOneWidget);
+      expect(find.byType(EmailEntryPage), findsNothing);
+      await tester.pump(const Duration(milliseconds: 3700));
+      await tester.pump(const Duration(milliseconds: 500));
       expect(find.byType(EmailEntryPage), findsOneWidget);
       expect(find.byType(WelcomePage), findsNothing);
       await tester.pumpWidget(const SizedBox());

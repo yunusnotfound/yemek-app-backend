@@ -8,6 +8,25 @@ import '../../../home/data/models/package_model.dart';
 class MapBloc extends Bloc<MapEvent, MapState> {
   final MapRepository _repository;
   int _directionGeneration = 0;
+  int _loadGeneration = 0;
+  bool _catalogLoading = false;
+  bool _refreshQueued = false;
+  LoadBusinessesForMap? _lastQuery;
+
+  /// Reuses the chosen map area, without moving the camera or clearing filters.
+  void refreshCurrent() {
+    final query = _lastQuery;
+    if (isClosed || query == null || _catalogLoading || _refreshQueued) return;
+    _refreshQueued = true;
+    add(
+      LoadBusinessesForMap(
+        latitude: query.latitude,
+        longitude: query.longitude,
+        radius: query.radius,
+        background: true,
+      ),
+    );
+  }
 
   MapBloc({required MapRepository repository})
     : _repository = repository,
@@ -26,8 +45,15 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     LoadBusinessesForMap event,
     Emitter<MapState> emit,
   ) async {
-    _directionGeneration++;
-    emit(const MapLoading());
+    final generation = ++_loadGeneration;
+    _catalogLoading = true;
+    _refreshQueued = false;
+    _lastQuery = event;
+    final keepVisible = event.background && state is MapLoaded;
+    if (!keepVisible) {
+      _directionGeneration++;
+      emit(const MapLoading());
+    }
 
     try {
       final result = await _repository.getBusinessesForMap(
@@ -38,10 +64,25 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       if (emit.isDone) return;
 
       if (result.isSuccess && result.businesses != null) {
-        // Markerlar hemen görünsün diye işletmeleri önce emit et.
-        emit(MapLoaded(businesses: result.businesses!));
+        final current = state;
+        if (keepVisible && current is MapLoaded) {
+          final selectedId = current.selectedBusiness?.id;
+          final selected = result.businesses!
+              .where((business) => business.id == selectedId)
+              .firstOrNull;
+          if (selectedId != null && selected == null) _directionGeneration++;
+          emit(
+            current.copyWith(
+              businesses: result.businesses!,
+              selectedBusiness: selected,
+              clearSelection: selected == null,
+              clearDirections: selected == null,
+            ),
+          );
+        } else {
+          emit(MapLoaded(businesses: result.businesses!));
+        }
 
-        // Alt liste paneli için yakındaki paketleri ayrıca yükle.
         final pkgResult = await _repository.getNearbyPackages(
           lat: event.latitude,
           lng: event.longitude,
@@ -54,12 +95,41 @@ class MapBloc extends Bloc<MapEvent, MapState> {
             pkgResult.packages != null) {
           emit(latest.copyWith(packages: pkgResult.packages));
         }
-      } else {
+
+        // A selected card also needs current stock after an owner edits it.
+        final selectedState = state;
+        if (keepVisible &&
+            selectedState is MapLoaded &&
+            selectedState.selectedBusiness != null) {
+          final selectedId = selectedState.selectedBusiness!.id;
+          final selectedResult = await _repository.getBusinessPackages(
+            selectedId,
+          );
+          if (emit.isDone) return;
+          final current = state;
+          if (current is MapLoaded &&
+              current.selectedBusiness?.id == selectedId &&
+              selectedResult.isSuccess) {
+            final package = _pickRepresentativePackage(
+              selectedResult.packages!,
+            );
+            emit(
+              current.copyWith(
+                selectedPackage: package,
+                clearPackage: package == null,
+                packageLoading: false,
+              ),
+            );
+          }
+        }
+      } else if (!keepVisible) {
         emit(MapError(message: result.error ?? 'Bilinmeyen hata'));
       }
     } catch (e) {
-      if (emit.isDone) return;
+      if (emit.isDone || keepVisible) return;
       emit(MapError(message: e.toString()));
+    } finally {
+      if (generation == _loadGeneration) _catalogLoading = false;
     }
   }
 

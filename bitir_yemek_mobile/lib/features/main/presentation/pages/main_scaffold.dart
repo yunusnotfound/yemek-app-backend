@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../config/constants.dart';
 import '../../../../core/di/service_locator.dart';
+import '../main_tab_navigation.dart';
+import '../catalog_refresh.dart';
 import '../../../home/data/datasources/businesses_remote_datasource.dart';
 import '../../../home/data/repositories/businesses_repository_impl.dart';
 import '../../../home/presentation/bloc/home_bloc.dart';
@@ -42,6 +45,40 @@ class MainScaffold extends StatefulWidget {
 
 class _MainScaffoldState extends State<MainScaffold> {
   late int _currentIndex;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  ModalRoute<dynamic>? _mainRoute;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route == _mainRoute) return;
+    if (_mainRoute != null) MainTabNavigation.unregister(_mainRoute!);
+    _mainRoute = route;
+    if (route != null) MainTabNavigation.register(route, _returnToTab);
+  }
+
+  @override
+  void dispose() {
+    if (_mainRoute != null) MainTabNavigation.unregister(_mainRoute!);
+    super.dispose();
+  }
+
+  void _returnToTab(MainTab tab) {
+    if (!mounted) return;
+    final orders = _scaffoldKey.currentContext?.read<OrdersBloc>();
+    if (orders != null &&
+        orders.state is! OrdersInitial &&
+        tab == MainTab.orders) {
+      orders.add(const ChangeOrderFilter(filter: OrderFilter.active));
+    }
+    // A visited tab may be cached while a new order is created. An unvisited
+    // OrdersPage will perform its own first load.
+    if (orders != null && orders.state is! OrdersInitial) {
+      orders.add(const RefreshOrders());
+    }
+    _onTabSelected(tab == MainTab.orders ? 2 : 0);
+  }
 
   // Yalnızca ziyaret edilen sekmeler kurulur; sonra IndexedStack içinde canlı
   // kalır (durum korunur). Açılışta tüm sekmelerin ağ isteğini birden tetiklemeyi
@@ -63,6 +100,16 @@ class _MainScaffoldState extends State<MainScaffold> {
     });
   }
 
+  void _refreshVisibleCatalog() {
+    final catalogContext = _scaffoldKey.currentContext;
+    if (catalogContext == null) return;
+    if (_currentIndex == 0) {
+      catalogContext.read<PackagesBloc>().refreshCurrent();
+    } else if (_currentIndex == 1) {
+      catalogContext.read<MapBloc>().refreshCurrent();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Paylaşılan blocs.
@@ -74,7 +121,7 @@ class _MainScaffoldState extends State<MainScaffold> {
     // sunucudaki 100 istek/15dk limitine (src/app.js generalLimiter) takılıyordu.
     // Bu yüzden sekmeler arası yaşaması gereken bloc'lar burada tutulur; ilk
     // yükleme ilgili sayfanın initState'inde YALNIZCA durum hâlâ initial ise
-    // tetiklenir. Böylece sekmeye dönmek ağ isteği üretmez.
+    // tetiklenir. CatalogRefresh yalnız görünür kataloğu arka planda günceller.
     return MultiBlocProvider(
       providers: [
         // Ana sayfa paketleri — HomePage.initState ilk yüklemeyi tetikler.
@@ -110,7 +157,9 @@ class _MainScaffoldState extends State<MainScaffold> {
         BlocProvider(
           create: (context) => FavoritesBloc(
             repository: FavoritesRepositoryImpl(
-              remoteDataSource: FavoritesRemoteDataSource(dioClient: appDioClient),
+              remoteDataSource: FavoritesRemoteDataSource(
+                dioClient: appDioClient,
+              ),
             ),
           )..add(const LoadFavorites()),
         ),
@@ -126,17 +175,25 @@ class _MainScaffoldState extends State<MainScaffold> {
         BlocProvider(
           create: (context) => ProfileBloc(
             profileRepository: ProfileRepositoryImpl(
-              remoteDataSource: ProfileRemoteDataSource(dioClient: appDioClient),
+              remoteDataSource: ProfileRemoteDataSource(
+                dioClient: appDioClient,
+              ),
               tokenStorage: appTokenStorage,
             ),
           )..add(LoadProfile()),
         ),
       ],
-      child: Scaffold(
-        body: _buildBody(),
-        bottomNavigationBar: BottomNavBar(
-          currentIndex: _currentIndex,
-          onTap: _onTabSelected,
+      child: CatalogRefresh(
+        activeTab: _currentIndex,
+        onRefresh: _refreshVisibleCatalog,
+        interval: const Duration(seconds: AppConstants.catalogRefreshSeconds),
+        child: Scaffold(
+          key: _scaffoldKey,
+          body: _buildBody(),
+          bottomNavigationBar: BottomNavBar(
+            currentIndex: _currentIndex,
+            onTap: _onTabSelected,
+          ),
         ),
       ),
     );
@@ -160,9 +217,16 @@ class _MainScaffoldState extends State<MainScaffold> {
     return IndexedStack(
       index: stackIndex,
       children: [
-        _lazy(0, () => HomePage(latitude: widget.latitude, longitude: widget.longitude)),
+        _lazy(
+          0,
+          () =>
+              HomePage(latitude: widget.latitude, longitude: widget.longitude),
+        ),
         _lazy(2, () => OrdersPage(onNavigateToHome: () => _onTabSelected(0))),
-        _lazy(3, () => FavoritesPage(onNavigateToHome: () => _onTabSelected(0))),
+        _lazy(
+          3,
+          () => FavoritesPage(onNavigateToHome: () => _onTabSelected(0)),
+        ),
         _lazy(4, () => ProfilePage(onTabSwitch: _onTabSelected)),
       ],
     );

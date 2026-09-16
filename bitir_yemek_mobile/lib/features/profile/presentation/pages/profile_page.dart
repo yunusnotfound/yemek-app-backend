@@ -62,7 +62,8 @@ class ProfilePage extends StatelessWidget {
       return _buildErrorState(context, 'Profil yüklenemedi');
     }
 
-    final isUpdating = state is ProfileUpdating;
+    final isDeleting = state is AccountDeleting;
+    final isUpdating = state is ProfileUpdating || isDeleting;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -102,7 +103,9 @@ class ProfilePage extends StatelessWidget {
                   icon: Icons.person_outline,
                   title: 'Kişisel Bilgiler',
                   subtitle: user.name,
-                  onTap: () => _showEditSheet(context, user),
+                  onTap: isUpdating
+                      ? null
+                      : () => _showEditSheet(context, user),
                 ),
                 ProfileMenuItem(
                   icon: Icons.email_outlined,
@@ -124,7 +127,9 @@ class ProfilePage extends StatelessWidget {
                   icon: Icons.phone_outlined,
                   title: 'Telefon',
                   subtitle: user.phone ?? 'Belirtilmemiş',
-                  onTap: () => _showEditSheet(context, user),
+                  onTap: isUpdating
+                      ? null
+                      : () => _showEditSheet(context, user),
                 ),
               ],
             ),
@@ -171,7 +176,9 @@ class ProfilePage extends StatelessWidget {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton.icon(
-                  onPressed: () => _showLogoutDialog(context),
+                  onPressed: isUpdating
+                      ? null
+                      : () => _showLogoutDialog(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.surface,
                     foregroundColor: AppColors.error,
@@ -191,9 +198,11 @@ class ProfilePage extends StatelessWidget {
 
             // Delete account
             TextButton(
-              onPressed: () => _showDeleteAccountDialog(context),
+              onPressed: isUpdating
+                  ? null
+                  : () => _showDeleteAccountDialog(context),
               child: Text(
-                'Hesabı Sil',
+                isDeleting ? 'Hesap siliniyor…' : 'Hesabı Sil',
                 style: AppTypography.bodySmall.copyWith(color: AppColors.error),
               ),
             ),
@@ -293,6 +302,8 @@ class ProfilePage extends StatelessWidget {
     if (state is ProfileUpdating) return state.user;
     if (state is ProfileUpdateSuccess) return state.user;
     if (state is ProfileUpdateError) return state.user;
+    if (state is AccountDeleting) return state.user;
+    if (state is AccountDeleteError) return state.user;
     return null;
   }
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../main/presentation/main_tab_navigation.dart';
+import '../../../../core/utils/money_format.dart';
 import '../../../../config/theme.dart';
 import '../../data/models/package_model.dart';
 import '../../data/models/reservation_model.dart';
@@ -64,7 +66,8 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage>
             padding: const EdgeInsets.all(AppSpacing.screenPadding),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height -
+                minHeight:
+                    MediaQuery.of(context).size.height -
                     MediaQuery.of(context).padding.top -
                     MediaQuery.of(context).padding.bottom -
                     (AppSpacing.screenPadding * 2),
@@ -104,7 +107,7 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage>
                     child: Column(
                       children: [
                         Text(
-                          'Rezervasyon Tamamlandi!',
+                          'Rezervasyon tamamlandı!',
                           style: AppTypography.h2,
                           textAlign: TextAlign.center,
                         ),
@@ -157,7 +160,7 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage>
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            'Bu kodu isletmeye gostermeniz gerekecek',
+                            'Paketini alırken bu kodu işletmeye göster.',
                             style: AppTypography.bodySmall.copyWith(
                               color: AppColors.textHint,
                             ),
@@ -208,17 +211,20 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage>
                             widget.package.business.address,
                           ),
                           const Divider(height: 24, color: AppColors.divider),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: AppSpacing.md,
+                            runSpacing: AppSpacing.xs,
                             children: [
                               Text(
-                                'Odenen Tutar',
+                                'Ödenen tutar',
                                 style: AppTypography.bodyLarge.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               Text(
-                                '₺${widget.reservation.finalPrice.toStringAsFixed(0)}',
+                                formatMoney(widget.reservation.finalPrice),
                                 style: AppTypography.h3.copyWith(
                                   color: AppColors.primary,
                                 ),
@@ -246,12 +252,13 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage>
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.md),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.md,
+                                ),
                               ),
                             ),
                             child: const Text(
-                              'Siparislerime Git',
+                              'Siparişlerime Git',
                               style: AppTypography.button,
                             ),
                           ),
@@ -263,7 +270,7 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage>
                           child: OutlinedButton(
                             onPressed: () => _goToHome(context),
                             child: Text(
-                              'Ana Sayfaya Don',
+                              'Ana Sayfaya Dön',
                               style: AppTypography.button.copyWith(
                                 color: AppColors.primary,
                               ),
@@ -303,11 +310,11 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage>
 
   void _goToOrders(BuildContext context) {
     // Pop back to MainScaffold and switch to orders tab (index 2)
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    MainTabNavigation.returnTo(context, MainTab.orders);
   }
 
   void _goToHome(BuildContext context) {
     // Pop back to MainScaffold (home tab, index 0)
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    MainTabNavigation.returnTo(context, MainTab.home);
   }
 }

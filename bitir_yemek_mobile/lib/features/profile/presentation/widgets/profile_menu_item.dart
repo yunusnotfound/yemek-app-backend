@@ -36,13 +36,12 @@ class ProfileMenuItem extends StatelessWidget {
             Container(
               width: 40,
               height: 40,
-              decoration: BoxDecoration(
-                color: (iconColor ?? AppColors.primary).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
+              decoration: AppDepth.iconTile(
+                color: iconColor ?? AppColors.primary,
               ),
               child: Icon(
                 icon,
-                color: iconColor ?? AppColors.primary,
+                color: iconColor ?? AppColors.primaryInk,
                 size: 20,
               ),
             ),
@@ -65,8 +64,14 @@ class ProfileMenuItem extends StatelessWidget {
                 ],
               ),
             ),
-            trailing ??
-                Icon(Icons.chevron_right, color: AppColors.textHint, size: 20),
+            if (trailing != null)
+              trailing!
+            else if (onTap != null)
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.textHint,
+                size: 20,
+              ),
           ],
         ),
       ),

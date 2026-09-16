@@ -7,13 +7,9 @@ const nextConfig: NextConfig = {
   // Monorepo: standalone dosya izlemeyi web/ ile sınırla (kökteki backend
   // lockfile'ı tracing root'u yukarı kaydırmasın).
   outputFileTracingRoot: path.join(__dirname),
-  // İşletme/paket görselleri API alan adından (uploads) gelir; harici barındırma da olabilir.
-  images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "**" },
-      { protocol: "http", hostname: "localhost" },
-    ],
-  },
+  // Existing pages use plain <img>. Disable the unused server-side remote
+  // image fetcher instead of exposing an arbitrary-host optimization endpoint.
+  images: { unoptimized: true },
 };
 
 export default nextConfig;

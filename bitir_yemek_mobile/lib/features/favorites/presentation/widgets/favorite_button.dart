@@ -23,15 +23,23 @@ class FavoriteButton extends StatelessWidget {
     return BlocSelector<FavoritesBloc, FavoritesState, bool>(
       selector: (_) => context.read<FavoritesBloc>().isFavorite(businessId),
       builder: (context, isFav) {
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => context
-              .read<FavoritesBloc>()
-              .add(ToggleFavorite(businessId: businessId)),
-          child: Icon(
-            isFav ? Icons.favorite : Icons.favorite_border,
-            size: size,
-            color: isFav ? AppColors.error : AppColors.textHint,
+        return Semantics(
+          label: isFav ? 'Favorilerden çıkar' : 'Favorilere ekle',
+          button: true,
+          child: InkResponse(
+            onTap: () => context.read<FavoritesBloc>().add(
+              ToggleFavorite(businessId: businessId),
+            ),
+            radius: 24,
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(
+                isFav ? Icons.favorite : Icons.favorite_border,
+                size: size,
+                color: isFav ? AppColors.error : AppColors.textHint,
+              ),
+            ),
           ),
         );
       },

@@ -1,5 +1,6 @@
 "use client";
 
+import { CampaignFields, emptyCampaign, type CampaignForm } from "@/components/admin/CampaignFields";
 import { useCallback, useEffect, useState } from "react";
 import { Ticket, Plus } from "lucide-react";
 import type { Coupon, CouponType, Pagination as Pg } from "@/lib/types";
@@ -18,7 +19,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Spinner } from "@/components/ui/Spinner";
 
-interface Form {
+interface Form extends CampaignForm {
   code: string;
   discountType: CouponType;
   discountValue: string;
@@ -29,6 +30,7 @@ interface Form {
 }
 
 const emptyForm: Form = {
+  ...emptyCampaign,
   code: "",
   discountType: "percentage",
   discountValue: "",
@@ -69,9 +71,23 @@ export default function AdminCouponsPage() {
     setForm(emptyForm);
     setFormError(null);
   }
+  function openFirstOrder() {
+    setForm({ ...emptyForm, code: "ILK100", title: "İlk paketine özel", discountType: "fixed",
+      discountValue: "100", minOrderAmount: "500", maxUsage: "100", budgetLimit: "10000",
+      perUserLimit: "1", firstOrderOnly: true, isDiscoverable: true, isActive: false,
+      expiresAt: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10) });
+    setFormError(null); setEditing("new");
+  }
+
   function openEdit(c: Coupon) {
     setEditing(c);
     setForm({
+      title: c.title ?? "", firstOrderOnly: c.firstOrderOnly ?? false,
+      perUserLimit: c.perUserLimit == null ? "" : String(c.perUserLimit),
+      maxDiscountAmount: c.maxDiscountAmount == null ? "" : String(c.maxDiscountAmount),
+      budgetLimit: c.budgetLimit == null ? "" : String(c.budgetLimit),
+      isDiscoverable: c.isDiscoverable ?? false, businessIds: c.businessIds ?? [],
+      merchantConsentConfirmed: c.merchantConsentConfirmed ?? false,
       code: c.code,
       discountType: c.discountType,
       discountValue: String(c.discountValue),
@@ -87,6 +103,12 @@ export default function AdminCouponsPage() {
     setBusy(true);
     setFormError(null);
     const payload = {
+      title: form.title || null, firstOrderOnly: form.firstOrderOnly,
+      perUserLimit: form.perUserLimit === "" ? null : Number(form.perUserLimit),
+      maxDiscountAmount: form.maxDiscountAmount === "" ? null : Number(form.maxDiscountAmount),
+      budgetLimit: form.budgetLimit === "" ? null : Number(form.budgetLimit),
+      isDiscoverable: form.isDiscoverable, businessIds: form.businessIds,
+      merchantConsentConfirmed: form.merchantConsentConfirmed, isActive: form.isActive,
       discountType: form.discountType,
       discountValue: Number(form.discountValue),
       minOrderAmount: Number(form.minOrderAmount),
@@ -134,6 +156,8 @@ export default function AdminCouponsPage() {
     },
     { key: "min", header: "Min. tutar", render: (c) => formatPrice(c.minOrderAmount) },
     { key: "usage", header: "Kullanım", render: (c) => `${c.currentUsage}/${c.maxUsage}` },
+    { key: "budget", header: "Ayrılan bütçe", render: (c) => `${formatPrice(c.budgetUsed ?? 0)} / ${c.budgetLimit == null ? "Sınırsız" : formatPrice(c.budgetLimit)}` },
+    { key: "completed", header: "Teslim edildi", render: (c) => c.completedOrders ?? 0 },
     { key: "expires", header: "Bitiş", render: (c) => formatDate(c.expiresAt) },
     { key: "active", header: "Durum", render: (c) => <Badge tone={c.isActive ? "green" : "slate"}>{c.isActive ? "Aktif" : "Pasif"}</Badge> },
     {
@@ -143,7 +167,7 @@ export default function AdminCouponsPage() {
       render: (c) => (
         <div className="flex justify-end gap-2">
           <Button size="sm" variant="outline" onClick={() => openEdit(c)}>Düzenle</Button>
-          <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => setToDelete(c)}>Sil</Button>
+          <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50" onClick={() => setToDelete(c)}>Arşivle</Button>
         </div>
       ),
     },
@@ -153,8 +177,8 @@ export default function AdminCouponsPage() {
     <>
       <PanelHeader
         title="Kuponlar"
-        description="İndirim kuponlarını yönet."
-        action={<Button onClick={openNew}><Plus className="h-4 w-4" /> Yeni kupon</Button>}
+        description="Kampanyalarını, katılan işletmeleri ve indirim bütçeni yönet."
+        action={<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={openFirstOrder}><Ticket className="h-4 w-4" /> İlk sipariş taslağı</Button><Button onClick={openNew}><Plus className="h-4 w-4" /> Yeni kupon</Button></div>}
       />
       {error ? <Alert tone="error" className="mb-4">{error}</Alert> : null}
       <div className="space-y-4">
@@ -206,12 +230,13 @@ export default function AdminCouponsPage() {
           <Field label="Son kullanma tarihi">
             <Input type="date" value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} />
           </Field>
-          {editing !== "new" ? (
+          <CampaignFields value={form} onChange={(patch) => setForm({ ...form, ...patch })} />
+          {(
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
               Aktif
             </label>
-          ) : null}
+          )}
         </div>
       </Modal>
 
@@ -221,9 +246,9 @@ export default function AdminCouponsPage() {
         onConfirm={doDelete}
         loading={busy}
         tone="danger"
-        title="Kuponu sil"
-        description={`"${toDelete?.code}" kuponu silinecek.`}
-        confirmLabel="Sil"
+        title="Kuponu arşivle"
+        description={`"${toDelete?.code}" kuponu kullanıma kapatılacak. Geçmiş siparişler korunur.`}
+        confirmLabel="Arşivle"
       />
     </>
   );

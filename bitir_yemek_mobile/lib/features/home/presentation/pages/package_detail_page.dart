@@ -1,3 +1,6 @@
+import '../../../coupons/presentation/package_coupon_offer.dart';
+import '../../data/models/reservation_model.dart';
+import '../../../../core/utils/money_format.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +14,7 @@ import '../../data/datasources/businesses_remote_datasource.dart';
 import '../bloc/reservation_bloc.dart';
 import '../../../favorites/presentation/bloc/favorites_bloc.dart';
 import '../widgets/package_info_card.dart';
+import 'business_detail_page.dart';
 import '../widgets/reservation_confirm_sheet.dart';
 import 'reservation_success_page.dart';
 import '../../../payment/presentation/pages/payment_page.dart';
@@ -88,7 +92,7 @@ class _PackageDetailView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Business info row
-                    _buildBusinessHeader(),
+                    _buildBusinessHeader(context),
                     const SizedBox(height: AppSpacing.md),
 
                     // Package title & description
@@ -138,13 +142,8 @@ class _PackageDetailView extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.9),
             shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            border: Border.all(color: AppDepth.border),
+            boxShadow: AppDepth.card,
           ),
           child: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
         ),
@@ -168,13 +167,8 @@ class _PackageDetailView extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.9),
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.shadow,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    border: Border.all(color: AppDepth.border),
+                    boxShadow: AppDepth.card,
                   ),
                   child: Icon(
                     isFav ? Icons.favorite : Icons.favorite_border,
@@ -298,23 +292,55 @@ class _PackageDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildBusinessHeader() {
+  /// İşletme şeridi. Karta dönüştürüldü ve DOKUNULABİLİR yapıldı: kullanıcı
+  /// paketi beğenince doğal olarak "bu işletme kim?" diye merak ediyor, ama
+  /// buradan işletme sayfasına gidilemiyordu.
+  Widget _buildBusinessHeader(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => BusinessDetailPage(
+                businessId: package.business.id,
+                businessName: package.business.name,
+              ),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: _buildBusinessRow(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBusinessRow() {
     return Row(
       children: [
-        // Business avatar
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              package.business.name.isNotEmpty
-                  ? package.business.name[0].toUpperCase()
-                  : '?',
-              style: AppTypography.h3.copyWith(color: AppColors.primary),
+        // İşletme logosu; yoksa baş harf.
+        ClipOval(
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: AppCachedImage(
+              imageUrl: package.business.imageUrl,
+              fit: BoxFit.cover,
+              placeholder: Container(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                child: Center(
+                  child: Text(
+                    package.business.name.isNotEmpty
+                        ? package.business.name[0].toUpperCase()
+                        : '?',
+                    style: AppTypography.h3.copyWith(color: AppColors.primary),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -393,13 +419,8 @@ class _PackageDetailView extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: AppDepth.border),
+        boxShadow: AppDepth.card,
       ),
       child: Row(
         children: [
@@ -407,7 +428,7 @@ class _PackageDetailView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '₺${package.originalPrice.toStringAsFixed(0)}',
+                formatMoney(package.originalPrice),
                 style: AppTypography.bodyLarge.copyWith(
                   color: AppColors.textHint,
                   decoration: TextDecoration.lineThrough,
@@ -415,7 +436,7 @@ class _PackageDetailView extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '₺${package.discountedPrice.toStringAsFixed(0)}',
+                formatMoney(package.discountedPrice),
                 style: AppTypography.h1.copyWith(
                   color: AppColors.primary,
                   fontSize: 28,
@@ -433,7 +454,7 @@ class _PackageDetailView extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  '₺${savings.toStringAsFixed(0)}',
+                  formatMoney(savings),
                   style: AppTypography.h3.copyWith(color: AppColors.success),
                 ),
                 Text(
@@ -471,13 +492,8 @@ class _PackageDetailView extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: AppDepth.border),
+        boxShadow: AppDepth.card,
       ),
       child: Column(
         children: [
@@ -513,8 +529,46 @@ class _PackageDetailView extends StatelessWidget {
                 ? AppColors.error
                 : AppColors.textPrimary,
           ),
+
+          // Stok çubuğu: kaç paketin tükendiğini bir bakışta gösterir.
+          // Sayıyı okumak "2 / 8" ilişkisini kurmayı gerektiriyor; çubuk aynı
+          // bilgiyi anında veriyor.
+          if (package.quantity > 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _buildStockBar(),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildStockBar() {
+    final ratio = (package.remainingQuantity / package.quantity).clamp(
+      0.0,
+      1.0,
+    );
+    final isLow = package.remainingQuantity <= 3;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.full),
+          child: LinearProgressIndicator(
+            value: ratio,
+            minHeight: 6,
+            backgroundColor: AppColors.divider,
+            valueColor: AlwaysStoppedAnimation<Color>(
+              isLow ? AppColors.error : AppColors.success,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${package.quantity} paketten ${package.remainingQuantity} tanesi kaldı',
+          style: AppTypography.caption.copyWith(color: AppColors.textHint),
+        ),
+      ],
     );
   }
 
@@ -568,33 +622,82 @@ class _PackageDetailView extends StatelessWidget {
           ),
         ],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 56,
-        child: ElevatedButton(
-          onPressed: isOutOfStock ? null : () => _showConfirmSheet(context),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: AppColors.divider,
-            disabledForegroundColor: AppColors.textHint,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isOutOfStock)
+            PackageCouponOffer(
+              package: package,
+              onSelected: (coupon, quantity) => _showConfirmSheet(
+                context,
+                coupon: coupon,
+                quantity: quantity,
+              ),
+            ),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: isOutOfStock ? null : () => _showConfirmSheet(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColors.divider,
+                disabledForegroundColor: AppColors.textHint,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+              ),
+              // Fiyat butonda da yazıyor: sayfa kaydırılınca fiyat kartı ekrandan
+              // çıkıyor ve kullanıcı "ne kadara rezerve ediyorum?" sorusunu
+              // yukarı kaydırmadan cevaplayamıyordu.
+              child: isOutOfStock
+                  ? Text(
+                      'Tükendi',
+                      style: AppTypography.button.copyWith(
+                        fontSize: 18,
+                        color: AppColors.textHint,
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Rezerve Et',
+                          style: AppTypography.button.copyWith(
+                            fontSize: 18,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 18,
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                          ),
+                          color: Colors.white.withValues(alpha: 0.4),
+                        ),
+                        Text(
+                          formatMoney(package.discountedPrice),
+                          style: AppTypography.button.copyWith(
+                            fontSize: 18,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
-          child: Text(
-            isOutOfStock ? 'Tukendi' : 'Rezerve Et',
-            style: AppTypography.button.copyWith(
-              fontSize: 18,
-              color: isOutOfStock ? AppColors.textHint : Colors.white,
-            ),
-          ),
-        ),
+        ],
       ),
     );
   }
 
-  void _showConfirmSheet(BuildContext context) {
+  void _showConfirmSheet(
+    BuildContext context, {
+    CouponModel? coupon,
+    int quantity = 1,
+  }) {
     final bloc = context.read<ReservationBloc>();
     showModalBottomSheet(
       context: context,
@@ -609,7 +712,11 @@ class _PackageDetailView extends StatelessWidget {
       ),
       builder: (_) => BlocProvider.value(
         value: bloc,
-        child: ReservationConfirmSheet(package: package),
+        child: ReservationConfirmSheet(
+          package: package,
+          initialCoupon: coupon,
+          initialQuantity: quantity,
+        ),
       ),
     );
   }

@@ -4,7 +4,7 @@
   "description": "Bitir Yemek - food waste reduction platform REST API (Node.js/Express, Sequelize/PostgreSQL).",
   "main": "src/server.js",
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=24",
     "npm": ">=10.0.0"
   },
   "scripts": {
@@ -12,7 +12,7 @@
     "dev": "nodemon src/server.js",
     "db:migrate": "npx sequelize-cli db:migrate",
     "db:migrate:undo": "npx sequelize-cli db:migrate:undo",
-    "db:seed": "npx sequelize-cli db:seed:all",
+    "db:seed": "npx sequelize-cli db:seed --seed 20240101000001-categories.js",
     "test": "jest --runInBand",
     "deploy": "npm ci --omit=dev && npm run db:migrate"
   },
@@ -22,34 +22,44 @@
   "type": "commonjs",
   "dependencies": {
     "@sentry/node": "^10.58.0",
-    "axios": "^1.13.5",
+    "axios": "^1.20.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.2.1",
+    "express-rate-limit": "^8.7.0",
     "google-auth-library": "^10.6.2",
     "helmet": "^8.1.0",
     "i18next": "^25.8.13",
-    "i18next-http-middleware": "^3.9.2",
+    "i18next-http-middleware": "^3.9.8",
     "ioredis": "^5.9.3",
     "iyzipay": "^2.0.69",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^2.0.2",
+    "multer": "^2.3.0",
     "node-cron": "^4.2.1",
     "pg": "^8.18.0",
     "pg-hstore": "^2.3.4",
     "resend": "^4.0.0",
-    "sequelize": "^6.37.7",
+    "sequelize": "^6.37.8",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0",
     "winston": "^3.19.0",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "sequelize-cli": "^6.6.5"
   },
   "devDependencies": {
     "jest": "^30.4.2",
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2"
+  },
+  "overrides": {
+    "sequelize": {
+      "uuid": "11.1.1"
+    },
+    "postman-request": {
+      "uuid": "11.1.1"
+    },
+    "qs": "^6.16.0"
   }
 }

@@ -67,7 +67,7 @@ export default function AdminOrderDetailPage() {
   if (!order) return <LoadingBlock />;
 
   const pay = paymentBadge(order.paymentStatus);
-  const canRefund = order.paymentStatus === "paid";
+  const canRefund = order.paymentStatus === "paid" && (!order.refundStatus || order.refundStatus === "none");
 
   return (
     <>
@@ -83,6 +83,12 @@ export default function AdminOrderDetailPage() {
 
       {error ? <Alert tone="error" className="mb-4">{error}</Alert> : null}
 
+      {order.refundStatus === "review" ? (
+        <Alert tone="error" className="mb-4">İadenin banka sonucu doğrulanmalı. iyzico panelinden bu işlemi kontrol edin; aynı iadeyi tekrar başlatmayın.</Alert>
+      ) : order.refundStatus === "pending" || order.refundStatus === "processing" ? (
+        <Alert className="mb-4">İade işleniyor. Sonuç doğrulandığında ödeme durumu güncellenecek.</Alert>
+      ) : null}
+      {order.fraudReview ? <Alert className="mb-4">Ödeme güvenlik incelemesinde. Henüz teslim edilemez.</Alert> : null}
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardBody>

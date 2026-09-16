@@ -11,8 +11,8 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
   final BusinessesRepository _repository;
 
   ReservationBloc({required BusinessesRepository repository})
-      : _repository = repository,
-        super(const ReservationInitial()) {
+    : _repository = repository,
+      super(const ReservationInitial()) {
     on<CreateReservation>(_onCreateReservation);
     on<ValidateCoupon>(_onValidateCoupon);
     on<ClearCoupon>(_onClearCoupon);
@@ -30,6 +30,7 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
       quantity: event.quantity,
       couponCode: event.couponCode,
       paymentCard: event.paymentCard,
+      expectedFinalPrice: event.expectedFinalPrice,
     );
 
     if (result.isSuccess) {
@@ -51,7 +52,12 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
   ) async {
     emit(const CouponValidating());
 
-    final result = await _repository.validateCoupon(code: event.code);
+    final result = await _repository.validateCoupon(
+      code: event.code,
+      packageId: event.packageId,
+      orderAmount: event.orderTotal,
+      quantity: event.quantity,
+    );
 
     if (result.isSuccess) {
       final coupon = result.coupon!;
@@ -63,7 +69,8 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
           ),
         );
       } else {
-        final discount = coupon.calculateDiscount(event.orderTotal);
+        final discount =
+            result.discount ?? coupon.calculateDiscount(event.orderTotal);
         emit(CouponValidated(coupon: coupon, discount: discount));
       }
     } else {

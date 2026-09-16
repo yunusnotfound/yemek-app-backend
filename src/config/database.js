@@ -1,10 +1,12 @@
 const { Sequelize } = require('sequelize');
+const { enforceDatabaseTls, isDatabaseTlsRequired } = require('./databaseTls');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isTest = process.env.NODE_ENV === 'test';
-const useSSL = process.env.DB_SSL === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=require'));
+const useSSL = isDatabaseTlsRequired();
 
 const dbOptions = {
+  hooks: { beforeConnect: enforceDatabaseTls },
   dialect: 'postgres',
   // Test'te de SQL loglamayı sustur (aksi halde test çıktısı okunamaz olur).
   logging: isProduction || isTest ? false : console.log,
@@ -25,7 +27,8 @@ const dbOptions = {
 if (useSSL) {
   dbOptions.dialectOptions.ssl = {
     require: true,
-    rejectUnauthorized: false,
+    rejectUnauthorized: true,
+    ...(process.env.DB_CA_CERT ? { ca: process.env.DB_CA_CERT } : {}),
   };
 }
 

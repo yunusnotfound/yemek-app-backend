@@ -3,7 +3,7 @@
 ###############################################################################
 # Stage 1 - dependencies (production only)
 ###############################################################################
-FROM node:20-alpine AS deps
+FROM node:24-alpine AS deps
 
 WORKDIR /app
 
@@ -17,7 +17,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 ###############################################################################
 # Stage 2 - runtime
 ###############################################################################
-FROM node:20-alpine AS runtime
+FROM node:24-alpine AS runtime
 
 ENV NODE_ENV=production \
     PORT=3000

@@ -1,5 +1,6 @@
 module.exports = {
   testEnvironment: 'node',
+  modulePathIgnorePatterns: ['<rootDir>/web/.next/', '<rootDir>/bitir_yemek_mobile/'],
   // env.js, herhangi bir src modülü (models/app) require edilmeden ÖNCE env'i kurar.
   setupFiles: ['<rootDir>/tests/env.js'],
   // Şemayı tüm testlerden önce bir kez oluşturur.

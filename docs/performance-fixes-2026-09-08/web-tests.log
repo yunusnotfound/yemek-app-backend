@@ -1,0 +1,19 @@
+
+> web@0.1.0 test
+> node --test tests/*.test.cjs
+
+✔ redirect targets cannot escape the local origin through slashes, backslashes or controls (24.729125ms)
+✔ cookie-authenticated writes require the exact web origin (18.605125ms)
+✔ login page does not loop back to panel merely because an expired cookie exists (5.001916ms)
+✔ same-origin requests work behind the HTTPS reverse proxy (4.238458ms)
+✔ body limits apply to a streaming request without Content-Length (6.521792ms)
+✔ concurrent BFF requests rotate a refresh token once and each receive the new cookies (22.823875ms)
+✔ a transient backend failure does not delete the web session (3.882916ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 310.587667

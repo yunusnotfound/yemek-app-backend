@@ -47,6 +47,12 @@ const validateEnv = () => {
   if (isProd && isWeakSecret(process.env.JWT_REFRESH_SECRET)) {
     throw new Error('JWT_REFRESH_SECRET must be a secure value (min 32 chars) in production');
   }
+  if (isProd && process.env.JWT_SECRET === process.env.JWT_REFRESH_SECRET) {
+    throw new Error('Access ve refresh token anahtarları farklı olmalı');
+  }
+  if (isProd && iyzico.getMode() === 'live' && process.env.IYZICO_TEST_DIRECT_CHARGE === 'true') {
+    throw new Error('Canlı ödeme ortamında IYZICO_TEST_DIRECT_CHARGE kullanılamaz');
+  }
   const missingRecommended = recommendedEnvVars.filter(v => !process.env[v]);
   if (missingRecommended.length > 0) {
     logger.warn(`Missing recommended environment variables: ${missingRecommended.join(', ')}. Some features may not work.`);

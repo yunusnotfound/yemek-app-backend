@@ -1,3 +1,4 @@
+import '../../../coupons/data/coupons_repository.dart';
 import '../datasources/businesses_remote_datasource.dart';
 import '../models/business_model.dart';
 import '../models/business_detail_model.dart';
@@ -238,6 +239,7 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
     int quantity = 1,
     String? couponCode,
     Map<String, dynamic>? paymentCard,
+    double? expectedFinalPrice,
   }) async {
     try {
       final response = await _remoteDataSource.createReservation(
@@ -245,6 +247,7 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
         quantity: quantity,
         couponCode: couponCode,
         paymentCard: paymentCard,
+        expectedFinalPrice: expectedFinalPrice,
       );
 
       final orderData = response['order'] as Map<String, dynamic>?;
@@ -255,10 +258,13 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
       // A new order has been placed — stock levels have changed, so stale
       // package cache entries must be evicted.
       _cache.invalidatePattern('packages:');
+      CouponsRepository.invalidate();
 
       final reservation = ReservationModel.fromJson(orderData);
       final paymentData = response['payment'] as Map<String, dynamic>?;
-      final payment = paymentData != null ? PaymentInit.fromJson(paymentData) : null;
+      final payment = paymentData != null
+          ? PaymentInit.fromJson(paymentData)
+          : null;
       return ReservationResult.success(
         reservation: reservation,
         message: response['message'] as String?,
@@ -272,9 +278,19 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
   }
 
   @override
-  Future<CouponResult> validateCoupon({required String code}) async {
+  Future<CouponResult> validateCoupon({
+    required String code,
+    String? packageId,
+    double? orderAmount,
+    int quantity = 1,
+  }) async {
     try {
-      final response = await _remoteDataSource.validateCoupon(code: code);
+      final response = await _remoteDataSource.validateCoupon(
+        code: code,
+        packageId: packageId,
+        orderAmount: orderAmount,
+        quantity: quantity,
+      );
 
       final couponData = response['coupon'] as Map<String, dynamic>?;
       if (couponData == null) {
@@ -282,7 +298,12 @@ class BusinessesRepositoryImpl implements BusinessesRepository {
       }
 
       final coupon = CouponModel.fromJson(couponData);
-      return CouponResult.success(coupon: coupon);
+      return CouponResult.success(
+        coupon: coupon,
+        discount: response['finalPrice'] == null
+            ? null
+            : (response['discountAmount'] as num).toDouble(),
+      );
     } on BusinessesException catch (e) {
       return CouponResult.failure(e.message);
     } catch (e) {
@@ -345,12 +366,21 @@ class ReservationResult {
 class CouponResult {
   final bool isSuccess;
   final CouponModel? coupon;
+  final double? discount;
   final String? error;
 
-  CouponResult._({required this.isSuccess, this.coupon, this.error});
+  CouponResult._({
+    required this.isSuccess,
+    this.coupon,
+    this.discount,
+    this.error,
+  });
 
-  factory CouponResult.success({required CouponModel coupon}) {
-    return CouponResult._(isSuccess: true, coupon: coupon);
+  factory CouponResult.success({
+    required CouponModel coupon,
+    double? discount,
+  }) {
+    return CouponResult._(isSuccess: true, coupon: coupon, discount: discount);
   }
 
   factory CouponResult.failure(String error) {

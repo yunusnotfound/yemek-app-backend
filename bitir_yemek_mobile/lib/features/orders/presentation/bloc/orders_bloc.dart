@@ -14,6 +14,9 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
   int _currentPage = 1;
   bool _hasReachedMax = false;
   bool _isLoadingMore = false;
+  bool _isRefreshing = false;
+  OrderFilter _filter = OrderFilter.active;
+  int _requestGeneration = 0;
 
   OrdersBloc({required OrdersRepository repository})
     : _repository = repository,
@@ -29,21 +32,28 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     LoadOrders event,
     Emitter<OrdersState> emit,
   ) async {
+    final generation = ++_requestGeneration;
+    _isLoadingMore = false;
+    _isRefreshing = true;
     emit(const OrdersLoading());
     try {
       _currentPage = 1;
       final response = await _repository.getMyOrders(page: 1);
+      if (generation != _requestGeneration || emit.isDone) return;
       _allOrders = response.orders;
       _hasReachedMax = response.page >= response.totalPages;
       emit(
         OrdersLoaded(
           orders: _allOrders,
           hasReachedMax: _hasReachedMax,
-          filter: OrderFilter.active,
+          filter: _filter,
         ),
       );
     } catch (e) {
+      if (generation != _requestGeneration || emit.isDone) return;
       emit(OrdersError(message: e.toString()));
+    } finally {
+      if (generation == _requestGeneration) _isRefreshing = false;
     }
   }
 
@@ -51,36 +61,39 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     LoadMoreOrders event,
     Emitter<OrdersState> emit,
   ) async {
-    if (_isLoadingMore || _hasReachedMax) return;
+    if (_isLoadingMore || _isRefreshing || _hasReachedMax) return;
     final currentState = state;
     if (currentState is! OrdersLoaded) return;
 
     _isLoadingMore = true;
+    final generation = _requestGeneration;
+    final nextPage = _currentPage + 1;
     emit(OrdersLoadingMore(orders: _allOrders, filter: currentState.filter));
 
     try {
-      _currentPage++;
-      final response = await _repository.getMyOrders(page: _currentPage);
+      final response = await _repository.getMyOrders(page: nextPage);
+      if (generation != _requestGeneration || emit.isDone) return;
+      _currentPage = nextPage;
       _allOrders = [..._allOrders, ...response.orders];
       _hasReachedMax = response.page >= response.totalPages;
       emit(
         OrdersLoaded(
           orders: _allOrders,
           hasReachedMax: _hasReachedMax,
-          filter: currentState.filter,
+          filter: _filter,
         ),
       );
     } catch (e) {
-      _currentPage--;
+      if (generation != _requestGeneration || emit.isDone) return;
       emit(
         OrdersLoaded(
           orders: _allOrders,
           hasReachedMax: _hasReachedMax,
-          filter: currentState.filter,
+          filter: _filter,
         ),
       );
     } finally {
-      _isLoadingMore = false;
+      if (generation == _requestGeneration) _isLoadingMore = false;
     }
   }
 
@@ -88,23 +101,27 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
     RefreshOrders event,
     Emitter<OrdersState> emit,
   ) async {
-    final currentFilter = state is OrdersLoaded
-        ? (state as OrdersLoaded).filter
-        : OrderFilter.active;
+    final generation = ++_requestGeneration;
+    _isLoadingMore = false;
+    _isRefreshing = true;
     try {
       _currentPage = 1;
       final response = await _repository.getMyOrders(page: 1);
+      if (generation != _requestGeneration || emit.isDone) return;
       _allOrders = response.orders;
       _hasReachedMax = response.page >= response.totalPages;
       emit(
         OrdersLoaded(
           orders: _allOrders,
           hasReachedMax: _hasReachedMax,
-          filter: currentFilter,
+          filter: _filter,
         ),
       );
     } catch (e) {
+      if (generation != _requestGeneration || emit.isDone) return;
       emit(OrdersError(message: e.toString()));
+    } finally {
+      if (generation == _requestGeneration) _isRefreshing = false;
     }
   }
 
@@ -158,6 +175,11 @@ class OrdersBloc extends Bloc<OrdersEvent, OrdersState> {
   }
 
   void _onChangeFilter(ChangeOrderFilter event, Emitter<OrdersState> emit) {
+    _filter = event.filter;
+    if (_isLoadingMore) {
+      emit(OrdersLoadingMore(orders: _allOrders, filter: _filter));
+      return;
+    }
     emit(
       OrdersLoaded(
         orders: _allOrders,

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../../../config/theme.dart';
+import '../../../main/presentation/main_tab_navigation.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import '../../../../shared/widgets/app_notice.dart';
 import '../../../../core/di/service_locator.dart';
@@ -61,6 +63,7 @@ class _PaymentView extends StatefulWidget {
 
 class _PaymentViewState extends State<_PaymentView> {
   bool _webLoading = true;
+  bool _cancelling = false;
 
   // Backend callback/result URL'i host'tan bağımsız, path ile yakalanır (dev tüneli de çalışır).
   bool _isResultUrl(String? url) {
@@ -71,7 +74,7 @@ class _PaymentViewState extends State<_PaymentView> {
   }
 
   Future<void> _handleBack(BuildContext context, bool locked) async {
-    if (locked) return; // doğrulama sürerken çıkışı engelle
+    if (locked || _cancelling) return; // doğrulama sürerken çıkışı engelle
     final ok = await AppDialog.confirm(
       context,
       icon: Icons.credit_card_off_rounded,
@@ -81,7 +84,24 @@ class _PaymentViewState extends State<_PaymentView> {
       cancelLabel: 'Devam et',
       confirmLabel: 'Vazgeç',
     );
-    if (ok && context.mounted) Navigator.of(context).pop();
+    if (!ok || !context.mounted) return;
+    setState(() => _cancelling = true);
+    try {
+      await appDioClient.dio.patch('/orders/${widget.reservation.id}/cancel');
+      if (context.mounted) Navigator.of(context).pop();
+    } on DioException catch (e) {
+      if (context.mounted) {
+        final data = e.response?.data;
+        AppNotice.error(
+          context,
+          data is Map
+              ? (data['message']?.toString() ?? 'İptal tamamlanamadı')
+              : 'Bağlantı hatası. İptali tekrar deneyin.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
   }
 
   @override
@@ -122,7 +142,10 @@ class _PaymentViewState extends State<_PaymentView> {
             appBar: AppBar(
               backgroundColor: AppColors.surface,
               elevation: 0,
-              title: const Text('Ödeme', style: TextStyle(color: AppColors.textPrimary)),
+              title: const Text(
+                'Ödeme',
+                style: TextStyle(color: AppColors.textPrimary),
+              ),
               leading: IconButton(
                 icon: const Icon(Icons.close, color: AppColors.textPrimary),
                 onPressed: () => _handleBack(context, locked),
@@ -171,9 +194,15 @@ class _PaymentViewState extends State<_PaymentView> {
                   const Center(child: Text('Ödeme sayfası yüklenemedi')),
 
                 if (_webLoading && !locked)
-                  const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
 
-                if (verifying) _buildOverlay(spinner: true, title: 'Ödemeniz doğrulanıyor...'),
+                if (verifying)
+                  _buildOverlay(
+                    spinner: true,
+                    title: 'Ödemeniz doğrulanıyor...',
+                  ),
 
                 if (pending) _buildPendingOverlay(context, bloc),
               ],
@@ -191,9 +220,14 @@ class _PaymentViewState extends State<_PaymentView> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (spinner) const CircularProgressIndicator(color: AppColors.primary),
+            if (spinner)
+              const CircularProgressIndicator(color: AppColors.primary),
             const SizedBox(height: AppSpacing.lg),
-            Text(title, style: AppTypography.bodyLarge, textAlign: TextAlign.center),
+            Text(
+              title,
+              style: AppTypography.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -210,11 +244,17 @@ class _PaymentViewState extends State<_PaymentView> {
           children: [
             const Icon(Icons.hourglass_top, size: 64, color: AppColors.warning),
             const SizedBox(height: AppSpacing.lg),
-            Text('Ödemeniz işleniyor', style: AppTypography.h3, textAlign: TextAlign.center),
+            Text(
+              'Ödemeniz işleniyor',
+              style: AppTypography.h3,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Ödemeniz birkaç dakika içinde onaylanacak ve "Siparişlerim" bölümünde görünecek.',
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+              'Ödeme sonucu henüz kesinleşmedi. Güncel durumu Siparişlerim bölümünden takip edebilirsiniz.',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -226,9 +266,14 @@ class _PaymentViewState extends State<_PaymentView> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
                 ),
-                child: const Text('Tekrar kontrol et', style: AppTypography.button),
+                child: const Text(
+                  'Tekrar kontrol et',
+                  style: AppTypography.button,
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -236,10 +281,13 @@ class _PaymentViewState extends State<_PaymentView> {
               width: double.infinity,
               height: 52,
               child: OutlinedButton(
-                onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                onPressed: () =>
+                    MainTabNavigation.returnTo(context, MainTab.orders),
                 child: Text(
                   'Siparişlerime Git',
-                  style: AppTypography.button.copyWith(color: AppColors.primary),
+                  style: AppTypography.button.copyWith(
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ),

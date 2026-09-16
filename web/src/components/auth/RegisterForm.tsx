@@ -23,6 +23,7 @@ const formSchema = registerSchema
 type FormValues = z.infer<typeof formSchema>;
 
 export function RegisterForm() {
+  const [done, setDone] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const {
@@ -44,12 +45,18 @@ export function RegisterForm() {
           phone: values.phone || undefined,
         }),
       });
-      // Kayıt başarılı → oturum kuruldu. Panele git (e-posta doğrulama uyarısı orada).
-      window.location.assign("/panel?welcome=1");
+      setDone(true);
     } catch (err) {
       setFormError(applyApiError(err, setError));
     }
   }
+
+  if (done) return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+      <Alert tone="success">Hesabın oluşturuldu. E-postandaki bağlantıyla adresini doğruladıktan sonra giriş yapabilirsin.</Alert>
+      <Link href="/giris" className="mt-5 inline-block font-semibold text-brand-700">Giriş yap →</Link>
+    </div>
+  );
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm sm:p-8">

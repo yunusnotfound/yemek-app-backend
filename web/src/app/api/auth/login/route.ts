@@ -1,10 +1,13 @@
+import { parseJsonRequest } from "@/lib/api/request-body";
 import { NextResponse } from "next/server";
 import { callBackendJson } from "@/lib/api/client";
 import { setSession } from "@/lib/auth/session";
 import type { AuthResponse } from "@/lib/types";
 
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
+  const parsed = await parseJsonRequest(req);
+  if (parsed.response) return parsed.response;
+  const body = parsed.body;
 
   const res = await callBackendJson("/auth/login", "POST", {
     email: body.email,

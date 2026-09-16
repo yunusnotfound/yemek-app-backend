@@ -1,4 +1,5 @@
 const winston = require('winston');
+const { redact } = require('../utils/redact');
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -30,6 +31,7 @@ const logger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     winston.format.errors({ stack: true }),
+    winston.format((info) => redact(info))(),
     winston.format.json()
   ),
   defaultMeta: { service: 'bitir-yemek' },

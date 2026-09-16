@@ -1,3 +1,6 @@
+import 'order_quantity_selector.dart';
+import '../../../../core/utils/money_format.dart';
+import '../../../coupons/presentation/coupons_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
@@ -14,8 +17,15 @@ import '../bloc/reservation_bloc.dart';
 
 class ReservationConfirmSheet extends StatefulWidget {
   final PackageModel package;
+  final CouponModel? initialCoupon;
+  final int initialQuantity;
 
-  const ReservationConfirmSheet({super.key, required this.package});
+  const ReservationConfirmSheet({
+    super.key,
+    required this.package,
+    this.initialCoupon,
+    this.initialQuantity = 1,
+  });
 
   @override
   State<ReservationConfirmSheet> createState() =>
@@ -30,6 +40,8 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
   CouponModel? _appliedCoupon;
   double _couponDiscount = 0;
   bool _couponValidating = false;
+  bool _submitting = false;
+  late int _quantity;
   String? _couponError;
 
   // Ödeme yöntemi: kayıtlı kart tokenı veya yeni kart formu.
@@ -43,6 +55,16 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
   @override
   void initState() {
     super.initState();
+    _quantity = widget.initialQuantity.clamp(
+      1,
+      widget.package.remainingQuantity.clamp(1, 100),
+    );
+    if (widget.initialCoupon != null) {
+      _couponController.text = widget.initialCoupon!.code;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onValidateCoupon();
+      });
+    }
     _cardsBloc = CardsBloc(
       repository: CardsRepositoryImpl(
         remoteDataSource: CardsRemoteDataSource(dioClient: appDioClient),
@@ -57,10 +79,32 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
     super.dispose();
   }
 
-  double get _packageDiscount =>
-      widget.package.originalPrice - widget.package.discountedPrice;
+  double get _baseTotal =>
+      (widget.package.discountedPrice * 100).round() * _quantity / 100;
+  double get _originalTotal =>
+      (widget.package.originalPrice * 100).round() * _quantity / 100;
+  double get _packageDiscount => _originalTotal - _baseTotal;
+  double get _totalPrice =>
+      ((_baseTotal * 100).round() - (_couponDiscount * 100).round()).clamp(
+        0,
+        (_baseTotal * 100).round(),
+      ) /
+      100;
 
-  double get _totalPrice => widget.package.discountedPrice - _couponDiscount;
+  void _changeQuantity(int value) {
+    if (_couponValidating || _submitting) return;
+    final code = _appliedCoupon?.code;
+    setState(() {
+      _quantity = value;
+      _appliedCoupon = null;
+      _couponDiscount = 0;
+      _couponError = null;
+    });
+    if (code != null) {
+      _couponController.text = code;
+      _onValidateCoupon();
+    }
+  }
 
   bool get _isPaid => _totalPrice > 0;
 
@@ -68,7 +112,9 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
   Widget build(BuildContext context) {
     return BlocListener<ReservationBloc, ReservationState>(
       listener: (context, state) {
-        if (state is CouponValidated) {
+        if (state is ReservationLoading) {
+          setState(() => _submitting = true);
+        } else if (state is CouponValidated) {
           setState(() {
             _appliedCoupon = state.coupon;
             _couponDiscount = state.discount;
@@ -88,6 +134,7 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
             _couponError = null;
           });
         } else if (state is ReservationError) {
+          setState(() => _submitting = false);
           // Kayıtlı kart bayat olabilir (iyzico'da silinmiş) -> listeyi sessizce yenile.
           _cardsBloc.add(const LoadCards(silent: true));
         }
@@ -140,6 +187,14 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
               _buildPackageSummary(),
               const SizedBox(height: AppSpacing.md),
 
+              OrderQuantitySelector(
+                quantity: _quantity,
+                maximum: widget.package.remainingQuantity.clamp(1, 100),
+                enabled: !_submitting && !_couponValidating,
+                onChanged: _changeQuantity,
+              ),
+              const SizedBox(height: AppSpacing.md),
+
               // Pickup info
               _buildPickupInfo(),
               const SizedBox(height: AppSpacing.lg),
@@ -166,7 +221,9 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: isLoading ? null : _onConfirm,
+                      onPressed: isLoading || _submitting || _couponValidating
+                          ? null
+                          : _onConfirm,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -185,8 +242,8 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
                             )
                           : Text(
                               _isPaid
-                                  ? 'Öde ve Rezerve Et - ₺${_totalPrice.toStringAsFixed(0)}'
-                                  : 'Rezerve Et - ₺${_totalPrice.toStringAsFixed(0)}',
+                                  ? 'Öde ve Rezerve Et - ${formatMoney(_totalPrice)}'
+                                  : 'Rezerve Et - ${formatMoney(_totalPrice)}',
                               style: AppTypography.button,
                             ),
                     ),
@@ -259,7 +316,7 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
               Icon(Icons.access_time, size: 18, color: AppColors.primary),
               const SizedBox(width: AppSpacing.sm),
               Text(
-                'Bugun, ${widget.package.formattedPickupTime}',
+                'Teslim saati, ${widget.package.formattedPickupTime}',
                 style: AppTypography.bodyMedium.copyWith(
                   fontWeight: FontWeight.w500,
                 ),
@@ -296,8 +353,32 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _submitting || _couponValidating
+                ? null
+                : () async {
+                    final selected = await openCoupons(
+                      context,
+                      package: widget.package,
+                      quantity: _quantity,
+                    );
+                    if (!mounted || selected == null) return;
+                    _couponController.text = selected.code;
+                    _onValidateCoupon();
+                  },
+            icon: const Icon(Icons.confirmation_number_outlined),
+            label: const Text('Kuponlarımdan seç'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.ink,
+              side: const BorderSide(color: AppDepth.border),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
         Text(
-          'Kupon Kodu (opsiyonel)',
+          'Kupon kodu',
           style: AppTypography.bodySmall.copyWith(
             color: AppColors.textHint,
             fontWeight: FontWeight.w600,
@@ -309,7 +390,10 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
             Expanded(
               child: TextField(
                 controller: _couponController,
-                enabled: _appliedCoupon == null,
+                enabled:
+                    _appliedCoupon == null &&
+                    !_submitting &&
+                    !_couponValidating,
                 decoration: InputDecoration(
                   hintText: 'Kupon kodunu girin',
                   contentPadding: const EdgeInsets.symmetric(
@@ -331,19 +415,23 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
             const SizedBox(width: AppSpacing.sm),
             if (_appliedCoupon != null)
               IconButton(
-                onPressed: () {
-                  setState(() {
-                    _appliedCoupon = null;
-                    _couponDiscount = 0;
-                    _couponController.clear();
-                    _couponError = null;
-                  });
-                },
+                onPressed: _submitting
+                    ? null
+                    : () {
+                        setState(() {
+                          _appliedCoupon = null;
+                          _couponDiscount = 0;
+                          _couponController.clear();
+                          _couponError = null;
+                        });
+                      },
                 icon: const Icon(Icons.close, color: AppColors.error),
               )
             else
               ElevatedButton(
-                onPressed: _couponValidating ? null : _onValidateCoupon,
+                onPressed: _submitting || _couponValidating
+                    ? null
+                    : _onValidateCoupon,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.md,
@@ -375,7 +463,7 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.xs),
             child: Text(
-              'Kupon uygulandi!',
+              'Kupon uygulandı',
               style: AppTypography.bodySmall.copyWith(color: AppColors.success),
             ),
           ),
@@ -388,7 +476,7 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Odeme Yontemi',
+          'Ödeme Yontemi',
           style: AppTypography.bodySmall.copyWith(
             color: AppColors.textHint,
             fontWeight: FontWeight.w600,
@@ -402,7 +490,9 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
               setState(() {
                 // Seçili kart artık listede yoksa (silinmiş) seçimi düşür.
                 if (_selectedCardToken != null &&
-                    !state.cards.any((c) => c.cardToken == _selectedCardToken)) {
+                    !state.cards.any(
+                      (c) => c.cardToken == _selectedCardToken,
+                    )) {
                   _selectedCardToken = null;
                 }
                 if (state.cards.isEmpty) {
@@ -541,21 +631,18 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
       ),
       child: Column(
         children: [
-          _buildPriceRow(
-            'Paket fiyati',
-            '₺${widget.package.originalPrice.toStringAsFixed(0)}',
-          ),
+          _buildPriceRow('Paket fiyatı', formatMoney(_originalTotal)),
           const SizedBox(height: AppSpacing.sm),
           _buildPriceRow(
-            'Indirim',
-            '-₺${_packageDiscount.toStringAsFixed(0)}',
+            'Paket indirimi',
+            '-${formatMoney(_packageDiscount)}',
             valueColor: AppColors.success,
           ),
           if (_couponDiscount > 0) ...[
             const SizedBox(height: AppSpacing.sm),
             _buildPriceRow(
               'Kupon indirimi',
-              '-₺${_couponDiscount.toStringAsFixed(0)}',
+              '-${formatMoney(_couponDiscount)}',
               valueColor: AppColors.success,
             ),
           ],
@@ -565,7 +652,7 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
           ),
           _buildPriceRow(
             'Toplam',
-            '₺${_totalPrice.toStringAsFixed(0)}',
+            formatMoney(_totalPrice),
             isBold: true,
             valueColor: AppColors.primary,
           ),
@@ -605,14 +692,21 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
 
   void _onValidateCoupon() {
     final code = _couponController.text.trim();
-    if (code.isEmpty) return;
+    if (code.isEmpty || _couponValidating || _submitting) return;
+    setState(() => _couponValidating = true);
 
     context.read<ReservationBloc>().add(
-      ValidateCoupon(code: code, orderTotal: widget.package.discountedPrice),
+      ValidateCoupon(
+        code: code,
+        orderTotal: _baseTotal,
+        quantity: _quantity,
+        packageId: widget.package.id,
+      ),
     );
   }
 
   void _onConfirm() {
+    if (_submitting || _couponValidating) return;
     Map<String, dynamic>? paymentCard;
 
     if (_isPaid) {
@@ -630,15 +724,18 @@ class _ReservationConfirmSheetState extends State<ReservationConfirmSheet> {
       } else if (_selectedCardToken != null) {
         paymentCard = {'savedCardToken': _selectedCardToken};
       } else {
-        setState(() => _paymentError = 'Lutfen bir odeme yontemi secin');
+        setState(() => _paymentError = 'Lütfen bir ödeme yöntemi seçin');
         return;
       }
     }
 
+    setState(() => _submitting = true);
     context.read<ReservationBloc>().add(
       CreateReservation(
         packageId: widget.package.id,
+        quantity: _quantity,
         couponCode: _appliedCoupon?.code,
+        expectedFinalPrice: _totalPrice,
         paymentCard: paymentCard,
       ),
     );

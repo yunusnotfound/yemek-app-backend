@@ -3,11 +3,11 @@ const crypto = require('crypto');
 const axios = require('axios');
 const { Op } = require('sequelize');
 const { OAuth2Client } = require('google-auth-library');
-const { User, EmailOtp } = require('../models');
+const { User, EmailOtp, sequelize } = require('../models');
 const { generateToken } = require('../utils/helpers');
 const { sendVerificationEmail, sendPasswordResetEmail, sendOtpEmail } = require('../services/emailService');
 const logger = require('../services/logger');
-const { isRedisAvailable, storeRefreshToken, revokeRefreshToken, isRefreshTokenStored } = require('../services/cacheService');
+const { storeRefreshToken, revokeRefreshToken, consumeRefreshToken, limitAuthIdentity } = require('../services/cacheService');
 
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
@@ -21,15 +21,15 @@ const getRefreshTtl = () => {
 
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
-    { id: user.id, role: user.role },
+    { id: user.id, role: user.role, version: user.authVersion, type: 'access' },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '15m', jwtid: crypto.randomUUID(), algorithm: 'HS256' }
   );
 
   const refreshToken = jwt.sign(
-    { id: user.id },
+    { id: user.id, version: user.authVersion, type: 'refresh' },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d', jwtid: crypto.randomUUID(), algorithm: 'HS256' }
   );
 
   return { accessToken, refreshToken };
@@ -55,13 +55,9 @@ exports.register = async (req, res, next) => {
     await user.update({ emailVerificationToken: hashToken(verificationToken), emailVerificationExpires: verificationExpires });
     await sendVerificationEmail(email, verificationToken);
 
-    const tokens = generateTokens(user);
-    await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());
-
     res.status(201).json({
       message: 'Kayıt başarılı. Lütfen e-postanızı doğrulayın.',
       user,
-      ...tokens,
     });
   } catch (error) {
     next(error);
@@ -71,6 +67,10 @@ exports.register = async (req, res, next) => {
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+
+    if (!await limitAuthIdentity(email, 'password-login', 10)) {
+      return res.status(429).json({ message: 'Çok fazla giriş denemesi. Lütfen daha sonra tekrar deneyin.' });
+    }
 
     const user = await User.findOne({ where: { email } });
     if (!user) {
@@ -107,14 +107,20 @@ exports.login = async (req, res, next) => {
 exports.requestOtp = async (req, res, next) => {
   try {
     const { email } = req.body;
+    if (!await limitAuthIdentity(email, 'otp-request')) {
+      return res.status(429).json({ message: 'Çok fazla istek. Lütfen daha sonra tekrar deneyin.' });
+    }
 
     // Cryptographically secure 6-digit numeric code.
     const code = crypto.randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // One active code per email — drop any previous codes before issuing a new one.
-    await EmailOtp.destroy({ where: { email } });
-    await EmailOtp.create({ email, codeHash: hashToken(code), expiresAt, attempts: 0 });
+    await sequelize.transaction(async (transaction) => {
+      await lockEmail(email, transaction);
+      await EmailOtp.destroy({ where: { email }, transaction });
+      await EmailOtp.create({ email, codeHash: hashToken(code), expiresAt, attempts: 0 }, { transaction });
+    });
 
     await sendOtpEmail(email, code);
 
@@ -135,71 +141,54 @@ exports.requestOtp = async (req, res, next) => {
 };
 
 // Passwordless OTP — Step 2: verify the code, then log in or create the account
+// This lock also serializes first-time signup, when no user row exists yet.
+const lockEmail = (email, transaction) => sequelize.query(
+  'SELECT pg_advisory_xact_lock(hashtextextended(:email, 0))',
+  { replacements: { email }, transaction }
+);
+
+// A verified mailbox may claim an unverified registration, but must discard
+// credentials that someone else could have planted before verification.
+const verifiedIdentityFields = (user) => user.isEmailVerified ? {} : {
+  password: null, googleId: null, appleId: null, cardUserKey: null,
+  emailVerificationToken: null, emailVerificationExpires: null,
+  passwordResetToken: null, passwordResetExpires: null,
+  authVersion: user.authVersion + 1,
+};
+
 exports.verifyOtp = async (req, res, next) => {
   try {
     const { email, code, name, phone, role } = req.body;
+    const outcome = await sequelize.transaction(async (transaction) => {
+      await lockEmail(email, transaction);
+      const otp = await EmailOtp.findOne({ where: { email }, transaction, lock: true });
+      if (!otp || otp.expiresAt <= new Date()) return { error: 400 };
+      if (otp.attempts >= 5) return { error: 429 };
+      await otp.increment('attempts', { transaction });
+      if (otp.codeHash !== hashToken(code)) return { error: 400 };
 
-    const otp = await EmailOtp.findOne({ where: { email } });
-    if (!otp || otp.expiresAt < new Date()) {
-      return res.status(400).json({ message: 'Geçersiz veya süresi dolmuş kod' });
-    }
-
-    // Cap brute-force attempts. Count this attempt before comparing.
-    if (otp.attempts >= 5) {
-      await otp.destroy();
-      return res.status(429).json({ message: 'Çok fazla deneme yapıldı. Yeni bir kod isteyin.' });
-    }
-    await otp.increment('attempts');
-
-    if (otp.codeHash !== hashToken(code)) {
-      return res.status(400).json({ message: 'Geçersiz veya süresi dolmuş kod' });
-    }
-
-    // Code is valid — consume it.
-    await otp.destroy();
-
-    // Find existing user (including soft-deleted) or create a new customer.
-    let user = await User.findOne({ where: { email }, paranoid: false });
-    if (user) {
-      if (user.deletedAt) {
-        await user.restore();
-        logger.info('Restored soft-deleted user via OTP login', { userId: user.id, email });
+      let user = await User.findOne({ where: { email }, paranoid: false, transaction, lock: true });
+      if (user?.deletedAt) return { error: 403 };
+      if (!user && !name) return { error: 400 };
+      await otp.destroy({ transaction });
+      if (user) {
+        await user.update({ ...verifiedIdentityFields(user), isEmailVerified: true }, { transaction });
+      } else {
+        user = await User.create({ name, email, phone,
+          role: role === 'business_owner' ? 'business_owner' : 'customer',
+          isEmailVerified: true }, { transaction });
       }
-      if (!user.isEmailVerified) {
-        await user.update({ isEmailVerified: true });
-      }
-    } else {
-      if (!name) {
-        return res.status(400).json({ message: 'Yeni hesap için ad soyad gerekli' });
-      }
-      // Rol YALNIZCA yeni hesap açılırken uygulanır; mevcut bir kullanıcının
-      // rolü OTP girişiyle asla değişmez (yukarıdaki dalda dokunulmuyor).
-      // Google/Apple akışıyla aynı savunma: beklenen değer dışındaki her şey
-      // 'customer'a düşer, 'admin' dışarıdan atanamaz.
-      const userRole = role === 'business_owner' ? 'business_owner' : 'customer';
-      user = await User.create({
-        name,
-        email,
-        phone,
-        role: userRole,
-        isEmailVerified: true,
-      });
-      logger.info('New user registered via OTP', { userId: user.id, email, role: userRole });
-    }
-
+      return { user };
+    });
+    if (outcome.error) return res.status(outcome.error).json({
+      message: outcome.error === 403 ? 'Bu hesap kullanıma kapalı' :
+        outcome.error === 429 ? 'Çok fazla deneme yapıldı. Yeni bir kod isteyin.' : 'Geçersiz veya süresi dolmuş kod',
+    });
+    const user = outcome.user;
     const tokens = generateTokens(user);
     await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());
-
-    logger.info('OTP login successful', { userId: user.id, email });
-
-    res.json({
-      message: 'Giriş başarılı',
-      user,
-      ...tokens,
-    });
-  } catch (error) {
-    next(error);
-  }
+    res.json({ message: 'Giriş başarılı', user, ...tokens });
+  } catch (error) { next(error); }
 };
 
 exports.refreshToken = async (req, res, next) => {
@@ -209,26 +198,15 @@ exports.refreshToken = async (req, res, next) => {
       return res.status(400).json({ message: 'Refresh token gerekli' });
     }
 
-    // Validate token is not revoked and rotate it.
-    // In production we MUST verify against the stored-token list — if Redis is
-    // down we fail closed rather than skipping the revocation check. In
-    // non-production we keep best-effort behaviour for local development.
-    const tokenHash = hashToken(refreshToken);
-    if (isRedisAvailable()) {
-      const stored = await isRefreshTokenStored(tokenHash);
-      if (!stored) {
-        return res.status(401).json({ message: 'Geçersiz refresh token' });
-      }
-      await revokeRefreshToken(tokenHash);
-    } else if (process.env.NODE_ENV === 'production') {
-      logger.error('Refresh token check failed closed: Redis unavailable in production');
-      return res.status(401).json({ message: 'Oturum doğrulanamadı' });
-    }
-
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, { algorithms: ['HS256'] });
     const user = await User.findByPk(decoded.id);
-    if (!user) {
-      return res.status(401).json({ message: 'Kullanıcı bulunamadı' });
+    if (!user || !user.isEmailVerified || (decoded.type && decoded.type !== 'refresh') ||
+        (decoded.version ?? 0) !== user.authVersion) {
+      return res.status(401).json({ message: 'Geçersiz refresh token' });
+    }
+    const stored = await consumeRefreshToken(hashToken(refreshToken));
+    if (!stored || stored.userId !== user.id) {
+      return res.status(401).json({ message: 'Geçersiz refresh token' });
     }
 
     const tokens = generateTokens(user);
@@ -290,6 +268,9 @@ exports.verifyEmail = async (req, res, next) => {
 exports.resendVerification = async (req, res, next) => {
   try {
     const { email } = req.body;
+    if (!await limitAuthIdentity(email, 'verification-request')) {
+      return res.status(429).json({ message: 'Çok fazla istek. Lütfen daha sonra tekrar deneyin.' });
+    }
     
     const user = await User.findOne({ where: { email } });
     if (!user) {
@@ -315,6 +296,9 @@ exports.resendVerification = async (req, res, next) => {
 exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
+    if (!await limitAuthIdentity(email, 'reset-request')) {
+      return res.status(429).json({ message: 'Çok fazla istek. Lütfen daha sonra tekrar deneyin.' });
+    }
     
     const user = await User.findOne({ where: { email } });
     if (!user) {
@@ -330,7 +314,8 @@ exports.forgotPassword = async (req, res, next) => {
 
     await user.update({
       passwordResetToken: hashToken(resetToken),
-      passwordResetExpires: resetExpires
+      passwordResetExpires: resetExpires,
+      passwordResetAttempts: 0
     });
 
     await sendPasswordResetEmail(email, resetToken);
@@ -344,34 +329,44 @@ exports.forgotPassword = async (req, res, next) => {
 // Reset Password
 exports.resetPassword = async (req, res, next) => {
   try {
-    const { token, password } = req.body;
-    
-    if (!token || !password) {
-      return res.status(400).json({ message: 'Token ve şifre gerekli' });
-    }
-
-    const user = await User.findOne({
-      where: {
-        passwordResetToken: hashToken(token),
-        passwordResetExpires: { [Op.gt]: new Date() }
-      }
+    const { email, token, password } = req.body;
+    const changed = await sequelize.transaction(async (transaction) => {
+      const user = await User.findOne({ where: { email }, transaction, lock: true });
+      if (!user || !user.passwordResetToken || user.passwordResetExpires <= new Date() ||
+          user.passwordResetAttempts >= 5) return false;
+      await user.increment('passwordResetAttempts', { transaction });
+      if (user.passwordResetToken !== hashToken(token)) return false;
+      await user.update({ password, passwordResetToken: null, passwordResetExpires: null,
+        emailVerificationToken: null, emailVerificationExpires: null,
+        isEmailVerified: true, authVersion: user.authVersion + 1 }, { transaction });
+      return true;
     });
-
-    if (!user) {
-      return res.status(400).json({ message: 'Geçersiz veya süresi dolmuş token' });
-    }
-
-    await user.update({ 
-      password,
-      passwordResetToken: null,
-      passwordResetExpires: null
-    });
-
+    if (!changed) return res.status(400).json({ message: 'Geçersiz veya süresi dolmuş kod' });
     res.json({ message: 'Şifreniz başarıyla değiştirildi' });
-  } catch (error) {
-    next(error);
-  }
+  } catch (error) { next(error); }
 };
+
+// Provider identities are linked only from verified, provider-authoritative claims.
+const socialUser = async ({ provider, subject, email, name, role, canLinkEmail }) =>
+  sequelize.transaction(async (transaction) => {
+    await lockEmail(email || `${provider}:${subject}`, transaction);
+    let user = await User.findOne({ where: { [provider]: subject }, paranoid: false, transaction, lock: true });
+    if (!user && email) {
+      user = await User.findOne({ where: { email }, paranoid: false, transaction, lock: true });
+      if (user && (!canLinkEmail || (user[provider] && user[provider] !== subject))) {
+        throw Object.assign(new Error('Bu e-posta için giriş kodu ile doğrulama gerekli'), { statusCode: 403 });
+      }
+    }
+    if (user?.deletedAt) throw Object.assign(new Error('Bu hesap kullanıma kapalı'), { statusCode: 403 });
+    if (user) {
+      await user.update({ ...verifiedIdentityFields(user), [provider]: subject, isEmailVerified: true }, { transaction });
+    } else {
+      if (!email || !canLinkEmail) throw Object.assign(new Error('Giriş kodu ile e-posta doğrulaması gerekli'), { statusCode: 403 });
+      user = await User.create({ name: name || email.split('@')[0], email, [provider]: subject,
+        role: role === 'business_owner' ? 'business_owner' : 'customer', isEmailVerified: true }, { transaction });
+    }
+    return user;
+  });
 
 // Google Sign-In
 exports.googleLogin = async (req, res, next) => {
@@ -381,6 +376,8 @@ exports.googleLogin = async (req, res, next) => {
     if (!idToken) {
       return res.status(400).json({ message: 'Google ID token gerekli' });
     }
+
+    if (!process.env.GOOGLE_CLIENT_ID) return res.status(503).json({ message: 'Google ile giriş yapılandırılmamış' });
 
     // Verify the Google ID token
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -396,44 +393,12 @@ exports.googleLogin = async (req, res, next) => {
     }
 
     const payload = ticket.getPayload();
-    const { sub: googleId, email, name, email_verified } = payload;
-
-    if (!email) {
-      return res.status(400).json({ message: 'Google hesabında e-posta bulunamadı' });
+    const { sub: googleId, email, name, email_verified, hd } = payload;
+    if (!googleId || !email || email_verified !== true) {
+      return res.status(401).json({ message: 'Doğrulanmış Google hesabı gerekli' });
     }
-
-    // Find existing user by googleId or email — include soft-deleted rows
-    let user = await User.findOne({ where: { googleId }, paranoid: false });
-
-    if (!user) {
-      user = await User.findOne({ where: { email }, paranoid: false });
-
-      if (user) {
-        // Restore soft-deleted account and link Google
-        if (user.deletedAt) {
-          await user.restore();
-          logger.info('Restored soft-deleted user via Google login', { userId: user.id, email });
-        }
-        await user.update({ googleId, isEmailVerified: true });
-        logger.info('Google account linked to existing user', { userId: user.id, email });
-      } else {
-        // Create new user
-        const userRole = role === 'business_owner' ? 'business_owner' : 'customer';
-        user = await User.create({
-          name: name || email.split('@')[0],
-          email,
-          googleId,
-          role: userRole,
-          isEmailVerified: true,
-        });
-        logger.info('New user registered via Google', { userId: user.id, email, role: userRole });
-      }
-    } else if (user.deletedAt) {
-      // Found by googleId but soft-deleted — restore
-      await user.restore();
-      await user.update({ isEmailVerified: true });
-      logger.info('Restored soft-deleted user via Google login', { userId: user.id, email });
-    }
+    const user = await socialUser({ provider: 'googleId', subject: googleId, email, name, role,
+      canLinkEmail: email.toLowerCase().endsWith('@gmail.com') || Boolean(hd) });
 
     const tokens = generateTokens(user);
     await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());
@@ -453,7 +418,7 @@ exports.googleLogin = async (req, res, next) => {
 // Apple Sign-In
 exports.appleLogin = async (req, res, next) => {
   try {
-    const { identityToken, userIdentifier, email: clientEmail, fullName, role } = req.body;
+    const { identityToken, fullName, role } = req.body;
 
     if (!identityToken) {
       return res.status(400).json({ message: 'Apple identity token gerekli' });
@@ -474,7 +439,7 @@ exports.appleLogin = async (req, res, next) => {
       );
 
       // Fetch Apple's public keys
-      const { data: jwks } = await axios.get('https://appleid.apple.com/auth/keys');
+      const { data: jwks } = await axios.get('https://appleid.apple.com/auth/keys', { timeout: 5000, maxContentLength: 100000 });
       const appleKey = jwks.keys.find((k) => k.kid === header.kid);
 
       if (!appleKey) {
@@ -494,48 +459,11 @@ exports.appleLogin = async (req, res, next) => {
       return res.status(401).json({ message: 'Geçersiz Apple token' });
     }
 
-    const appleId = decoded.sub || userIdentifier;
-    const email = decoded.email || clientEmail;
-
-    if (!appleId) {
-      return res.status(400).json({ message: 'Apple kullanıcı kimliği alınamadı' });
-    }
-
-    // Find existing user by appleId or email — include soft-deleted rows
-    let user = await User.findOne({ where: { appleId }, paranoid: false });
-
-    if (!user) {
-      if (email) {
-        user = await User.findOne({ where: { email }, paranoid: false });
-      }
-
-      if (user) {
-        // Restore soft-deleted account and link Apple
-        if (user.deletedAt) {
-          await user.restore();
-          logger.info('Restored soft-deleted user via Apple login', { userId: user.id, email });
-        }
-        await user.update({ appleId, isEmailVerified: true });
-        logger.info('Apple account linked to existing user', { userId: user.id, email });
-      } else {
-        // Create new user
-        const userRole = role === 'business_owner' ? 'business_owner' : 'customer';
-        const userName = fullName || (email ? email.split('@')[0] : `Apple User`);
-        user = await User.create({
-          name: userName,
-          email: email || `apple_${appleId}@privaterelay.appleid.com`,
-          appleId,
-          role: userRole,
-          isEmailVerified: true,
-        });
-        logger.info('New user registered via Apple', { userId: user.id, email: user.email, role: userRole });
-      }
-    } else if (user.deletedAt) {
-      // Found by appleId but soft-deleted — restore
-      await user.restore();
-      await user.update({ isEmailVerified: true });
-      logger.info('Restored soft-deleted user via Apple login', { userId: user.id, email: user.email });
-    }
+    const appleId = decoded.sub;
+    const email = decoded.email;
+    if (!appleId) return res.status(401).json({ message: 'Geçersiz Apple token' });
+    const user = await socialUser({ provider: 'appleId', subject: appleId, email, name: fullName, role,
+      canLinkEmail: decoded.email_verified === true || decoded.email_verified === 'true' });
 
     const tokens = generateTokens(user);
     await storeRefreshToken(hashToken(tokens.refreshToken), user.id, getRefreshTtl());

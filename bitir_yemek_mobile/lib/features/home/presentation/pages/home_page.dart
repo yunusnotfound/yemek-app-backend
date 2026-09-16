@@ -1,3 +1,4 @@
+import '../../../coupons/presentation/campaign_banner.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,8 +25,8 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     // PackagesBloc ve HomeBloc artık MainScaffold'da sağlanıyor; bu sayfa Ara
     // sekmesine geçilince yeniden kurulduğu için bloc'u burada yaratmak her
-    // dönüşte aynı veriyi tekrar ağdan çekiyordu. İlk yükleme
-    // _HomeViewState.initState içinde, yalnız durum initial ise tetiklenir.
+    // dönüşte aynı veriyi tekrar ağdan çekiyordu. İlk yükleme initState'te;
+    // sonraki sessiz güncellemeler MainScaffold'daki CatalogRefresh ile yapılır.
     return HomeView(latitude: latitude, longitude: longitude);
   }
 }
@@ -52,8 +53,8 @@ class _HomeViewState extends State<HomeView> {
     super.initState();
 
     // Bloc'lar sekmeler arası paylaşıldığı için veri zaten yüklenmiş olabilir.
-    // Yalnızca hiç yüklenmemişse ağa çık — sekmeye her dönüşte tekrar istek
-    // atılmasını bu koşul engelliyor.
+    // Burada yalnız ilk yükleme yapılır; CatalogRefresh görünür sekmenin
+    // güncellemelerini devam eden isteklerle çakıştırmadan tetikler.
     final packagesBloc = context.read<PackagesBloc>();
     if (packagesBloc.state is PackagesInitial) {
       packagesBloc.add(
@@ -265,143 +266,213 @@ class _HomeViewState extends State<HomeView> {
                     // tarafından izleniyor; liste favori değişiminde rebuild
                     // olmaz (yalnız ilgili kalp yeniden çizilir).
                     return RefreshIndicator(
-                          onRefresh: () async {
-                            context.read<HomeBloc>().add(
-                              const RefreshCategories(),
-                            );
-                            // Spinner, paketler oturana kadar dönsün. onDone,
-                            // veri değişmese bile tamamlanır (state bastırılsa da).
-                            final done = Completer<void>();
-                            context.read<PackagesBloc>().add(
-                              RefreshPackages(
-                                latitude: widget.latitude,
-                                longitude: widget.longitude,
-                                categoryId: _currentCategoryId,
-                                onDone: done,
+                      onRefresh: () async {
+                        context.read<HomeBloc>().add(const RefreshCategories());
+                        // Spinner, paketler oturana kadar dönsün. onDone,
+                        // veri değişmese bile tamamlanır (state bastırılsa da).
+                        final done = Completer<void>();
+                        context.read<PackagesBloc>().add(
+                          RefreshPackages(
+                            latitude: widget.latitude,
+                            longitude: widget.longitude,
+                            categoryId: _currentCategoryId,
+                            onDone: done,
+                          ),
+                        );
+                        await done.future;
+                      },
+                      color: AppColors.primary,
+                      child: CustomScrollView(
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: CampaignBanner(
+                              latitude: widget.latitude,
+                              longitude: widget.longitude,
+                            ),
+                          ),
+                          // Popular Section Title
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.screenPadding,
+                                vertical: AppSpacing.md,
                               ),
-                            );
-                            await done.future;
-                          },
-                          color: AppColors.primary,
-                          child: CustomScrollView(
-                            slivers: [
-                              // Popular Section Title
-                              SliverToBoxAdapter(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.screenPadding,
-                                    vertical: AppSpacing.md,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Yakınınızdaki popüler seçimler',
-                                          style: AppTypography.h3.copyWith(
-                                            fontSize: 15,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Yakınındaki fırsatlar',
+                                      style: AppTypography.h3.copyWith(
+                                        fontSize: 15,
                                       ),
-                                      TextButton(
-                                        onPressed: () {
-                                          final favBloc = context
-                                              .read<FavoritesBloc>();
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) => BlocProvider.value(
-                                                value: favBloc,
-                                                child: AllPackagesPage(
-                                                  title:
-                                                      'Yakınınızdaki Popüler Seçimler',
-                                                  latitude: widget.latitude,
-                                                  longitude: widget.longitude,
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        child: Text(
-                                          'Hepsini Gör',
-                                          style: AppTypography.bodyMedium
-                                              .copyWith(
-                                                color: AppColors.primary,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                              // Horizontal Package List
-                              SliverToBoxAdapter(
-                                child: SizedBox(
-                                  height: 320,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppSpacing.screenPadding,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    itemCount: packages.length > 5
-                                        ? 5
-                                        : packages.length,
-                                    itemBuilder: (context, index) {
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: AppSpacing.md,
-                                        ),
-                                        child: PackageCard(
-                                          package: packages[index],
-                                          isHorizontal: true,
-                                          onTap: () {
-                                            final favBloc = context
-                                                .read<FavoritesBloc>();
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    BlocProvider.value(
-                                                      value: favBloc,
-                                                      child: PackageDetailPage(
-                                                        package:
-                                                            packages[index],
-                                                      ),
-                                                    ),
-                                              ),
-                                            );
-                                          },
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      final favBloc = context
+                                          .read<FavoritesBloc>();
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => BlocProvider.value(
+                                            value: favBloc,
+                                            child: AllPackagesPage(
+                                              title: 'Yakınındaki Fırsatlar',
+                                              latitude: widget.latitude,
+                                              longitude: widget.longitude,
+                                            ),
+                                          ),
                                         ),
                                       );
                                     },
+                                    child: Text(
+                                      'Hepsini Gör',
+                                      style: AppTypography.bodyMedium.copyWith(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Horizontal Package List
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height:
+                                  328 +
+                                  (MediaQuery.textScalerOf(context).scale(16) -
+                                              16)
+                                          .clamp(0, 60) *
+                                      6,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.screenPadding,
+                                ),
+                                itemCount: packages.length > 5
+                                    ? 5
+                                    : packages.length,
+                                itemBuilder: (context, index) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(
+                                      right: AppSpacing.md,
+                                    ),
+                                    child: PackageCard(
+                                      package: packages[index],
+                                      isHorizontal: true,
+                                      onTap: () {
+                                        final favBloc = context
+                                            .read<FavoritesBloc>();
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => BlocProvider.value(
+                                              value: favBloc,
+                                              child: PackageDetailPage(
+                                                package: packages[index],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+
+                          // Additional nearby packages
+                          if (_sonSansSayisi(packages.length) > 0)
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.screenPadding,
+                                  vertical: AppSpacing.md,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Keşfetmeye devam et',
+                                        style: AppTypography.h3.copyWith(
+                                          fontSize: 18,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () {
+                                        final favBloc = context
+                                            .read<FavoritesBloc>();
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => BlocProvider.value(
+                                              value: favBloc,
+                                              child: AllPackagesPage(
+                                                title: 'Keşfetmeye devam et',
+                                                latitude: widget.latitude,
+                                                longitude: widget.longitude,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: Text(
+                                        'Hepsini Gör',
+                                        style: AppTypography.bodyMedium
+                                            .copyWith(
+                                              color: AppColors.primary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                            ),
 
-                              // Local Best Section Title
-                              SliverToBoxAdapter(
-                                child: Padding(
+                          // İkinci bölüm de yatay karusel. Keşfet artık
+                          // dikey sonsuz liste değil, bölümlerden oluşuyor;
+                          // tam liste "Hepsini Gör" ile açılan
+                          // AllPackagesPage'de (sayfalama orada).
+                          if (_sonSansSayisi(packages.length) > 0)
+                            SliverToBoxAdapter(
+                              child: SizedBox(
+                                height:
+                                    328 +
+                                    (MediaQuery.textScalerOf(
+                                                  context,
+                                                ).scale(16) -
+                                                16)
+                                            .clamp(0, 60) *
+                                        6,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: AppSpacing.screenPadding,
-                                    vertical: AppSpacing.md,
                                   ),
-                                  child: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Yerel En İyiler',
-                                          style: AppTypography.h3.copyWith(
-                                            fontSize: 18,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                  itemCount: _sonSansSayisi(packages.length),
+                                  itemBuilder: (context, index) {
+                                    // Bu bölüm listenin SONUNDAN besleniyor:
+                                    // üstteki bölüm ilk 5'i gösterdiği için
+                                    // aynı kartları tekrar etmesin.
+                                    final pkg =
+                                        packages[packages.length - 1 - index];
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        right: AppSpacing.md,
                                       ),
-                                      TextButton(
-                                        onPressed: () {
+                                      child: PackageCard(
+                                        package: pkg,
+                                        isHorizontal: true,
+                                        onTap: () {
                                           final favBloc = context
                                               .read<FavoritesBloc>();
                                           Navigator.of(context).push(
@@ -409,80 +480,22 @@ class _HomeViewState extends State<HomeView> {
                                               builder: (_) =>
                                                   BlocProvider.value(
                                                     value: favBloc,
-                                                    child: AllPackagesPage(
-                                                      title: 'Yerel En İyiler',
-                                                      latitude: widget.latitude,
-                                                      longitude:
-                                                          widget.longitude,
+                                                    child: PackageDetailPage(
+                                                      package: pkg,
                                                     ),
                                                   ),
                                             ),
                                           );
                                         },
-                                        child: Text(
-                                          'Hepsini Gör',
-                                          style: AppTypography.bodyMedium
-                                              .copyWith(
-                                                color: AppColors.primary,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
                                       ),
-                                    ],
-                                  ),
+                                    );
+                                  },
                                 ),
                               ),
-
-                              // İkinci bölüm de yatay karusel. Keşfet artık
-                              // dikey sonsuz liste değil, bölümlerden oluşuyor;
-                              // tam liste "Hepsini Gör" ile açılan
-                              // AllPackagesPage'de (sayfalama orada).
-                              SliverToBoxAdapter(
-                                child: SizedBox(
-                                  height: 320,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AppSpacing.screenPadding,
-                                    ),
-                                    itemCount: _sonSansSayisi(packages.length),
-                                    itemBuilder: (context, index) {
-                                      // Bu bölüm listenin SONUNDAN besleniyor:
-                                      // üstteki bölüm ilk 5'i gösterdiği için
-                                      // aynı kartları tekrar etmesin.
-                                      final pkg =
-                                          packages[packages.length - 1 - index];
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: AppSpacing.md,
-                                        ),
-                                        child: PackageCard(
-                                          package: pkg,
-                                          isHorizontal: true,
-                                          onTap: () {
-                                            final favBloc = context
-                                                .read<FavoritesBloc>();
-                                            Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    BlocProvider.value(
-                                                      value: favBloc,
-                                                      child: PackageDetailPage(
-                                                        package: pkg,
-                                                      ),
-                                                    ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
+                            ),
+                        ],
+                      ),
+                    );
                   }
 
                   return const SizedBox.shrink();

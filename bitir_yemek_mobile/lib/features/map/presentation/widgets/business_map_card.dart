@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
+import '../../../../core/utils/money_format.dart';
+import '../../../../core/utils/time_format.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
 import '../../../favorites/presentation/widgets/favorite_button.dart';
 import '../../../home/data/models/business_model.dart';
@@ -45,12 +47,13 @@ class _BusinessMapCardState extends State<BusinessMapCard>
   @override
   void initState() {
     super.initState();
-    _snapBack = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    )..addListener(() {
-        setState(() => _dragOffset = _snapStart * (1 - _snapBack.value));
-      });
+    _snapBack =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 200),
+        )..addListener(() {
+          setState(() => _dragOffset = _snapStart * (1 - _snapBack.value));
+        });
   }
 
   @override
@@ -62,7 +65,10 @@ class _BusinessMapCardState extends State<BusinessMapCard>
   void _onDragUpdate(DragUpdateDetails details) {
     _snapBack.stop();
     setState(() {
-      _dragOffset = (_dragOffset + details.delta.dy).clamp(0.0, double.infinity);
+      _dragOffset = (_dragOffset + details.delta.dy).clamp(
+        0.0,
+        double.infinity,
+      );
     });
   }
 
@@ -109,13 +115,8 @@ class _BusinessMapCardState extends State<BusinessMapCard>
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(AppRadius.xl),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
+        border: Border.all(color: AppDepth.border),
+        boxShadow: AppDepth.floating,
       ),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(
@@ -159,10 +160,14 @@ class _BusinessMapCardState extends State<BusinessMapCard>
                     ),
                     FavoriteButton(businessId: business.id, size: 24),
                     const SizedBox(width: AppSpacing.xs),
-                    GestureDetector(
-                      onTap: onClose,
-                      behavior: HitTestBehavior.opaque,
-                      child: const Icon(
+                    IconButton(
+                      tooltip: 'Kapat',
+                      onPressed: onClose,
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      icon: const Icon(
                         Icons.close,
                         size: 22,
                         color: AppColors.textSecondary,
@@ -381,8 +386,7 @@ class _BusinessMapCardState extends State<BusinessMapCard>
 
   Widget _buildPickupRow(PackageModel pkg) {
     final dateLabel = _pickupDateLabel(pkg.pickupDate);
-    final timeLabel =
-        '${_hhmm(pkg.pickupStart)} - ${_hhmm(pkg.pickupEnd)}';
+    final timeLabel = pickupWindow(pkg.pickupStart, pkg.pickupEnd);
 
     return Row(
       children: [
@@ -417,25 +421,25 @@ class _BusinessMapCardState extends State<BusinessMapCard>
   }
 
   Widget _buildPriceRow(PackageModel pkg) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          '₺${pkg.originalPrice.toStringAsFixed(0)}',
+          formatMoney(pkg.originalPrice),
           style: AppTypography.bodyMedium.copyWith(
             color: AppColors.textHint,
             decoration: TextDecoration.lineThrough,
           ),
         ),
-        const SizedBox(width: AppSpacing.sm),
         Text(
-          '₺${pkg.discountedPrice.toStringAsFixed(0)}',
+          formatMoney(pkg.discountedPrice),
           style: AppTypography.bodyLarge.copyWith(
-            color: AppColors.primary,
+            color: AppColors.ink,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const Spacer(),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
@@ -536,10 +540,6 @@ class _BusinessMapCardState extends State<BusinessMapCard>
   }
 
   // --- Yardımcılar ---
-
-  /// "HH:MM:SS" → "HH:MM"
-  String _hhmm(String time) =>
-      time.length >= 5 ? time.substring(0, 5) : time;
 
   String _formatDistance(double km) =>
       km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km';

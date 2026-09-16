@@ -72,6 +72,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<void> logout() async {
+    await _remoteDataSource.logout();
     await _tokenStorage.clearTokens();
   }
 }

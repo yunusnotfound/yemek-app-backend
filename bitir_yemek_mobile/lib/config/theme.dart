@@ -9,11 +9,16 @@ class AppColors {
   static const Color primary = Color(0xFFFF7043);
   static const Color primaryLight = Color(0xFFFFAB91);
   static const Color primaryDark = Color(0xFFF4511E);
+  // Readable ink for small labels on the warm, light surfaces.
+  static const Color primaryInk = Color(0xFFAC3917);
+  static const Color successInk = Color(0xFF246A38);
+  static const Color warningInk = Color(0xFF855400);
+  static const Color infoInk = Color(0xFF21649A);
 
   // Text
   static const Color textPrimary = Color(0xFF333333);
   static const Color textSecondary = Color(0xFF666666);
-  static const Color textHint = Color(0xFF999999);
+  static const Color textHint = Color(0xFF827267);
 
   // Status
   static const Color success = Color(0xFF4CAF50);
@@ -132,6 +137,41 @@ class AppRadius {
   static const double full = 999;
 }
 
+/// Shared, quiet depth: warm contact shadow + a broad ambient shadow.
+class AppDepth {
+  static const card = [
+    BoxShadow(color: Color(0x0D59361F), blurRadius: 24, offset: Offset(0, 8)),
+    BoxShadow(color: Color(0x0859361F), blurRadius: 4, offset: Offset(0, 2)),
+  ];
+  static const floating = [
+    BoxShadow(color: Color(0x1859361F), blurRadius: 32, offset: Offset(0, 10)),
+    BoxShadow(color: Color(0x0A59361F), blurRadius: 6, offset: Offset(0, 2)),
+  ];
+  static const border = Color(0xFFEEDFD3);
+  static const gradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [AppColors.creamTop, AppColors.creamBottom],
+  );
+  static BoxDecoration iconTile({Color color = AppColors.primary}) =>
+      BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      );
+  static BoxDecoration surface({
+    double radius = AppRadius.lg,
+    bool warm = false,
+    bool elevated = false,
+  }) => BoxDecoration(
+    color: warm ? null : AppColors.surface,
+    gradient: warm ? gradient : null,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: border),
+    boxShadow: elevated ? floating : card,
+  );
+}
+
 class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
@@ -154,6 +194,7 @@ class AppTheme {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
+          minimumSize: const Size(48, 48),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
@@ -163,8 +204,9 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary, width: 2),
+          foregroundColor: AppColors.primaryInk,
+          minimumSize: const Size(48, 48),
+          side: const BorderSide(color: AppColors.sand),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
@@ -173,7 +215,7 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          foregroundColor: AppColors.primaryInk,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
       ),
@@ -187,7 +229,7 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: AppDepth.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
@@ -204,14 +246,35 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: AppColors.surface,
-        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: const Color(0x2859361F),
+        elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
+          side: const BorderSide(color: AppDepth.border),
         ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppDepth.border,
+        thickness: 1,
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.creamTop,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadius.xl),
+          ),
+        ),
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.background,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: AppTypography.h3,
         iconTheme: IconThemeData(color: AppColors.textPrimary),

@@ -4,7 +4,8 @@ import '../../../../core/network/dio_client.dart';
 class ProfileRemoteDataSource {
   final DioClient _dioClient;
 
-  ProfileRemoteDataSource({required DioClient dioClient}) : _dioClient = dioClient;
+  ProfileRemoteDataSource({required DioClient dioClient})
+    : _dioClient = dioClient;
 
   Future<Map<String, dynamic>> getProfile() async {
     try {
@@ -27,6 +28,14 @@ class ProfileRemoteDataSource {
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw _handleDioError(e);
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _dioClient.logout();
+    } on DioException {
+      /* Local session is cleared even offline. */
     }
   }
 

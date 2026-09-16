@@ -1,9 +1,13 @@
+import { parseJsonRequest } from "@/lib/api/request-body";
 import { NextResponse } from "next/server";
 import { callBackendJson } from "@/lib/api/client";
 
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => ({}));
+  const parsed = await parseJsonRequest(req);
+  if (parsed.response) return parsed.response;
+  const body = parsed.body;
   const res = await callBackendJson("/auth/reset-password", "POST", {
+    email: body.email,
     token: body.token,
     password: body.password,
   });

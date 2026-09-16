@@ -31,7 +31,10 @@ const call = (resource, method, request) =>
   new Promise((resolve, reject) => {
     const client = getClient();
     if (!client) return reject(new Error('iyzico yapılandırılmamış (IYZICO_API_KEY eksik)'));
+    const timer = setTimeout(() => reject(new Error('iyzico yanıtı zaman aşımına uğradı; işlem sonucu doğrulanmalı')), 20000);
+    timer.unref();
     client[resource][method](request, (err, result) => {
+      clearTimeout(timer);
       if (err) return reject(err);
       resolve(result);
     });
@@ -159,6 +162,7 @@ const initializeThreeDS = async ({ order, user, business, pkg, categoryName, ip,
   }
   return {
     threeDSHtmlContent: Buffer.from(result.threeDSHtmlContent, 'base64').toString('utf8'),
+    paymentId: result.paymentId ? String(result.paymentId) : null,
   };
 };
 
@@ -325,27 +329,26 @@ const cancelPayment = async ({ paymentId, ip, conversationId }) => {
   return result;
 };
 
-/**
- * Webhook imza doğrulama (savunma katmanı). Asıl güvenlik sınırı, finalize'da yapılan
- * retrieve çağrısıdır (iyzico OTORİTE). İmza algoritması webhook sürümüne göre değişebildiğinden
- * varsayılan olarak ZORUNLU DEĞİL: eşleşmezse uyarı loglanır ama retrieve ile doğrulamaya devam edilir.
- * IYZICO_WEBHOOK_ENFORCE=true ise eşleşmeyen istek reddedilir.
+/** iyzico X-IYZ-SIGNATURE-V3 (Direct and Checkout Form/HPP).
+ * https://docs.iyzico.com/ek-servisler/webhook
+ * Missing, legacy or malformed signatures always fail closed.
  */
 const verifyWebhookSignature = (rawBody, signatureHeader) => {
-  const secret = process.env.IYZICO_WEBHOOK_SECRET || process.env.IYZICO_SECRET_KEY;
-  if (!secret || !signatureHeader) {
-    return { valid: false, enforced: process.env.IYZICO_WEBHOOK_ENFORCE === 'true' };
-  }
   try {
-    const body = Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(String(rawBody || ''));
-    const computed = crypto.createHmac('sha256', secret).update(body).digest('base64');
-    const a = Buffer.from(computed);
-    const b = Buffer.from(String(signatureHeader));
-    const valid = a.length === b.length && crypto.timingSafeEqual(a, b);
-    return { valid, enforced: process.env.IYZICO_WEBHOOK_ENFORCE === 'true' };
-  } catch (e) {
-    return { valid: false, enforced: process.env.IYZICO_WEBHOOK_ENFORCE === 'true' };
-  }
+    const secret = process.env.IYZICO_SECRET_KEY;
+    if (!secret || typeof signatureHeader !== 'string' || !/^[a-f0-9]{64}$/i.test(signatureHeader)) {
+      return { valid: false, enforced: true };
+    }
+    const payload = JSON.parse(Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody);
+    const fields = payload.token !== undefined
+      ? [payload.iyziEventType, payload.iyziPaymentId, payload.token, payload.paymentConversationId, payload.status]
+      : [payload.iyziEventType, payload.paymentId, payload.paymentConversationId, payload.status];
+    if (fields.some(v => !['string', 'number'].includes(typeof v) || String(v).length === 0)) {
+      return { valid: false, enforced: true };
+    }
+    const computed = crypto.createHmac('sha256', secret).update(secret + fields.join('')).digest();
+    return { valid: crypto.timingSafeEqual(computed, Buffer.from(signatureHeader, 'hex')), enforced: true };
+  } catch (_) { return { valid: false, enforced: true }; }
 };
 
 module.exports = {

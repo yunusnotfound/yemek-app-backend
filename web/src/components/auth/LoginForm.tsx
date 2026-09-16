@@ -1,5 +1,7 @@
 "use client";
 
+import { safeLocalPath } from "@/lib/auth/safe-redirect";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -35,11 +37,7 @@ export function LoginForm({ next }: { next?: string }) {
         body: JSON.stringify(values),
       });
       // next varsa (ör. /admin'e yönlendirilmişti) ona git; yoksa role göre.
-      const dest = next && next.startsWith("/")
-        ? next
-        : data?.user?.role === "admin"
-          ? "/admin"
-          : "/panel";
+      const dest = safeLocalPath(next, data?.user?.role === "admin" ? "/admin" : "/panel");
       window.location.assign(dest);
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {

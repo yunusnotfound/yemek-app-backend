@@ -6,15 +6,19 @@ class LocationService {
   LocationService._();
   static final LocationService _instance = LocationService._();
   factory LocationService() => _instance;
+  static const _platformTimeout = Duration(seconds: 2);
+  static const _positionTimeout = Duration(seconds: 4);
 
   /// Check if location services are enabled
   Future<bool> isLocationServiceEnabled() async {
-    return await Geolocator.isLocationServiceEnabled();
+    return await Geolocator.isLocationServiceEnabled().timeout(
+      _platformTimeout,
+    );
   }
 
   /// Check current location permission status
   Future<LocationPermission> checkPermission() async {
-    return await Geolocator.checkPermission();
+    return await Geolocator.checkPermission().timeout(_platformTimeout);
   }
 
   /// Request location permission
@@ -26,7 +30,9 @@ class LocationService {
   ///
   /// Gıda pazaryeri için ~100m hassasiyet yeterli olduğundan `medium` doğruluk
   /// kullanılır — `high` (tam GPS fix bekleme) açılışı belirgin yavaşlatır.
-  Future<Position?> getCurrentPosition() async {
+  /// Açılışta [preferRecent] yakın zamanda alınmış, yeterince hassas bir
+  /// konumu kullanır. Kullanıcının açık konum-yenileme isteği taze ölçüm alır.
+  Future<Position?> getCurrentPosition({bool preferRecent = false}) async {
     try {
       // Check if location services are enabled
       bool serviceEnabled = await isLocationServiceEnabled();
@@ -48,10 +54,33 @@ class LocationService {
         return null;
       }
 
-      // Get current position
+      if (preferRecent) {
+        try {
+          final recent = await Geolocator.getLastKnownPosition().timeout(
+            const Duration(milliseconds: 500),
+          );
+          final age = recent == null
+              ? null
+              : DateTime.now().difference(recent.timestamp);
+          if (recent != null &&
+              age != null &&
+              !age.isNegative &&
+              age <= const Duration(minutes: 2) &&
+              recent.accuracy >= 0 &&
+              recent.accuracy <= 200) {
+            return recent;
+          }
+        } catch (_) {
+          // Last-known konum her platformda bulunmayabilir; taze ölçümü dene.
+        }
+      }
+
+      // Kapalı mekânda süresiz beklemek yerine mevcut konum seçme ekranına
+      // geri dönülür. Android eklentisi timeLimit ile GPS isteğini de iptal eder.
       return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
-      );
+        timeLimit: _positionTimeout,
+      ).timeout(_positionTimeout);
     } catch (e) {
       return null;
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Package, Pencil, Trash2, Plus, Clock } from "lucide-react";
 import type { PackageWithStats } from "@/lib/types";
 import { getBusinessPackages, deletePackage } from "@/lib/api/panel";
@@ -14,13 +14,15 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { LoadingBlock } from "@/components/ui/Spinner";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePaginatedList } from "@/components/panel/usePaginatedList";
 
 function PackageCard({
   pkg,
   onDeleted,
 }: {
   pkg: PackageWithStats;
-  onDeleted: (id: string) => void;
+  onDeleted: () => void;
 }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,11 +33,12 @@ function PackageCard({
     setError(null);
     try {
       await deletePackage(pkg.id);
-      onDeleted(pkg.id);
+      onDeleted();
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Paket silinemedi",
       );
+    } finally {
       setDeleting(false);
     }
   }
@@ -117,20 +120,9 @@ function PackageCard({
 }
 
 function PackageList({ businessId }: { businessId: string }) {
-  const [items, setItems] = useState<PackageWithStats[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setError(null);
-    getBusinessPackages(businessId, { limit: 50 })
-      .then((res) => setItems(res.data))
-      .catch((e) => setError(e instanceof Error ? e.message : "Yüklenemedi"));
-  }, [businessId]);
-
-  useEffect(() => {
-    setItems(null);
-    load();
-  }, [load]);
+  const loadPage = useCallback((page: number) =>
+    getBusinessPackages(businessId, { page, limit: 50 }), [businessId]);
+  const { items, error, page, totalPages, setPage, reload } = usePaginatedList(loadPage);
 
   if (error) return <Alert tone="error">{error}</Alert>;
   if (!items) return <LoadingBlock />;
@@ -156,9 +148,10 @@ function PackageList({ businessId }: { businessId: string }) {
         <PackageCard
           key={pkg.id}
           pkg={pkg}
-          onDeleted={(id) => setItems((cur) => cur?.filter((p) => p.id !== id) ?? null)}
+          onDeleted={reload}
         />
       ))}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }
@@ -175,7 +168,7 @@ export default function PackagesPage() {
           </ButtonLink>
         }
       />
-      <RequireBusiness>{(b) => <PackageList businessId={b.id} />}</RequireBusiness>
+      <RequireBusiness>{(b) => <PackageList key={b.id} businessId={b.id} />}</RequireBusiness>
     </>
   );
 }

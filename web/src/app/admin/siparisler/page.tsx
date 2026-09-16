@@ -16,13 +16,14 @@ import { Badge, orderTone } from "@/components/ui/Badge";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
 
-type Filter = "all" | OrderStatus;
+type Filter = "all" | "refund_review" | OrderStatus;
 const FILTERS = [
   { key: "all" as const, label: "Tümü" },
   { key: "pending" as const, label: "Bekleyen" },
   { key: "confirmed" as const, label: "Onaylı" },
   { key: "picked_up" as const, label: "Teslim" },
   { key: "cancelled" as const, label: "İptal" },
+  { key: "refund_review" as const, label: "İade kontrolü" },
 ];
 
 type OrderRow = Order & { package?: { title?: string; business?: { name?: string } }; user?: { name?: string } };
@@ -39,7 +40,7 @@ export default function AdminOrdersPage() {
   const load = useCallback(() => {
     setRows(null);
     setError(null);
-    getOrders({ page, limit: 20, status: filter === "all" ? undefined : filter, search: search || undefined })
+    getOrders({ page, limit: 20, status: filter === "all" || filter === "refund_review" ? undefined : filter, refundStatus: filter === "refund_review" ? "review" : undefined, search: search || undefined })
       .then((res) => {
         setRows(res.data as OrderRow[]);
         setPagination(res.pagination);
@@ -62,6 +63,8 @@ export default function AdminOrdersPage() {
       key: "payment",
       header: "Ödeme",
       render: (o) => {
+        if (o.refundStatus === "review") return <Badge tone="red">İade kontrolü</Badge>;
+        if (o.refundStatus === "pending" || o.refundStatus === "processing") return <Badge tone="amber">İade işleniyor</Badge>;
         const x = paymentBadge(o.paymentStatus);
         return <Badge tone={x.tone}>{x.label}</Badge>;
       },

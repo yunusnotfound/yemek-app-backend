@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'map_event.dart';
 import 'map_state.dart';
 import '../../domain/repositories/map_repository.dart';
@@ -6,14 +7,37 @@ import '../../../home/data/models/package_model.dart';
 
 class MapBloc extends Bloc<MapEvent, MapState> {
   final MapRepository _repository;
+  int _directionGeneration = 0;
+  int _loadGeneration = 0;
+  bool _catalogLoading = false;
+  bool _refreshQueued = false;
+  LoadBusinessesForMap? _lastQuery;
+
+  /// Reuses the chosen map area, without moving the camera or clearing filters.
+  void refreshCurrent() {
+    final query = _lastQuery;
+    if (isClosed || query == null || _catalogLoading || _refreshQueued) return;
+    _refreshQueued = true;
+    add(
+      LoadBusinessesForMap(
+        latitude: query.latitude,
+        longitude: query.longitude,
+        radius: query.radius,
+        background: true,
+      ),
+    );
+  }
 
   MapBloc({required MapRepository repository})
     : _repository = repository,
       super(const MapInitial()) {
-    on<LoadBusinessesForMap>(_onLoadBusinessesForMap);
-    on<SelectBusiness>(_onSelectBusiness);
+    on<LoadBusinessesForMap>(
+      _onLoadBusinessesForMap,
+      transformer: restartable(),
+    );
+    on<SelectBusiness>(_onSelectBusiness, transformer: restartable());
     on<ClearSelection>(_onClearSelection);
-    on<RequestDirections>(_onRequestDirections);
+    on<RequestDirections>(_onRequestDirections, transformer: restartable());
     on<ClearDirections>(_onClearDirections);
   }
 
@@ -21,7 +45,15 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     LoadBusinessesForMap event,
     Emitter<MapState> emit,
   ) async {
-    emit(const MapLoading());
+    final generation = ++_loadGeneration;
+    _catalogLoading = true;
+    _refreshQueued = false;
+    _lastQuery = event;
+    final keepVisible = event.background && state is MapLoaded;
+    if (!keepVisible) {
+      _directionGeneration++;
+      emit(const MapLoading());
+    }
 
     try {
       final result = await _repository.getBusinessesForMap(
@@ -29,28 +61,75 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         lng: event.longitude,
         radius: event.radius,
       );
+      if (emit.isDone) return;
 
       if (result.isSuccess && result.businesses != null) {
-        // Markerlar hemen görünsün diye işletmeleri önce emit et.
-        emit(MapLoaded(businesses: result.businesses!));
+        final current = state;
+        if (keepVisible && current is MapLoaded) {
+          final selectedId = current.selectedBusiness?.id;
+          final selected = result.businesses!
+              .where((business) => business.id == selectedId)
+              .firstOrNull;
+          if (selectedId != null && selected == null) _directionGeneration++;
+          emit(
+            current.copyWith(
+              businesses: result.businesses!,
+              selectedBusiness: selected,
+              clearSelection: selected == null,
+              clearDirections: selected == null,
+            ),
+          );
+        } else {
+          emit(MapLoaded(businesses: result.businesses!));
+        }
 
-        // Alt liste paneli için yakındaki paketleri ayrıca yükle.
         final pkgResult = await _repository.getNearbyPackages(
           lat: event.latitude,
           lng: event.longitude,
           radius: event.radius,
         );
+        if (emit.isDone) return;
         final latest = state;
         if (latest is MapLoaded &&
             pkgResult.isSuccess &&
             pkgResult.packages != null) {
           emit(latest.copyWith(packages: pkgResult.packages));
         }
-      } else {
+
+        // A selected card also needs current stock after an owner edits it.
+        final selectedState = state;
+        if (keepVisible &&
+            selectedState is MapLoaded &&
+            selectedState.selectedBusiness != null) {
+          final selectedId = selectedState.selectedBusiness!.id;
+          final selectedResult = await _repository.getBusinessPackages(
+            selectedId,
+          );
+          if (emit.isDone) return;
+          final current = state;
+          if (current is MapLoaded &&
+              current.selectedBusiness?.id == selectedId &&
+              selectedResult.isSuccess) {
+            final package = _pickRepresentativePackage(
+              selectedResult.packages!,
+            );
+            emit(
+              current.copyWith(
+                selectedPackage: package,
+                clearPackage: package == null,
+                packageLoading: false,
+              ),
+            );
+          }
+        }
+      } else if (!keepVisible) {
         emit(MapError(message: result.error ?? 'Bilinmeyen hata'));
       }
     } catch (e) {
+      if (emit.isDone || keepVisible) return;
       emit(MapError(message: e.toString()));
+    } finally {
+      if (generation == _loadGeneration) _catalogLoading = false;
     }
   }
 
@@ -60,17 +139,20 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   ) async {
     final currentState = state;
     if (currentState is! MapLoaded) return;
+    _directionGeneration++;
 
     // Kartı hemen aç; paket yüklenirken iskelet göster.
     emit(
       currentState.copyWith(
         selectedBusiness: event.business,
         clearPackage: true,
+        clearDirections: true,
         packageLoading: true,
       ),
     );
 
     final result = await _repository.getBusinessPackages(event.business.id);
+    if (emit.isDone) return;
 
     // Kullanıcı bu sırada başka işletme seçtiyse eski sonucu yazma.
     final latest = state;
@@ -115,6 +197,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     ClearSelection event,
     Emitter<MapState> emit,
   ) async {
+    _directionGeneration++;
     final currentState = state;
     if (currentState is MapLoaded) {
       emit(currentState.copyWith(clearSelection: true, clearDirections: true));
@@ -127,6 +210,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   ) async {
     final currentState = state;
     if (currentState is! MapLoaded) return;
+    final generation = ++_directionGeneration;
 
     try {
       final result = await _repository.getDirections(
@@ -135,28 +219,34 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         destLat: event.destLat,
         destLng: event.destLng,
       );
+      if (emit.isDone || generation != _directionGeneration) return;
+      final latest = state;
+      if (latest is! MapLoaded) return;
 
       if (result.isSuccess && result.directions != null) {
-        emit(currentState.copyWith(directions: result.directions));
+        emit(latest.copyWith(directions: result.directions));
       } else {
         // Surface the failure so the UI can show feedback, then restore the
         // loaded map (with directions cleared) so markers stay visible.
         emit(
           MapError(
             message: result.error ?? 'Yol tarifi alınamadı',
-            businesses: currentState.businesses,
+            businesses: latest.businesses,
           ),
         );
-        emit(currentState.copyWith(clearDirections: true));
+        emit(latest.copyWith(clearDirections: true));
       }
     } catch (e) {
+      if (emit.isDone || generation != _directionGeneration) return;
+      final latest = state;
+      if (latest is! MapLoaded) return;
       emit(
         MapError(
           message: 'Yol tarifi alınırken bir hata oluştu',
-          businesses: currentState.businesses,
+          businesses: latest.businesses,
         ),
       );
-      emit(currentState.copyWith(clearDirections: true));
+      emit(latest.copyWith(clearDirections: true));
     }
   }
 
@@ -164,6 +254,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     ClearDirections event,
     Emitter<MapState> emit,
   ) async {
+    _directionGeneration++;
     final currentState = state;
     if (currentState is MapLoaded) {
       emit(currentState.copyWith(clearDirections: true));

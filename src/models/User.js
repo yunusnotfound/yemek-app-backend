@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const bcrypt = require('bcryptjs');
+const passwordService = require('../services/passwordService');
 const sequelize = require('../config/database');
 
 const User = sequelize.define('User', {
@@ -54,6 +54,8 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  passwordResetAttempts: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  authVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   emailVerificationExpires: {
     type: DataTypes.DATE,
     allowNull: true,
@@ -79,19 +81,19 @@ const User = sequelize.define('User', {
   hooks: {
     beforeCreate: async (user) => {
       if (user.password) {
-        user.password = await bcrypt.hash(user.password, 10);
+        user.password = await passwordService.hash(user.password);
       }
     },
     beforeUpdate: async (user) => {
-      if (user.changed('password')) {
-        user.password = await bcrypt.hash(user.password, 10);
+      if (user.changed('password') && user.password) {
+        user.password = await passwordService.hash(user.password);
       }
     },
   },
 });
 
 User.prototype.comparePassword = async function (candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
+  return this.password ? passwordService.compare(candidatePassword, this.password) : false;
 };
 
 User.prototype.toJSON = function () {
@@ -104,6 +106,8 @@ User.prototype.toJSON = function () {
   delete values.passwordResetToken;
   delete values.passwordResetExpires;
   delete values.cardUserKey;
+  delete values.authVersion;
+  delete values.passwordResetAttempts;
   return values;
 };
 

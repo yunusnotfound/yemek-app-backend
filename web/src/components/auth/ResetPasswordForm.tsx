@@ -37,7 +37,7 @@ export function ResetPasswordForm() {
     try {
       await apiFetch("/api/auth/reset-password", {
         method: "POST",
-        body: JSON.stringify({ token: values.token, password: values.password }),
+        body: JSON.stringify({ email: values.email, token: values.token, password: values.password }),
       });
       setDone(true);
     } catch (err) {
@@ -73,6 +73,9 @@ export function ResetPasswordForm() {
       ) : null}
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
+        <Field label="E-posta" htmlFor="email" error={errors.email?.message}>
+          <Input id="email" type="email" autoComplete="email" {...register("email")} />
+        </Field>
         <Field label="Sıfırlama kodu" htmlFor="token" error={errors.token?.message}>
           <Input
             id="token"

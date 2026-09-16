@@ -57,6 +57,7 @@ const Business = sequelize.define('Business', {
     type: DataTypes.FLOAT,
     defaultValue: 0,
   },
+  isSuspended: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

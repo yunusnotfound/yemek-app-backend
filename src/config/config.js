@@ -1,13 +1,15 @@
 require('dotenv').config();
+const { enforceDatabaseTls, isDatabaseTlsRequired } = require('./databaseTls');
 
-const useSSL = process.env.DB_SSL === 'true' || (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('sslmode=require'));
+const useSSL = isDatabaseTlsRequired();
 
 const sslOptions = useSSL
   ? {
       dialectOptions: {
         ssl: {
           require: true,
-          rejectUnauthorized: false,
+          rejectUnauthorized: true,
+          ...(process.env.DB_CA_CERT ? { ca: process.env.DB_CA_CERT } : {}),
         },
       },
     }
@@ -16,11 +18,13 @@ const sslOptions = useSSL
 const production = process.env.DATABASE_URL
   ? {
       use_env_variable: 'DATABASE_URL',
+      hooks: { beforeConnect: enforceDatabaseTls },
       dialect: 'postgres',
       ...sslOptions,
     }
   : {
       username: process.env.DB_USER,
+      hooks: { beforeConnect: enforceDatabaseTls },
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       host: process.env.DB_HOST,

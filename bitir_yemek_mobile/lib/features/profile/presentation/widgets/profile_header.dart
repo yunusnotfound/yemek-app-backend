@@ -13,7 +13,7 @@ class ProfileHeader extends StatelessWidget {
     if (parts.length >= 2) {
       return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
     }
-    return parts.first[0].toUpperCase();
+    return (parts.first.isEmpty ? '?' : parts.first[0]).toUpperCase();
   }
 
   String get _memberSince {
@@ -22,48 +22,56 @@ class ProfileHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const SizedBox(height: AppSpacing.lg),
-        // Avatar
-        Container(
-          width: 88,
-          height: 88,
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              _initials,
-              style: AppTypography.h1.copyWith(
-                color: AppColors.primary,
-                fontSize: 32,
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(AppSpacing.screenPadding),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      decoration: AppDepth.surface(warm: true),
+      child: Column(
+        children: [
+          const SizedBox(height: AppSpacing.lg),
+          // Avatar
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              gradient: AppDepth.gradient,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.surface, width: 3),
+              boxShadow: AppDepth.card,
+            ),
+            child: Center(
+              child: Text(
+                _initials,
+                style: AppTypography.h1.copyWith(
+                  color: AppColors.primaryInk,
+                  fontSize: 32,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        // Name
-        Text(user.name, style: AppTypography.h2, textAlign: TextAlign.center),
-        const SizedBox(height: AppSpacing.xs),
-        // Email
-        Text(
-          user.email,
-          style: AppTypography.bodyMedium.copyWith(
-            color: AppColors.textSecondary,
+          const SizedBox(height: AppSpacing.md),
+          // Name
+          Text(user.name, style: AppTypography.h2, textAlign: TextAlign.center),
+          const SizedBox(height: AppSpacing.xs),
+          // Email
+          Text(
+            user.email,
+            style: AppTypography.bodyMedium.copyWith(
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        // Member since
-        Text(
-          '$_memberSince\'den beri uye',
-          style: AppTypography.bodySmall,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-      ],
+          const SizedBox(height: AppSpacing.xs),
+          // Member since
+          Text(
+            '$_memberSince\'den beri üye',
+            style: AppTypography.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+      ),
     );
   }
 }

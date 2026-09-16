@@ -1,0 +1,13 @@
+SELECT "id", "name", "email", "password", "phone", "role", "latitude", "longitude", "isEmailVerified", "emailVerificationToken", "passwordResetToken", "passwordResetExpires", "passwordResetAttempts", "authVersion", "emailVerificationExpires", "googleId", "appleId", "cardUserKey", "createdAt", "updatedAt", "deletedAt" FROM "Users" AS "User" WHERE ("User"."deletedAt" IS NULL AND "User"."id" = '12db4c1a-4082-483f-b6e4-cfbc13ea9f21');
+
+SELECT "title", "firstOrderOnly", "perUserLimit", "maxDiscountAmount", "budgetLimit", "isDiscoverable", "businessIds", "merchantConsentConfirmed", "id", "code", "discountType", "discountValue", "minOrderAmount", "maxUsage", "currentUsage", "expiresAt", "isActive", "createdAt", "updatedAt" FROM "Coupons" AS "Coupon" WHERE "Coupon"."isActive" = true AND "Coupon"."isDiscoverable" = true AND "Coupon"."expiresAt" > '2026-09-08 00:31:07.066 +00:00' ORDER BY "Coupon"."firstOrderOnly" DESC, "Coupon"."expiresAt" ASC LIMIT 100;
+
+SELECT "couponId", COUNT("id") AS "used" FROM "Orders" AS "Order" WHERE "Order"."userId" = '12db4c1a-4082-483f-b6e4-cfbc13ea9f21' AND "Order"."couponId" IN ('46a9ac35-6b18-4d74-a18a-95974e3dd43e', 'f4e7b543-3261-41fc-bd4e-7d93d22cf69e', '79b3ab1e-bedb-4a9c-9f66-b13a09e86db2', '86fd2a26-a4cb-43b0-a06f-9b5359ad1fdc', 'd9b17c8e-beb4-4b71-be58-e22a2157a240', '5d683838-34ad-46c6-802c-83f4138417ed', 'f61b3213-41b5-4f8a-afa4-be6434d9a466', '75bee8ad-37c3-4191-a061-1b5e8d62fc6b', '09856c2f-a29c-47b7-b746-7877bf128383', '93368e17-ddd9-4826-83ed-4f73a150d3b9') AND "Order"."couponReleased" = false GROUP BY "couponId";
+
+SELECT "couponId", SUM("discountAmount") AS "budgetUsed" FROM "Orders" AS "Order" WHERE "Order"."couponId" IN ('46a9ac35-6b18-4d74-a18a-95974e3dd43e', 'f4e7b543-3261-41fc-bd4e-7d93d22cf69e', '79b3ab1e-bedb-4a9c-9f66-b13a09e86db2', '86fd2a26-a4cb-43b0-a06f-9b5359ad1fdc', 'd9b17c8e-beb4-4b71-be58-e22a2157a240', '5d683838-34ad-46c6-802c-83f4138417ed', 'f61b3213-41b5-4f8a-afa4-be6434d9a466', '75bee8ad-37c3-4191-a061-1b5e8d62fc6b', '09856c2f-a29c-47b7-b746-7877bf128383', '93368e17-ddd9-4826-83ed-4f73a150d3b9') AND "Order"."couponReleased" = false GROUP BY "couponId";
+
+SELECT
+      COALESCE(SUM(quantity), 0)::int AS "rescuedPackages",
+      COALESCE(SUM(GREATEST(COALESCE("originalTotal", "totalPrice") - "finalPrice", 0)), 0) AS "totalSaved"
+      FROM "Orders" WHERE "userId" = '12db4c1a-4082-483f-b6e4-cfbc13ea9f21' AND status = 'picked_up'
+      AND "paymentStatus" IN ('paid', 'unpaid')

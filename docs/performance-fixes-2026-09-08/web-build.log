@@ -1,0 +1,73 @@
+
+> web@0.1.0 build
+> next build
+
+▲ Next.js 16.3.4 (Turbopack)
+✓ Running next.config.ts took 14ms
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 1142ms
+  Running TypeScript ...
+  Finished TypeScript in 1281ms ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/37) ...
+  Generating static pages using 11 workers (9/37)
+  Generating static pages using 11 workers (18/37)
+  Generating static pages using 11 workers (27/37)
+✓ Generating static pages using 11 workers (37/37) in 258ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /admin
+├ ƒ /admin/degerlendirmeler
+├ ƒ /admin/denetim
+├ ƒ /admin/isletmeler
+├ ƒ /admin/isletmeler/[id]
+├ ƒ /admin/kategoriler
+├ ƒ /admin/kullanicilar
+├ ƒ /admin/kullanicilar/[id]
+├ ƒ /admin/kuponlar
+├ ƒ /admin/odemeler
+├ ƒ /admin/onaylar
+├ ƒ /admin/paketler
+├ ƒ /admin/siparisler
+├ ƒ /admin/siparisler/[id]
+├ ƒ /api/auth/forgot-password
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/refresh
+├ ƒ /api/auth/register
+├ ƒ /api/auth/resend-verification
+├ ƒ /api/auth/reset-password
+├ ƒ /api/proxy/[...path]
+├ ○ /cerez-politikasi
+├ ƒ /giris
+├ ○ /hakkimizda
+├ ○ /isletmeler-icin
+├ ○ /kayit
+├ ○ /nasil-calisir
+├ ƒ /oturum-yenile
+├ ○ /panel
+├ ○ /panel/degerlendirmeler
+├ ○ /panel/isletme
+├ ○ /panel/odemeler
+├ ○ /panel/paketler
+├ ƒ /panel/paketler/[id]/duzenle
+├ ○ /panel/paketler/yeni
+├ ○ /panel/siparisler
+├ ○ /sifre-sifirla
+└ ○ /sifremi-unuttum
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

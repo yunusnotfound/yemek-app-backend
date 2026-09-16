@@ -34,15 +34,15 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-      <div className={cn("relative max-h-[90dvh] w-full overflow-y-auto rounded-2xl bg-white shadow-xl", sizeCls)}>
+      <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" onClick={onClose} />
+      <div className={cn("relative max-h-[90dvh] w-full overflow-y-auto rounded-2xl border border-surface-border bg-surface shadow-floating", sizeCls)}>
         {title ? (
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-ink hover:bg-surface-muted focus-visible:outline-2 focus-visible:outline-brand-600"
               aria-label="Kapat"
             >
               <X className="h-5 w-5" />
@@ -51,7 +51,7 @@ export function Modal({
         ) : null}
         <div className="px-5 py-4">{children}</div>
         {footer ? (
-          <div className="flex justify-end gap-2 border-t border-slate-200 px-5 py-4">{footer}</div>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-surface-border bg-surface-muted px-5 py-4">{footer}</div>
         ) : null}
       </div>
     </div>

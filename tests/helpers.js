@@ -19,6 +19,8 @@ async function resetDb() {
     cacheService.delPattern('packages:list:*'),
     cacheService.delPattern('businesses:list:*'),
     cacheService.delPattern('maps:nearby:*'),
+    cacheService.delPattern('authlimit:*'),
+    cacheService.delPattern('rt:*'),
   ]);
 }
 

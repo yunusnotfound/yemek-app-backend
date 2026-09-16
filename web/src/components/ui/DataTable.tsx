@@ -30,10 +30,10 @@ export function DataTable<T>({
   if (!rows.length) return <>{empty ?? null}</>;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-surface-border bg-surface shadow-surface">
       {/* Masaüstü: tablo */}
       <table className="hidden w-full text-sm sm:table">
-        <thead className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <thead className="border-b border-surface-border bg-surface-muted text-left text-xs font-semibold uppercase tracking-wide text-muted-ink">
           <tr>
             {columns.map((c) => (
               <th key={c.key} className={cn("px-4 py-3", c.className)}>
@@ -70,7 +70,7 @@ export function DataTable<T>({
             {columns.map((c) => (
               <div key={c.key} className="flex justify-between gap-3 text-sm">
                 <span className="shrink-0 text-slate-500">{c.header}</span>
-                <span className="text-right">{c.render(row)}</span>
+                <span className="min-w-0 break-words text-right">{c.render(row)}</span>
               </div>
             ))}
           </div>

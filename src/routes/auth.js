@@ -113,7 +113,7 @@ router.post('/login', validate(loginSchema), authController.login);
  *       401:
  *         description: Geçersiz refresh token
  */
-router.post('/refresh', authController.refreshToken);
+router.post('/refresh', validate(z.object({ refreshToken: z.string().min(1).max(4096) })), authController.refreshToken);
 
 /**
  * @swagger
@@ -189,19 +189,19 @@ router.post('/otp/verify', validate(otpVerifySchema), authController.verifyOtp);
 
 // Email verification
 router.get('/verify-email', validateQuery(z.object({ token: z.string() })), authController.verifyEmail);
-router.post('/resend-verification', authController.resendVerification);
+router.post('/resend-verification', validate(forgotPasswordSchema), authController.resendVerification);
 
 // Password reset
 router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 
 // Google Sign-In
-router.post('/google', authController.googleLogin);
+router.post('/google', validate(z.object({ idToken: z.string().min(1).max(8192), role: z.enum(['customer', 'business_owner']).optional() })), authController.googleLogin);
 
 // Apple Sign-In
-router.post('/apple', authController.appleLogin);
+router.post('/apple', validate(z.object({ identityToken: z.string().min(1).max(8192), fullName: z.string().max(200).optional(), role: z.enum(['customer', 'business_owner']).optional() })), authController.appleLogin);
 
 // Logout (revokes refresh token)
-router.post('/logout', authController.logout);
+router.post('/logout', validate(z.object({ refreshToken: z.string().min(1).max(4096).optional() })), authController.logout);
 
 module.exports = router;

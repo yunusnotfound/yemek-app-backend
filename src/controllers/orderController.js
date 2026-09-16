@@ -1,3 +1,5 @@
+const couponService = require('../services/couponService');
+const { cancelOrder, cancellationMessage } = require('../services/orderCancellationService');
 const { Order, SurprisePackage, Business, Category, User, Notification, Coupon, sequelize } = require('../models');
 const { Op, UniqueConstraintError } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
@@ -18,7 +20,7 @@ const releaseHoldCompensation = async (order, reason = 'checkout_init_failed') =
   const t = await sequelize.transaction();
   try {
     const [n] = await Order.update(
-      { status: 'cancelled', paymentStatus: 'failed', paymentError: reason },
+      { status: 'cancelled', couponReleased: true, paymentStatus: 'failed', paymentError: reason },
       { where: { id: order.id, status: 'awaiting_payment' }, transaction: t }
     );
     if (n === 1) {
@@ -49,66 +51,55 @@ exports.create = async (req, res, next) => {
     const { packageId, quantity, couponCode } = req.body;
     const orderQuantity = quantity || 1;
 
+    // Lock buyer -> business -> package consistently with deletion paths.
+    const buyerAccount = await User.findByPk(req.user.id, { transaction: t, lock: true });
+    if (!buyerAccount || !buyerAccount.isEmailVerified) {
+      await t.rollback();
+      return res.status(401).json({ message: 'Hesap doğrulanamadı' });
+    }
+    const holds = await Order.count({ where: { userId: req.user.id, status: 'awaiting_payment' }, transaction: t });
+    if (holds >= 3) {
+      await t.rollback();
+      return res.status(429).json({ message: 'Önce bekleyen ödemelerinizi tamamlayın veya iptal edin' });
+    }
+    const candidate = await SurprisePackage.findByPk(packageId, { transaction: t });
+    if (candidate) await Business.findByPk(candidate.businessId, { transaction: t, lock: true });
     const pkg = await SurprisePackage.findByPk(packageId, { transaction: t, lock: true });
     if (!pkg) {
       await t.rollback();
       return res.status(404).json({ message: 'Paket bulunamadı' });
     }
 
-    if (!pkg.isActive) {
+    if (!pkg.isActive || pkg.isSuspended) {
       await t.rollback();
       return res.status(400).json({ message: 'Bu paket artık aktif değil' });
     }
 
-    let totalPrice = parseFloat(pkg.discountedPrice) * orderQuantity;
+    const endTime = String(pkg.pickupEnd).slice(0, 8);
+    let pickupEndAt = new Date(`${pkg.pickupDate}T${endTime}+03:00`);
+    if (endTime <= String(pkg.pickupStart).slice(0, 8)) pickupEndAt = new Date(pickupEndAt.getTime() + 86400000);
+    if (!Number.isFinite(pickupEndAt.getTime()) || pickupEndAt <= new Date()) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Bu paketin teslim alma süresi dolmuş' });
+    }
+
+    const totalPrice = couponService.cents(pkg.discountedPrice) * orderQuantity / 100;
     let finalPrice = totalPrice;
     let couponId = null;
     let discountAmount = 0;
 
-    // Kupon uygulama (mevcut mantık korunur)
     if (couponCode) {
-      const coupon = await Coupon.findOne({
-        where: {
-          code: couponCode.toUpperCase(),
-          isActive: true,
-          expiresAt: { [Op.gt]: new Date() },
-        },
-        transaction: t,
-        lock: true,
+      const quote = await couponService.reserve(couponCode, req.user.id, {
+        total: totalPrice, businessId: pkg.businessId, transaction: t,
       });
-
-      if (!coupon) {
-        await t.rollback();
-        return res.status(404).json({ message: 'Geçersiz kupon kodu' });
-      }
-
-      if (coupon.currentUsage >= coupon.maxUsage) {
-        await t.rollback();
-        return res.status(400).json({ message: 'Kupon kullanım limiti dolmuş' });
-      }
-
-      if (totalPrice < parseFloat(coupon.minOrderAmount)) {
-        await t.rollback();
-        return res.status(400).json({
-          message: `Bu kupon minimum ${coupon.minOrderAmount} TL siparişte geçerlidir`,
-        });
-      }
-
-      if (coupon.discountType === 'percentage') {
-        discountAmount = (totalPrice * parseFloat(coupon.discountValue)) / 100;
-      } else {
-        discountAmount = parseFloat(coupon.discountValue);
-      }
-
-      finalPrice = Math.max(0, totalPrice - discountAmount);
-      couponId = coupon.id;
-
-      await coupon.update(
-        { currentUsage: coupon.currentUsage + 1 },
-        { transaction: t }
-      );
+      finalPrice = quote.finalPrice;
+      discountAmount = quote.discountAmount;
+      couponId = quote.couponId;
     }
 
+    if (req.body.expectedFinalPrice != null && couponService.cents(req.body.expectedFinalPrice) !== couponService.cents(finalPrice)) {
+      throw couponService.problem('Paket fiyatı veya kupon koşulları değişti. Güncel tutarı kontrol edip tekrar deneyin.', 409);
+    }
     const isFree = finalPrice <= 0;
 
     // İşletme + kategori (basketItem.category1 için)
@@ -124,7 +115,7 @@ exports.create = async (req, res, next) => {
     // Onaylanmamış işletmeden sipariş alınamaz (moderasyon/güven kapısı).
     // Sub-merchant onboarding'i self-service olduğu için admin onayı olmadan
     // gerçek para akışı başlamamalı.
-    if (!business.isApproved) {
+    if (!business.isApproved || !business.isActive || business.isSuspended) {
       await t.rollback();
       return res.status(403).json({ message: 'Bu işletme henüz onaylanmadı' });
     }
@@ -133,7 +124,7 @@ exports.create = async (req, res, next) => {
     // TEST modu (IYZICO_TEST_DIRECT_CHARGE=true): Pazaryeri aktif olmadan ödeme AKIŞINI denemek için
     // submerchant olmadan DÜZ tahsilat yapılır (komisyon split + approval YOK). Prod'da kapalı tutun.
     const hasSubMerchant = Boolean(business.subMerchantKey) && business.subMerchantStatus === 'active';
-    const allowDirectCharge = process.env.IYZICO_TEST_DIRECT_CHARGE === 'true';
+    const allowDirectCharge = process.env.IYZICO_TEST_DIRECT_CHARGE === 'true' && require('../config/iyzico').getMode() !== 'live';
     if (!isFree && !hasSubMerchant && !allowDirectCharge) {
       await t.rollback();
       return res.status(400).json({ message: 'İşletme henüz ödeme almaya hazır değil' });
@@ -152,14 +143,15 @@ exports.create = async (req, res, next) => {
     let order;
     const maxCodeAttempts = 5;
     for (let codeAttempt = 0; codeAttempt < maxCodeAttempts; codeAttempt++) {
-      const pickupCode = await generatePickupCode();
+      const pickupCode = await generatePickupCode(t);
       try {
-        order = await Order.create({
+        order = await sequelize.transaction({ transaction: t }, async (savepoint) => Order.create({
           id: orderId,
           userId: req.user.id,
           packageId,
           quantity: orderQuantity,
           totalPrice,
+          originalTotal: couponService.cents(pkg.originalPrice) * orderQuantity / 100,
           finalPrice,
           discountAmount,
           couponId,
@@ -175,7 +167,7 @@ exports.create = async (req, res, next) => {
           subMerchantPrice,
           commissionAmount,
           paymentHoldExpiresAt: isFree ? null : new Date(Date.now() + HOLD_MINUTES * 60 * 1000),
-        }, { transaction: t });
+        }, { transaction: savepoint }));
         break;
       } catch (err) {
         const isPickupCodeConflict =
@@ -260,6 +252,8 @@ exports.create = async (req, res, next) => {
           ip: req.ip,
           paymentCard,
         });
+
+        if (tds.paymentId) await order.update({ paymentId: tds.paymentId });
 
         return res.status(201).json({
           message: 'Ödeme başlatıldı',
@@ -441,26 +435,15 @@ exports.updateStatus = async (req, res, next) => {
       });
     }
 
-    // İptal + ödenmiş -> ÖNCE iade (para güvenliği), sonra DB.
-    let refundedAmount = 0;
-    if (status === 'cancelled' && order.paymentStatus === 'paid') {
-      try {
-        const r = await settlementService.refundOrder(order, req.ip);
-        if (r.refunded) refundedAmount = r.amount;
-      } catch (e) {
-        logger.error(`[orders] iade başarısız (order ${order.id}): ${e.message}`);
-        return res.status(502).json({ message: 'İade işlemi başarısız, lütfen tekrar deneyin' });
-      }
+    if (status === 'cancelled') {
+      const fresh = await cancelOrder(order.id, { ip: req.ip });
+      await notifyOrderStatus(order.userId, order.id, 'cancelled');
+      return res.json({ message: cancellationMessage(fresh), order: fresh });
     }
 
     const t = await sequelize.transaction();
     try {
       const updateFields = { status };
-      if (status === 'cancelled' && refundedAmount > 0) {
-        updateFields.paymentStatus = 'refunded';
-        updateFields.settlementStatus = 'refunded';
-        updateFields.refundAmount = refundedAmount;
-      }
       // Koşullu (status guard) -> eşzamanlı değişime karşı idempotent
       const [n] = await Order.update(updateFields, {
         where: { id: order.id, status: order.status },
@@ -468,25 +451,12 @@ exports.updateStatus = async (req, res, next) => {
       });
       if (n === 0) {
         await t.rollback();
-        if (refundedAmount > 0) {
-          logger.error(`[orders] iade yapıldı ama durum değişmiş (order ${order.id}) - manuel mutabakat gerekli`);
-        }
         return res.status(409).json({ message: 'Sipariş durumu değişmiş, tekrar deneyin' });
-      }
-      if (status === 'cancelled') {
-        await SurprisePackage.update(
-          { remainingQuantity: sequelize.literal(`"remainingQuantity" + ${order.quantity}`) },
-          { where: { id: order.packageId }, transaction: t }
-        );
       }
       await t.commit();
     } catch (e) {
       await t.rollback();
       throw e;
-    }
-
-    if (status === 'cancelled') {
-      await cacheService.invalidateNamespace('packages:list');
     }
 
     // Teslim -> satıcı fonlarını serbest bırak (iyzico approval).
@@ -527,56 +497,7 @@ exports.cancel = async (req, res, next) => {
       return res.status(400).json({ message: 'Sipariş zaten iptal edilmiş' });
     }
 
-    // Ödenmiş ise ÖNCE iade. (awaiting_payment hold'da paymentStatus 'pending' -> iade yok, sadece stok geri.)
-    let refundedAmount = 0;
-    if (order.paymentStatus === 'paid') {
-      try {
-        const r = await settlementService.refundOrder(order, req.ip);
-        if (r.refunded) refundedAmount = r.amount;
-      } catch (e) {
-        logger.error(`[orders] müşteri iptal iadesi başarısız (order ${order.id}): ${e.message}`);
-        return res.status(502).json({ message: 'İade işlemi başarısız, lütfen daha sonra tekrar deneyin' });
-      }
-    }
-
-    const t = await sequelize.transaction();
-    try {
-      const updateFields = { status: 'cancelled' };
-      if (refundedAmount > 0) {
-        updateFields.paymentStatus = 'refunded';
-        updateFields.settlementStatus = 'refunded';
-        updateFields.refundAmount = refundedAmount;
-      }
-      const [n] = await Order.update(updateFields, {
-        where: { id: order.id, status: order.status },
-        transaction: t,
-      });
-      if (n === 0) {
-        await t.rollback();
-        if (refundedAmount > 0) {
-          logger.error(`[orders] iade yapıldı ama durum değişmiş (order ${order.id}) - manuel mutabakat gerekli`);
-        }
-        return res.status(409).json({ message: 'Sipariş durumu değişmiş' });
-      }
-      await SurprisePackage.update(
-        { remainingQuantity: sequelize.literal(`"remainingQuantity" + ${order.quantity}`) },
-        { where: { id: order.packageId }, transaction: t }
-      );
-      // Ödenmemiş hold (awaiting_payment) iptal ediliyorsa kupon kullanımını geri ver.
-      // Ödenmiş/ücretsiz (pending/confirmed) siparişlerde kupon tüketilmiş sayılır (iade yok).
-      if (order.status === 'awaiting_payment' && order.couponId) {
-        await Coupon.update(
-          { currentUsage: sequelize.literal('GREATEST("currentUsage" - 1, 0)') },
-          { where: { id: order.couponId }, transaction: t }
-        );
-      }
-      await t.commit();
-    } catch (e) {
-      await t.rollback();
-      throw e;
-    }
-
-    await cacheService.invalidateNamespace('packages:list');
+    const cancelled = await cancelOrder(order.id, { ip: req.ip });
 
     const pkg = await SurprisePackage.findByPk(order.packageId);
     const business = pkg ? await Business.findByPk(pkg.businessId) : null;
@@ -592,7 +513,7 @@ exports.cancel = async (req, res, next) => {
 
     const fresh = await Order.findByPk(order.id);
     res.json({
-      message: 'Sipariş iptal edildi',
+      message: cancellationMessage(cancelled),
       order: fresh,
     });
   } catch (error) {

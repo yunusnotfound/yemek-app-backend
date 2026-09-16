@@ -1,0 +1,18 @@
+00:00 +0: loading <workspace>/bitir_yemek_mobile/test/security_test.dart
+00:00 +0: <workspace>/bitir_yemek_mobile/test/security_test.dart: concurrent 401s share one refresh and both requests complete
+00:00 +1: <workspace>/bitir_yemek_mobile/test/security_test.dart: a second 401 terminates instead of deadlocking the retry queue
+00:00 +2: <workspace>/bitir_yemek_mobile/test/security_test.dart: failed login does not refresh an unrelated existing session
+00:00 +3: <workspace>/bitir_yemek_mobile/test/security_test.dart: logout revokes the server token and clears local credentials
+00:00 +4: <workspace>/bitir_yemek_mobile/test/security_test.dart: cancelled paid order awaiting refund is never reported as a reservation success
+00:00 +5: <workspace>/bitir_yemek_mobile/test/widget_test.dart: App smoke test
+00:00 +6: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: Keşfet cards and campaign fit at text scale 1.0
+00:01 +7: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: Keşfet cards and campaign fit at text scale 2.0
+00:01 +8: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: coupon arithmetic retains kurus and clamps excessive discounts
+00:01 +9: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: wallet remains usable at text scale 1.0
+00:01 +10: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: wallet remains usable at text scale 2.0
+00:01 +11: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: coupon selection returns the chosen offer without modifying the order
+00:01 +12: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: unavailable and empty campaigns never show a redeem action or banner
+00:01 +13: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: checkout uses the server quote and displays the exact final amount
+00:01 +14: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: quantity controls respect stock and revalidate the 500 TL coupon subtotal
+00:01 +15: <workspace>/bitir_yemek_mobile/test/campaign_ui_test.dart: (tearDownAll)
+00:01 +15: All tests passed!

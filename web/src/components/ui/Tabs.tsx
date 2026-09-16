@@ -25,12 +25,13 @@ export function Tabs<K extends string>({
         <button
           key={t.key}
           type="button"
+          aria-pressed={value === t.key}
           onClick={() => onChange(t.key)}
           className={cn(
-            "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
+            "min-h-11 rounded-full px-4 py-2 text-sm font-medium transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600",
             value === t.key
-              ? "bg-brand-600 text-white"
-              : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50",
+              ? "bg-brand-600 text-white shadow-control"
+              : "bg-surface text-muted-ink ring-1 ring-surface-border hover:bg-surface-muted",
           )}
         >
           {t.label}

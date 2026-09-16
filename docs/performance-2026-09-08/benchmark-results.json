@@ -1,0 +1,525 @@
+{
+  "timestamp": "2026-09-08T00:02:53.455Z",
+  "environment": {
+    "node": "v25.8.0",
+    "cpu": "Apple M2 Max",
+    "cores": 12,
+    "memoryGiB": 32,
+    "mode": "production",
+    "transport": "loopback HTTP, keep-alive, closed-loop; rate limiters enabled; synthetic users; no TLS/proxy/cron/Sentry/external APIs",
+    "postgres": "PostgreSQL 16.13 (Homebrew) on aarch64-apple-darwin25.2.0, compiled by Apple clang version 17.0.0 (clang-1700.6.3.2), 64-bit"
+  },
+  "scenarios": [
+    {
+      "name": "packages-cache-hit",
+      "concurrency": 1,
+      "requests": 1000,
+      "seconds": 0.5288507910000008,
+      "requestsPerSecond": 1890.8925107384373,
+      "medianMs": 0.4774170000000595,
+      "p95Ms": 0.7066670000003796,
+      "p99Ms": 0.9241659999997864,
+      "maxMs": 5.1850000000004,
+      "statusCounts": {
+        "200": 1000
+      },
+      "avgResponseKiB": 8.21484375,
+      "queries": 0,
+      "cpuMs": 331.534,
+      "cpuOneCorePercent": 62.67362061667252,
+      "rssMiB": 244.84375,
+      "heapMiB": 90.93255615234375,
+      "eventLoopP95Ms": 10.166271,
+      "eventLoopMaxMs": 10.403839,
+      "queriesPerRequest": 0
+    },
+    {
+      "name": "packages-cache-hit",
+      "concurrency": 10,
+      "requests": 1000,
+      "seconds": 0.1312375409999995,
+      "requestsPerSecond": 7619.770931245989,
+      "medianMs": 1.1931249999997817,
+      "p95Ms": 1.8813749999999345,
+      "p99Ms": 3.145332999999482,
+      "maxMs": 3.898457999999664,
+      "statusCounts": {
+        "200": 1000
+      },
+      "avgResponseKiB": 8.21484375,
+      "queries": 0,
+      "cpuMs": 167.515,
+      "cpuOneCorePercent": 127.54346288187894,
+      "rssMiB": 263.5625,
+      "heapMiB": 92.19816589355469,
+      "eventLoopP95Ms": 10.371071,
+      "eventLoopMaxMs": 10.452991,
+      "queriesPerRequest": 0
+    },
+    {
+      "name": "packages-cache-hit",
+      "concurrency": 50,
+      "requests": 1000,
+      "seconds": 0.11963979100000051,
+      "requestsPerSecond": 8358.423160401508,
+      "medianMs": 5.385290999999597,
+      "p95Ms": 7.762166999999863,
+      "p99Ms": 33.36462500000016,
+      "maxMs": 49.593957999999475,
+      "statusCounts": {
+        "200": 1000
+      },
+      "avgResponseKiB": 8.21484375,
+      "queries": 0,
+      "cpuMs": 145.413,
+      "cpuOneCorePercent": 121.42942355357556,
+      "rssMiB": 280.96875,
+      "heapMiB": 90.6522216796875,
+      "eventLoopP95Ms": 10.993663,
+      "eventLoopMaxMs": 11.780095,
+      "queriesPerRequest": 0
+    },
+    {
+      "name": "packages-cache-miss",
+      "concurrency": 1,
+      "requests": 300,
+      "seconds": 6.559645915999999,
+      "requestsPerSecond": 45.73417587498941,
+      "medianMs": 21.757708000001003,
+      "p95Ms": 22.534874999999374,
+      "p99Ms": 23.193375000000742,
+      "maxMs": 27.341999999998734,
+      "statusCounts": {
+        "200": 300
+      },
+      "avgResponseKiB": 8.21484375,
+      "queries": 600,
+      "cpuMs": 839.072,
+      "cpuOneCorePercent": 12.791184484049797,
+      "rssMiB": 291.046875,
+      "heapMiB": 70.8258056640625,
+      "eventLoopP95Ms": 11.272191,
+      "eventLoopMaxMs": 11.870207,
+      "queriesPerRequest": 2
+    },
+    {
+      "name": "packages-cache-miss",
+      "concurrency": 10,
+      "requests": 300,
+      "seconds": 0.9775460829999992,
+      "requestsPerSecond": 306.8909028608938,
+      "medianMs": 30.609707999999955,
+      "p95Ms": 40.94416699999965,
+      "p99Ms": 57.47783300000083,
+      "maxMs": 82.17595800000163,
+      "statusCounts": {
+        "200": 300
+      },
+      "avgResponseKiB": 8.21484375,
+      "queries": 600,
+      "cpuMs": 707.476,
+      "cpuOneCorePercent": 72.36419195090737,
+      "rssMiB": 291.625,
+      "heapMiB": 60.347145080566406,
+      "eventLoopP95Ms": 12.361727,
+      "eventLoopMaxMs": 15.532031,
+      "queriesPerRequest": 2
+    },
+    {
+      "name": "packages-cache-miss",
+      "concurrency": 50,
+      "requests": 300,
+      "seconds": 0.9254634579999984,
+      "requestsPerSecond": 324.1619076439002,
+      "medianMs": 147.9536250000001,
+      "p95Ms": 183.84620900000118,
+      "p99Ms": 226.10029199999917,
+      "maxMs": 227.63908300000003,
+      "statusCounts": {
+        "200": 300
+      },
+      "avgResponseKiB": 8.21484375,
+      "queries": 600,
+      "cpuMs": 550.622,
+      "cpuOneCorePercent": 59.49086347711069,
+      "rssMiB": 292.734375,
+      "heapMiB": 97.59391021728516,
+      "eventLoopP95Ms": 21.790719,
+      "eventLoopMaxMs": 32.243711,
+      "queriesPerRequest": 2
+    },
+    {
+      "name": "coupons-10",
+      "concurrency": 1,
+      "requests": 100,
+      "seconds": 0.7949909160000025,
+      "requestsPerSecond": 125.78760082335292,
+      "medianMs": 7.959832999997161,
+      "p95Ms": 8.579792000000452,
+      "p99Ms": 9.278749999997672,
+      "maxMs": 9.867165999999997,
+      "statusCounts": {
+        "200": 100
+      },
+      "avgResponseKiB": 2.93953125,
+      "queries": 3300,
+      "cpuMs": 355.549,
+      "cpuOneCorePercent": 44.718571997289615,
+      "rssMiB": 293.640625,
+      "heapMiB": 100.80284118652344,
+      "eventLoopP95Ms": 10.223615,
+      "eventLoopMaxMs": 10.502143,
+      "queriesPerRequest": 33
+    },
+    {
+      "name": "coupons-10",
+      "concurrency": 10,
+      "requests": 100,
+      "seconds": 0.1916031669999975,
+      "requestsPerSecond": 521.912041255567,
+      "medianMs": 18.715374999999767,
+      "p95Ms": 22.18841700000121,
+      "p99Ms": 22.647249999998166,
+      "maxMs": 23.032208000000537,
+      "statusCounts": {
+        "200": 100
+      },
+      "avgResponseKiB": 2.943359375,
+      "queries": 3300,
+      "cpuMs": 227.063,
+      "cpuOneCorePercent": 118.45428723419327,
+      "rssMiB": 293.796875,
+      "heapMiB": 97.33755493164062,
+      "eventLoopP95Ms": 10.239999,
+      "eventLoopMaxMs": 10.264575,
+      "queriesPerRequest": 33
+    },
+    {
+      "name": "coupons-10",
+      "concurrency": 50,
+      "requests": 100,
+      "seconds": 0.18203091700000004,
+      "requestsPerSecond": 549.3572281460296,
+      "medianMs": 88.34091600000102,
+      "p95Ms": 97.24416700000074,
+      "p99Ms": 99.4544590000005,
+      "maxMs": 100.43699999999808,
+      "statusCounts": {
+        "200": 100
+      },
+      "avgResponseKiB": 2.943359375,
+      "queries": 3300,
+      "cpuMs": 204.85,
+      "cpuOneCorePercent": 112.48860582676267,
+      "rssMiB": 294.171875,
+      "heapMiB": 91.6526107788086,
+      "eventLoopP95Ms": 11.149311,
+      "eventLoopMaxMs": 11.231231,
+      "queriesPerRequest": 33
+    },
+    {
+      "name": "coupons-100",
+      "concurrency": 1,
+      "requests": 100,
+      "seconds": 6.647330249999999,
+      "requestsPerSecond": 15.04363349481546,
+      "medianMs": 67.97258300000249,
+      "p95Ms": 69.9777920000015,
+      "p99Ms": 71.1805830000012,
+      "maxMs": 71.39229200000045,
+      "statusCounts": {
+        "200": 100
+      },
+      "avgResponseKiB": 29.046875,
+      "queries": 30300,
+      "cpuMs": 2152.5,
+      "cpuOneCorePercent": 32.38088708549621,
+      "rssMiB": 295.140625,
+      "heapMiB": 59.404518127441406,
+      "eventLoopP95Ms": 10.256383,
+      "eventLoopMaxMs": 10.641407,
+      "queriesPerRequest": 303
+    },
+    {
+      "name": "coupons-100",
+      "concurrency": 10,
+      "requests": 100,
+      "seconds": 1.4243183339999996,
+      "requestsPerSecond": 70.2090239329883,
+      "medianMs": 140.39179199999853,
+      "p95Ms": 150.29504100000122,
+      "p99Ms": 156.04370799999742,
+      "maxMs": 156.31520900000032,
+      "statusCounts": {
+        "200": 100
+      },
+      "avgResponseKiB": 29.046875,
+      "queries": 30300,
+      "cpuMs": 1518.957,
+      "cpuOneCorePercent": 106.62597904416735,
+      "rssMiB": 295.75,
+      "heapMiB": 107.4992904663086,
+      "eventLoopP95Ms": 10.371071,
+      "eventLoopMaxMs": 11.395071,
+      "queriesPerRequest": 303
+    },
+    {
+      "name": "coupons-100",
+      "concurrency": 50,
+      "requests": 100,
+      "seconds": 1.432751583000001,
+      "requestsPerSecond": 69.79577003196368,
+      "medianMs": 701.4551250000004,
+      "p95Ms": 774.1190839999981,
+      "p99Ms": 794.3347920000015,
+      "maxMs": 797.1556249999994,
+      "statusCounts": {
+        "200": 100
+      },
+      "avgResponseKiB": 29.046875,
+      "queries": 30300,
+      "cpuMs": 1451.159,
+      "cpuOneCorePercent": 101.26826764169503,
+      "rssMiB": 306.265625,
+      "heapMiB": 110.2292251586914,
+      "eventLoopP95Ms": 10.731519,
+      "eventLoopMaxMs": 11.952127,
+      "queriesPerRequest": 303
+    },
+    {
+      "name": "map-cache-hit",
+      "concurrency": 10,
+      "requests": 200,
+      "seconds": 0.28368999999999867,
+      "requestsPerSecond": 704.9948887870596,
+      "medianMs": 13.553499999998166,
+      "p95Ms": 19.434541999999055,
+      "p99Ms": 21.853291999999783,
+      "maxMs": 22.230042000002868,
+      "statusCounts": {
+        "200": 200
+      },
+      "avgResponseKiB": 258.9599609375,
+      "queries": 200,
+      "cpuMs": 377.241,
+      "cpuOneCorePercent": 132.44153321627732,
+      "rssMiB": 430.375,
+      "heapMiB": 73.10723876953125,
+      "eventLoopP95Ms": 14.426111,
+      "eventLoopMaxMs": 14.737407,
+      "queriesPerRequest": 1
+    },
+    {
+      "name": "map-cache-hit",
+      "concurrency": 50,
+      "requests": 200,
+      "seconds": 0.27539154100000085,
+      "requestsPerSecond": 726.2387191478746,
+      "medianMs": 66.60720899999797,
+      "p95Ms": 81.77641699999731,
+      "p99Ms": 83.85800000000017,
+      "maxMs": 84.46941700000025,
+      "statusCounts": {
+        "200": 200
+      },
+      "avgResponseKiB": 258.9599609375,
+      "queries": 200,
+      "cpuMs": 363.681,
+      "cpuOneCorePercent": 132.00245212899816,
+      "rssMiB": 494.921875,
+      "heapMiB": 88.40605926513672,
+      "eventLoopP95Ms": 18.726911,
+      "eventLoopMaxMs": 18.890751,
+      "queriesPerRequest": 1
+    },
+    {
+      "name": "business-detail",
+      "concurrency": 10,
+      "requests": 200,
+      "seconds": 0.19443895899999916,
+      "requestsPerSecond": 1028.6004462716799,
+      "medianMs": 9.096833999999944,
+      "p95Ms": 13.187291999998706,
+      "p99Ms": 14.047999999998865,
+      "maxMs": 17.072542000001704,
+      "statusCounts": {
+        "200": 200
+      },
+      "avgResponseKiB": 5.904296875,
+      "queries": 400,
+      "cpuMs": 255.576,
+      "cpuOneCorePercent": 131.3775351138677,
+      "rssMiB": 482.03125,
+      "heapMiB": 87.44294738769531,
+      "eventLoopP95Ms": 11.788287,
+      "eventLoopMaxMs": 12.009471,
+      "queriesPerRequest": 2
+    },
+    {
+      "name": "orders-history",
+      "concurrency": 10,
+      "requests": 200,
+      "seconds": 0.12810758300000089,
+      "requestsPerSecond": 1561.1878338224415,
+      "medianMs": 6.227958999999828,
+      "p95Ms": 8.309583000002021,
+      "p99Ms": 8.79712500000096,
+      "maxMs": 10.173541999996814,
+      "statusCounts": {
+        "200": 200
+      },
+      "avgResponseKiB": 0.0693359375,
+      "queries": 600,
+      "cpuMs": 151.715,
+      "cpuOneCorePercent": 118.33054987652272,
+      "rssMiB": 482.328125,
+      "heapMiB": 91.50560760498047,
+      "eventLoopP95Ms": 11.681791,
+      "eventLoopMaxMs": 12.361727,
+      "queriesPerRequest": 3
+    },
+    {
+      "name": "coupons-admin-100",
+      "concurrency": 10,
+      "requests": 60,
+      "seconds": 0.3412903340000012,
+      "requestsPerSecond": 175.80339676423355,
+      "medianMs": 55.5957079999971,
+      "p95Ms": 63.04991599999994,
+      "p99Ms": 73.1929170000003,
+      "maxMs": 73.1929170000003,
+      "statusCounts": {
+        "200": 60
+      },
+      "avgResponseKiB": 26.0517578125,
+      "queries": 6180,
+      "cpuMs": 382.224,
+      "cpuOneCorePercent": 111.95724685066757,
+      "rssMiB": 482.71875,
+      "heapMiB": 120.48334503173828,
+      "eventLoopP95Ms": 11.059199,
+      "eventLoopMaxMs": 13.557759,
+      "queriesPerRequest": 103
+    },
+    {
+      "name": "password-login",
+      "concurrency": 1,
+      "requests": 10,
+      "seconds": 0.7015250830000005,
+      "requestsPerSecond": 14.254657805300445,
+      "medianMs": 68.1506670000017,
+      "p95Ms": 86.28158299999996,
+      "p99Ms": 86.28158299999996,
+      "maxMs": 86.28158299999996,
+      "statusCounts": {
+        "200": 10
+      },
+      "avgResponseKiB": 0.9251953125,
+      "queries": 10,
+      "cpuMs": 708.604,
+      "cpuOneCorePercent": 100.9951587162168,
+      "rssMiB": 483.078125,
+      "heapMiB": 74.91270446777344,
+      "eventLoopP95Ms": 74.055679,
+      "eventLoopMaxMs": 74.055679,
+      "queriesPerRequest": 1
+    },
+    {
+      "name": "password-login",
+      "concurrency": 10,
+      "requests": 40,
+      "seconds": 2.6493860000000025,
+      "requestsPerSecond": 15.097837763164735,
+      "medianMs": 660.0728329999984,
+      "p95Ms": 724.8678749999999,
+      "p99Ms": 794.2348750000019,
+      "maxMs": 794.2348750000019,
+      "statusCounts": {
+        "200": 40
+      },
+      "avgResponseKiB": 0.925634765625,
+      "queries": 40,
+      "cpuMs": 2643.336,
+      "cpuOneCorePercent": 99.76811330960624,
+      "rssMiB": 483.140625,
+      "heapMiB": 89.12096405029297,
+      "eventLoopP95Ms": 596.115455,
+      "eventLoopMaxMs": 596.115455,
+      "queriesPerRequest": 1
+    }
+  ],
+  "probes": {
+    "packages-cold": {
+      "status": 200,
+      "ms": 44.062708000000384,
+      "bytes": 8412,
+      "queries": 2,
+      "returned": 10,
+      "total": 20000
+    },
+    "packages-warm": {
+      "status": 200,
+      "ms": 2.416417000000365,
+      "bytes": 8412,
+      "queries": 0,
+      "returned": 10,
+      "total": 20000
+    },
+    "coupons-10": {
+      "status": 200,
+      "ms": 15.063625000002503,
+      "bytes": 3010,
+      "queries": 33,
+      "returned": 10
+    },
+    "coupons-100": {
+      "status": 200,
+      "ms": 60.088166000001365,
+      "bytes": 29744,
+      "queries": 303,
+      "returned": 100
+    },
+    "map-cold": {
+      "status": 200,
+      "ms": 36.45479200000045,
+      "bytes": 265175,
+      "queries": 3,
+      "returned": 500
+    },
+    "map-warm": {
+      "status": 200,
+      "ms": 3.412499999998545,
+      "bytes": 265175,
+      "queries": 1,
+      "returned": 500
+    },
+    "geoCacheBoundary": {
+      "statuses": [
+        200,
+        200,
+        200
+      ],
+      "pointAIncludesTarget": false,
+      "pointBCachedIncludesTarget": false,
+      "pointBFreshIncludesTarget": true,
+      "explanation": "Both points round to 41.00,29.00; cache hit reuses exact results from the other coordinate."
+    },
+    "productionRateLimit": {
+      "path": "/api/categories",
+      "responses": {
+        "200": 100,
+        "429": 5
+      },
+      "windowMinutes": 15
+    }
+  },
+  "dataset": {
+    "users": 2000,
+    "businesses": 2000,
+    "packages": 20000,
+    "orders": 50000,
+    "coupons": 100,
+    "schema": "all repository migrations, including production indexes",
+    "distribution": "synthetic Istanbul grid, all packages active and future, completed historical orders"
+  }
+}

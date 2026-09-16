@@ -1,5 +1,6 @@
 const {
   Business,
+  Order,
   Category,
   User,
   Review,
@@ -13,6 +14,7 @@ const {
   haversineSql,
 } = require("../utils/helpers");
 const cacheService = require('../services/cacheService');
+const coalesce = require('../services/requestCoalescer');
 
 exports.getAll = async (req, res, next) => {
   try {
@@ -28,14 +30,12 @@ exports.getAll = async (req, res, next) => {
     const useGeoFilter =
       Number.isFinite(userLat) && Number.isFinite(userLng) && Number.isFinite(maxRadius) && maxRadius > 0;
 
-    // Cache anahtarı: geo sorgularında koordinat 2 haneye (~1.1 km) yuvarlanır ki
-    // her farklı ondalık ayrı anahtar olup Redis'i şişirmesin (paket listesiyle
-    // aynı desen — gerekçe için bkz. packageController.getAll).
+    // Keep the cache key consistent with the exact SQL distance filter.
     const keyParts = { city, district, categoryId, search, page, limit };
     if (useGeoFilter) {
-      keyParts.lat = userLat.toFixed(2);
-      keyParts.lng = userLng.toFixed(2);
-      keyParts.radius = radius;
+      keyParts.lat = userLat;
+      keyParts.lng = userLng;
+      keyParts.radius = maxRadius;
     }
     // Sürümlü anahtar: geçersiz kılma tek INCR ile O(1) (bkz. cacheService).
     const cacheKey = await cacheService.versionedKey('businesses:list', keyParts);
@@ -44,7 +44,8 @@ exports.getAll = async (req, res, next) => {
       return res.json(cached);
     }
 
-    const where = { isActive: true, isApproved: true };
+    const responseData = await coalesce(cacheKey, async () => {
+    const where = { isActive: true, isApproved: true, isSuspended: false };
     if (city) where.city = city;
     if (district) where.district = district;
     if (categoryId) where.categoryId = categoryId;
@@ -96,6 +97,8 @@ exports.getAll = async (req, res, next) => {
 
     const responseData = paginatedResponse(businesses, count, page, limit);
     await cacheService.set(cacheKey, responseData, 300);
+    return responseData;
+    });
     res.json(responseData);
   } catch (error) {
     next(error);
@@ -104,7 +107,10 @@ exports.getAll = async (req, res, next) => {
 
 exports.getById = async (req, res, next) => {
   try {
-    const business = await Business.findByPk(req.params.id, {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const business = await Business.findOne({
+      where: { id: req.params.id, isActive: true, isApproved: true, isSuspended: false },
       // GET /businesses/:id de PUBLIC (authenticate yok) — bkz. routes/businesses.js.
       attributes: Business.PUBLIC_ATTRIBUTES,
       include: [
@@ -123,19 +129,18 @@ exports.getById = async (req, res, next) => {
         {
           model: SurprisePackage,
           as: "packages",
-          where: { isActive: true, remainingQuantity: { [Op.gt]: 0 } },
+          where: {
+            isActive: true,
+            isSuspended: false,
+            remainingQuantity: { [Op.gt]: 0 },
+            pickupDate: { [Op.gte]: today },
+          },
           required: false,
         },
       ],
     });
 
     if (!business) {
-      return res.status(404).json({ message: "İşletme bulunamadı" });
-    }
-
-    // Onaylanmamış/pasif işletme public detayda görünmez (liste ile tutarlı).
-    // Sahibi kendi işletmesini business-dashboard uçlarından yönetir.
-    if (!business.isActive || !business.isApproved) {
       return res.status(404).json({ message: "İşletme bulunamadı" });
     }
 
@@ -213,7 +218,12 @@ exports.update = async (req, res, next) => {
       isActive,
     } = req.body;
 
-    await business.update({
+    await sequelize.transaction(async (transaction) => {
+      await business.reload({ transaction, lock: true });
+      if (business.isSuspended && isActive === true && req.user.role !== 'admin') {
+        throw Object.assign(new Error('İşletme yönetici tarafından askıya alınmış'), { statusCode: 403 });
+      }
+      await business.update({
       name,
       description,
       address,
@@ -225,8 +235,10 @@ exports.update = async (req, res, next) => {
       imageUrl,
       categoryId,
       isActive,
-    });
+      }, { transaction });
 
+    });
+    await cacheService.invalidateNamespace('packages:list');
     await cacheService.invalidateNamespace('businesses:list');
 
     res.json({
@@ -252,7 +264,16 @@ exports.remove = async (req, res, next) => {
         .json({ message: "Bu işletmeyi silme yetkiniz yok" });
     }
 
-    await business.destroy();
+    await sequelize.transaction(async (transaction) => {
+      await business.reload({ transaction, lock: true });
+      const packages = await SurprisePackage.findAll({ where: { businessId: business.id }, attributes: ['id'], paranoid: false, transaction });
+      const active = await Order.count({ where: { packageId: { [Op.in]: packages.map(p => p.id) },
+        [Op.or]: [{ status: { [Op.in]: ['awaiting_payment', 'pending', 'confirmed'] } },
+          { refundStatus: { [Op.in]: ['pending', 'processing', 'review'] } }] }, transaction });
+      if (active) throw Object.assign(new Error('Aktif sipariş veya tamamlanmamış iade bulunan işletme silinemez'), { statusCode: 409 });
+      await business.destroy({ transaction });
+    });
+    await cacheService.invalidateNamespace('packages:list');
 
     await cacheService.invalidateNamespace('businesses:list');
 

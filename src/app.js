@@ -12,7 +12,8 @@ const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 
-app.set('trust proxy', 1);
+// Match the actual ingress topology; never trust arbitrary forwarded hops.
+app.set('trust proxy', process.env.TRUST_PROXY || 'loopback, linklocal, uniquelocal');
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -89,13 +90,13 @@ const corsOptions = {
     if (!isProduction && allowedOrigins.length === 0) {
       return callback(null, true);
     }
-    if (allowedOrigins.includes('*')) {
+    if (!isProduction && allowedOrigins.includes('*')) {
       return callback(null, true);
     }
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    return callback(new Error('CORS policy: origin not allowed'));
+    return callback(Object.assign(new Error('CORS policy: origin not allowed'), { statusCode: 403 }));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -119,7 +120,7 @@ const userOrIpKey = (req, res) => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
-      const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+      const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET, { algorithms: ['HS256'] });
       if (decoded && decoded.id) return `user:${decoded.id}`;
     } catch (_) {
       // süresi dolmuş / geçersiz token → IP'ye düş
@@ -128,6 +129,11 @@ const userOrIpKey = (req, res) => {
   return ipKeyGenerator(req.ip);
 };
 
+// Foreground catalog refresh can make 2–3 reads every 15 seconds. Give only
+// these read routes their own budget; writes and unrelated APIs retain theirs.
+const catalogPath = /^\/api\/(?:(?:businesses|packages)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?|maps\/nearby)\/?$/i;
+const isCatalogRead = (req) => req.method === 'GET' && catalogPath.test(req.path);
+
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -135,7 +141,17 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userOrIpKey,
-  skip: isIyzicoServerHook,
+  skip: req => isCatalogRead(req) || isIyzicoServerHook(req) || /^\/api\/(auth|cards|business-dashboard|admin|payments)(\/|$)/.test(req.originalUrl),
+});
+
+const catalogLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userOrIpKey,
+  skip: req => !isCatalogRead(req),
 });
 
 // Ödeme durumu poll (mobil) için cömert limit; iyzico hook'ları muaf.
@@ -189,11 +205,15 @@ const cardsLimiter = rateLimit({
 // kullandığından global/auth limitleri spurious 429 üretirdi.
 if (process.env.NODE_ENV !== 'test') {
   app.use(generalLimiter);
+  app.use(catalogLimiter);
   app.use('/api/auth', authLimiter);
   app.use('/api/cards', cardsLimiter);
   app.use('/api/business-dashboard', businessDashboardLimiter);
   app.use('/api/admin', adminLimiter);
   app.use('/api/payments', paymentsLimiter);
+  app.use('/api/payments/iyzico', rateLimit({ windowMs: 60 * 1000, max: 300,
+    standardHeaders: true, legacyHeaders: false,
+    message: { message: 'Çok fazla ödeme bildirimi' } }));
 }
 
 // iyzico webhook imzası için HAM gövde gerekir -> global JSON parser'dan ÖNCE,

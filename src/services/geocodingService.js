@@ -1,5 +1,6 @@
 const axios = require('axios');
 const logger = require('./logger');
+const coalesce = require('./requestCoalescer');
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -117,12 +118,18 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
     return [];
   }
 
-  // Kısa TTL cache. Koordinat 2 haneye (~1.1 km hücre) yuvarlanır ki yakın konumlar
-  // aynı anahtarı paylaşsın. 3 hane (~110 m) neredeyse her istekte yeni anahtar
-  // üretiyordu; yarıçap km mertebesinde olduğu için 1.1 km'lik hücre yeterli.
-  const cacheKey = `maps:nearby:${userLat.toFixed(2)}:${userLng.toFixed(2)}:${maxRadius}`;
+  // The response contains exact distances and live package counts. Use exact
+  // coordinates and both namespaces so stock/business changes invalidate it.
+  const [businessVersion, packageVersion] = await Promise.all([
+    cacheService.getVersion('businesses:list'),
+    cacheService.getVersion('packages:list'),
+  ]);
+  const cacheKey = businessVersion == null || packageVersion == null ? null
+    : `maps:nearby:v2:${businessVersion}:${packageVersion}:${userLat}:${userLng}:${maxRadius}`;
   const cached = await cacheService.get(cacheKey);
   if (cached) return cached;
+
+  return coalesce(cacheKey, async () => {
 
   // Bounding-box ön filtresi (idx_businesses_lat_lng): indeksten faydalanmak için
   // önce kutuyla daralt. BETWEEN, latitude/longitude'u NULL olan satırları da eler.
@@ -148,6 +155,7 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
         {
           isActive: true,
           isApproved: true,
+          isSuspended: false,
           latitude: { [Op.between]: [userLat - latDelta, userLat + latDelta] },
           longitude: { [Op.between]: [userLng - lngDelta, userLng + lngDelta] },
         },
@@ -176,6 +184,7 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
     where: {
       businessId: { [Op.in]: ids },
       isActive: true,
+      isSuspended: false,
       remainingQuantity: { [Op.gt]: 0 },
       pickupDate: { [Op.gte]: today },
     },
@@ -219,6 +228,7 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
   }));
   await cacheService.set(cacheKey, result, NEARBY_CACHE_TTL);
   return result;
+  });
 };
 
 module.exports = {

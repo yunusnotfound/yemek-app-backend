@@ -24,7 +24,7 @@ beforeEach(async () => {
 afterAll(closeDb);
 
 describe('POST /api/auth/register + login', () => {
-  test('register 201 + token döner', async () => {
+  test('register 201, doğrulama öncesi token verilmez', async () => {
     const res = await request(app).post('/api/auth/register').send({
       name: 'Yeni Kullanıcı',
       email: 'newuser@test.local',
@@ -33,8 +33,8 @@ describe('POST /api/auth/register + login', () => {
       role: 'customer',
     });
     expect(res.status).toBe(201);
-    expect(res.body.accessToken).toBeTruthy();
-    expect(res.body.refreshToken).toBeTruthy();
+    expect(res.body.accessToken).toBeUndefined();
+    expect(res.body.refreshToken).toBeUndefined();
   });
 
   test('doğrulanmamış e-posta ile login 403', async () => {
@@ -72,23 +72,13 @@ describe('POST /api/auth/refresh — rotasyon & revocation', () => {
       .send({ email: user.email, password: 'password123' });
     const oldRefresh = login.body.refreshToken;
 
-    // JWT iat/exp saniye çözünürlüğünde; aynı saniyede imzalanan refresh token'lar
-    // birebir aynı olur. Rotasyonun (farklı token + eski hash'in revoke'u)
-    // gözlemlenebilmesi için 1 saniyeden fazla bekle.
-    await new Promise((r) => setTimeout(r, 1100));
-
     const first = await request(app).post('/api/auth/refresh').send({ refreshToken: oldRefresh });
     expect(first.status).toBe(200);
     expect(first.body.refreshToken).toBeTruthy();
     expect(first.body.refreshToken).not.toBe(oldRefresh);
 
-    // Eski refresh tekrar kullanılırsa: Redis varsa revoke -> 401; yoksa fail-open (non-prod).
     const replay = await request(app).post('/api/auth/refresh').send({ refreshToken: oldRefresh });
-    if (redisUp) {
-      expect(replay.status).toBe(401);
-    } else {
-      expect([200, 401]).toContain(replay.status);
-    }
+    expect(replay.status).toBe(401);
   });
 });
 

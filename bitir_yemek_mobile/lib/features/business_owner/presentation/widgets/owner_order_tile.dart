@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
+import '../../../../core/utils/money_format.dart';
+import '../../../../core/utils/time_format.dart';
 import '../../data/models/owner_order_model.dart';
 
 class OwnerOrderTile extends StatelessWidget {
@@ -13,17 +15,7 @@ class OwnerOrderTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 6,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
+      decoration: AppDepth.surface(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -61,22 +53,23 @@ class OwnerOrderTile extends StatelessWidget {
 
           const SizedBox(height: AppSpacing.xs),
 
-          // Pickup time + price row
-          Row(
+          const SizedBox(height: AppSpacing.sm),
+          Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Icon(Icons.schedule, size: 14, color: AppColors.textHint),
-              const SizedBox(width: 4),
               Text(
-                '${order.package?.pickupStart ?? ''} - ${order.package?.pickupEnd ?? ''}',
-                style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.textHint,
+                pickupWindow(
+                  order.package?.pickupStart,
+                  order.package?.pickupEnd,
                 ),
+                style: AppTypography.bodySmall,
               ),
-              const Spacer(),
               Text(
-                '${order.totalPrice.toStringAsFixed(2)} ₺',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.primary,
+                formatMoney(order.totalPrice),
+                style: AppTypography.bodyLarge.copyWith(
+                  color: AppColors.ink,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -90,12 +83,14 @@ class OwnerOrderTile extends StatelessWidget {
               children: [
                 Icon(Icons.qr_code, size: 14, color: AppColors.textHint),
                 const SizedBox(width: 4),
-                Text(
-                  'Kod: ${order.pickupCode}',
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textHint,
-                    fontFamily: 'monospace',
-                    letterSpacing: 1.5,
+                Expanded(
+                  child: Text(
+                    'Kod: ${order.pickupCode}',
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.primaryInk,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5,
+                    ),
                   ),
                 ),
               ],
@@ -112,10 +107,10 @@ class OwnerOrderTile extends StatelessWidget {
                 icon: const Icon(Icons.check_circle_outline, size: 18),
                 label: const Text('Kodu Doğrula'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.success,
+                  foregroundColor: AppColors.successInk,
                   side: const BorderSide(color: AppColors.success),
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  minimumSize: const Size(48, 48),
                 ),
               ),
             ),
@@ -138,11 +133,11 @@ class _StatusChip extends StatelessWidget {
     switch (status) {
       case 'confirmed':
         bg = AppColors.info.withValues(alpha: 0.15);
-        fg = AppColors.info;
+        fg = AppColors.infoInk;
         break;
       case 'picked_up':
         bg = AppColors.success.withValues(alpha: 0.15);
-        fg = AppColors.success;
+        fg = AppColors.successInk;
         break;
       case 'cancelled':
         bg = AppColors.error.withValues(alpha: 0.15);
@@ -150,7 +145,7 @@ class _StatusChip extends StatelessWidget {
         break;
       default: // pending
         bg = AppColors.warning.withValues(alpha: 0.15);
-        fg = AppColors.warning;
+        fg = AppColors.warningInk;
     }
 
     return Container(

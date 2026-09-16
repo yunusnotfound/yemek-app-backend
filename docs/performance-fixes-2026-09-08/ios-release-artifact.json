@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "target": "lib/main.dart",
+  "mode": "release",
+  "codeSigningEnabled": false,
+  "stagePath": "<temporary-build>",
+  "appPath": "<temporary-build>/build/ios/iphoneos/Runner.app",
+  "applicationId": "com.bitiryemek.bitirYemekMobile",
+  "minimumOsVersion": "15.6",
+  "sizeBytes": 67097089,
+  "sizeDecimalMB": 67.1,
+  "sizeMiB": 63.99,
+  "originalNativeFilesUnchanged": true,
+  "nativeSourceSha256": {
+    "ios/Runner/AppDelegate.swift": "9418c676adebac7e3f04daa80a7db62066e77f9766c804fd3e5e264124a31f80",
+    "ios/Runner/Runner.entitlements": "b2cff52cf90d8cc5be5a2803c78f759d1dffcf00f0f54615b5330c53fea46d29",
+    "ios/Runner/Info.plist": "ea845ee192383f48b247665bb10b2cc4d229c1b9a75bae98f2878deb2f8b4362",
+    "ios/Runner.xcodeproj/project.pbxproj": "63fd7ed69114ebf7aa62251592727930bfc717f6bb4ea41dec2aff8efd8aa4fb"
+  },
+  "artifactRetained": false,
+  "cleanupNote": "Temporary build directory removed after successful verification; paths record the build-time location."
+}

@@ -67,7 +67,8 @@ class OrderModel extends Equatable {
   ];
 
   bool get isAwaitingPayment => status == 'awaiting_payment';
-  bool get isActive => status == 'pending' || status == 'confirmed';
+  bool get isActive =>
+      isAwaitingPayment || status == 'pending' || status == 'confirmed';
   bool get isCompleted => status == 'picked_up';
   bool get isCancelled => status == 'cancelled';
   bool get canCancel => isActive;
@@ -79,11 +80,11 @@ class OrderModel extends Equatable {
       case 'pending':
         return 'Onay Bekliyor';
       case 'confirmed':
-        return 'Onaylandi';
+        return 'Onaylandı';
       case 'picked_up':
-        return 'Teslim Alindi';
+        return 'Teslim Alındı';
       case 'cancelled':
-        return 'Iptal Edildi';
+        return 'İptal Edildi';
       default:
         return status;
     }

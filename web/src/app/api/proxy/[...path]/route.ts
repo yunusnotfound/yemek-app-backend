@@ -1,3 +1,4 @@
+import { BodyLimitError, readLimitedBody } from "@/lib/api/request-body";
 import { NextResponse } from "next/server";
 import { callBackend } from "@/lib/api/client";
 import { getAccessToken } from "@/lib/auth/session";
@@ -23,7 +24,12 @@ async function handle(req: Request, ctx: Ctx): Promise<NextResponse> {
 
   const method = req.method.toUpperCase();
   const hasBody = method !== "GET" && method !== "HEAD";
-  const bodyBuf = hasBody ? await req.arrayBuffer() : undefined;
+  let bodyBuf: Uint8Array<ArrayBuffer> | undefined;
+  try {
+    bodyBuf = hasBody ? await readLimitedBody(req, path[0] === "upload" ? 6 * 1024 * 1024 : 10 * 1024) : undefined;
+  } catch (error) {
+    return NextResponse.json({ message: "Geçersiz veya fazla büyük istek" }, { status: error instanceof BodyLimitError ? 413 : 400 });
+  }
 
   const headers: Record<string, string> = {};
   const contentType = req.headers.get("content-type");

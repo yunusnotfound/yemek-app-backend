@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 const controlBase =
-  "w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm transition focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:bg-slate-50 disabled:text-slate-500";
+  "w-full min-h-11 rounded-xl border border-surface-border bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted-ink transition-[border-color,box-shadow] motion-reduce:transition-none hover:border-brand-200 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20 disabled:bg-surface-muted disabled:text-muted-ink disabled:cursor-not-allowed aria-invalid:border-red-600 aria-invalid:focus:ring-red-500/20";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(controlBase, className)} {...props} />;
@@ -13,7 +13,7 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
 }
 
 export function Select({ className, ...props }: ComponentProps<"select">) {
-  return <select className={cn(controlBase, "appearance-none", className)} {...props} />;
+  return <select className={cn(controlBase, className)} {...props} />;
 }
 
 export function Label({ className, ...props }: ComponentProps<"label">) {

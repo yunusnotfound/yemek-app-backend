@@ -32,7 +32,8 @@ const validateQuery = (schema) => (req, res, next) => {
     });
   }
 
-  req.query = result.data;
+  // Express 5 exposes query as a getter; assignment is silently ignored.
+  Object.defineProperty(req, 'query', { value: result.data, writable: true, configurable: true });
   next();
 };
 

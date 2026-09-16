@@ -54,7 +54,15 @@ const sniffImageType = (buf) => {
  *       401:
  *         description: Yetkilendirme hatası
  */
-router.post('/', authenticate, authorize('business_owner', 'admin'), (req, res) => {
+router.post('/', authenticate, authorize('business_owner', 'admin'), async (req, res, next) => {
+  try {
+    const allowed = await require('../services/cacheService').limitAuthIdentity(req.user.id, 'upload', 50, 86400);
+    if (!allowed) return res.status(429).json({ message: 'Günlük görsel yükleme sınırına ulaşıldı' });
+    const disk = await fs.promises.statfs(require('path').join(__dirname, '../../uploads'));
+    if (disk.bavail * disk.bsize < 512 * 1024 * 1024) {
+      return res.status(503).json({ message: 'Görsel yükleme şu anda kullanılamıyor' });
+    }
+  } catch (error) { return next(error); }
   upload.single('file')(req, res, async (err) => {
     if (err) {
       // Multer (boyut) ve fileFilter (format) hataları — 400 olarak döndür.

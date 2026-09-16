@@ -25,6 +25,7 @@ export const forgotPasswordSchema = z.object({
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 export const resetPasswordSchema = z.object({
+  email: z.string().email("Geçerli bir e-posta adresi girin"),
   token: z.string().min(1, "Doğrulama kodu gerekli"),
   password: z.string().min(8, "Şifre en az 8 karakter olmalı"),
 });

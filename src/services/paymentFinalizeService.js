@@ -3,8 +3,8 @@ const iyzicoService = require('./iyzicoService');
 const { notifyNewOrder, createNotification } = require('./notificationService');
 const cacheService = require('./cacheService');
 const logger = require('./logger');
-
-const PRICE_EPS = 0.01;
+const settlementService = require('./settlementService');
+const { Op } = require('sequelize');
 
 // Kesin başarısızlık sayılan iyzico paymentStatus değerleri (terminal).
 const isTerminalFailure = (paymentStatus) =>
@@ -23,7 +23,7 @@ const effectivePaymentStatus = (result) => {
 // Stok iade et + siparişi iptal et — yalnız hâlâ awaiting_payment ise (idempotent, yarış güvenli).
 const releaseStockGuarded = async (order, reason, t) => {
   const [n] = await Order.update(
-    { status: 'cancelled', paymentStatus: 'failed', paymentError: String(reason || '').slice(0, 500) },
+    { status: 'cancelled', couponReleased: true, paymentStatus: 'failed', paymentError: String(reason || '').slice(0, 500) },
     { where: { id: order.id, status: 'awaiting_payment' }, transaction: t }
   );
   if (n === 1) {
@@ -70,120 +70,96 @@ const notifyPaid = async (order) => {
   }
 };
 
-/**
- * iyzico ödeme sonucunu idempotent şekilde kesinleştirir. callback / webhook / reaper paylaşır.
- * @returns {{ outcome: 'paid'|'already_paid'|'failed'|'pending'|'refunded_late'|'amount_mismatch'|'unknown', orderId?, pickupCode? }}
+/** Accept only a provider result bound to the stored checkout/basket/item.
+ * conversationId is request correlation, not proof of which basket was paid.
  */
 const finalize = async ({ token, conversationId, retrieveResult, source = 'callback', ip }) => {
-  // 1) OTORİTE sonucu al (verilmediyse iyzico'dan çek)
-  let result = retrieveResult;
-  if (!result) {
-    if (!token) throw new Error('finalize: token veya retrieveResult gerekli');
-    result = await iyzicoService.retrieveCheckoutForm(token, conversationId);
-  }
-  const convId = conversationId || result?.basketId || result?.conversationId;
-  if (!convId) {
-    logger.warn(`[finalize] conversationId çözülemedi (source=${source})`);
-    return { outcome: 'unknown' };
-  }
+  if (token !== undefined && (typeof token !== 'string' || token.length > 1024)) return { outcome: 'unknown' };
+  const result = retrieveResult || (token && await iyzicoService.retrieveCheckoutForm(token, conversationId));
+  if (!result) return { outcome: 'unknown' };
+  const identity = token ? { paymentToken: token } : result.basketId ? { conversationId: String(result.basketId) } : null;
+  if (!identity) return { outcome: 'unknown' };
 
-  const t = await sequelize.transaction();
-  try {
-    const order = await Order.findOne({ where: { conversationId: convId }, transaction: t, lock: true });
-    if (!order) {
-      await t.commit();
-      logger.warn(`[finalize] sipariş yok conversationId=${convId} (source=${source})`);
+  let paidOrder;
+  let refundOrderId;
+  const outcome = await sequelize.transaction(async (transaction) => {
+    const order = await Order.findOne({ where: identity, transaction, lock: true });
+    if (!order || order.paymentProvider !== 'iyzico' ||
+        (conversationId && conversationId !== order.conversationId) ||
+        (result.basketId && String(result.basketId) !== order.conversationId) ||
+        (result.token && result.token !== order.paymentToken) ||
+        (order.paymentId && result.paymentId && String(result.paymentId) !== order.paymentId)) {
       return { outcome: 'unknown' };
     }
-
-    // 2) Idempotency — zaten ödenmişse hiçbir şey yapma
-    if (order.paymentStatus === 'paid') {
-      await t.commit();
-      return { outcome: 'already_paid', orderId: order.id, pickupCode: order.pickupCode };
-    }
-
-    // 3) Sonucu değerlendir
-    const apiOk = result && result.status === 'success';
+    // Provider lookup errors (e.g. payment not found yet) are not a failed payment.
+    if (result.status !== 'success') return { outcome: 'pending', orderId: order.id };
     const payStatus = effectivePaymentStatus(result);
-    const fraud = Number(result?.fraudStatus);
-    const paidPrice = Number(result?.paidPrice);
-    const currencyOk = !result?.currency || result.currency === 'TRY';
-    const amountMatches = Number.isFinite(paidPrice) && Math.abs(paidPrice - Number(order.finalPrice)) < PRICE_EPS;
-    const paymentTransactionId = result?.itemTransactions?.[0]?.paymentTransactionId || null;
+    if (payStatus === 'SUCCESS') {
+      const item = result.itemTransactions?.[0];
+      if (String(result.basketId || '') !== order.conversationId || !result.paymentId ||
+          result.itemTransactions?.length !== 1 || String(item?.itemId || '') !== order.packageId ||
+          !item.paymentTransactionId ||
+          (item.subMerchantKey && item.subMerchantKey !== order.subMerchantKey)) {
+        logger.error(`[finalize] payment binding rejected (order ${order.id}, source=${source})`);
+        return { outcome: 'unknown' };
+      }
+      if (order.status === 'cancelled' && order.refundStatus === 'review' &&
+          order.paymentError === 'fraud_review_cancelled' && Number(result.fraudStatus) === 1) {
+        await order.update({ refundStatus: 'pending', fraudReview: false, paymentStatus: 'paid' }, { transaction });
+        refundOrderId = order.id;
+        return { outcome: 'refund_pending', orderId: order.id };
+      }
+      if (order.paymentStatus === 'refunded' || order.refundStatus !== 'none') {
+        return { outcome: order.paymentStatus === 'refunded' ? 'refunded_late' : 'refund_pending', orderId: order.id };
+      }
+      if (order.paymentStatus === 'paid') return { outcome: 'already_paid', orderId: order.id, pickupCode: order.pickupCode };
 
-    // 3a) BAŞARILI
-    if (apiOk && payStatus === 'SUCCESS' && fraud !== -1 && currencyOk && amountMatches) {
-      const [n] = await Order.update(
-        {
-          status: 'pending',
-          paymentStatus: 'paid',
-          paidPrice,
-          paymentId: result.paymentId,
-          paymentTransactionId,
-          // Submerchant varsa fon havuzda (held -> pickup'ta approval); düz tahsilatta settlement yok.
-          settlementStatus: order.subMerchantKey ? 'held' : 'none',
-          paidAt: new Date(),
-          paymentError: null,
-        },
-        { where: { id: order.id, status: 'awaiting_payment' }, transaction: t }
-      );
+      const paidPrice = Number(result.paidPrice);
+      if (!Number.isFinite(paidPrice) || paidPrice <= 0) return { outcome: 'unknown' };
+      const paymentFields = { paidPrice, paymentId: String(result.paymentId),
+        paymentTransactionId: String(item.paymentTransactionId), paidAt: new Date() };
+      const fraud = Number(result.fraudStatus);
+      const mismatch = result.currency !== 'TRY' ||
+        Math.round(paidPrice * 100) !== Math.round(Number(order.finalPrice) * 100);
 
-      // Ödeme sırasında kart kaydı (registerCard: 1) yapıldıysa cüzdan anahtarını persist et.
-      // Guarded: yalnız hâlâ boşsa yaz (eşzamanlı ilk kayıtla yarışa karşı).
+      // Persist money evidence before releasing stock or attempting a refund.
+      if (mismatch || order.status !== 'awaiting_payment' || fraud === -1) {
+        await releaseStockGuarded(order, mismatch ? 'amount_or_currency_mismatch' : 'payment_not_fulfillable', transaction);
+        await order.update({ ...paymentFields, status: 'cancelled', paymentStatus: 'paid',
+          refundStatus: result.currency === 'TRY' && fraud !== -1 ? 'pending' : 'review',
+          refundRequestedAt: new Date(), fraudReview: false,
+          paymentError: mismatch ? 'amount_or_currency_mismatch' : 'payment_not_fulfillable' }, { transaction });
+        refundOrderId = order.id;
+        return { outcome: mismatch ? 'amount_mismatch' : 'refund_pending', orderId: order.id };
+      }
+      if (fraud !== 1) {
+        await order.update({ ...paymentFields, fraudReview: true, paymentError: 'fraud_review' }, { transaction });
+        return { outcome: 'review', orderId: order.id };
+      }
+      await order.update({ ...paymentFields, status: 'pending', paymentStatus: 'paid',
+        settlementStatus: order.subMerchantKey ? 'held' : 'none',
+        fraudReview: false, paymentError: null }, { transaction });
       if (result.cardUserKey && result.cardToken) {
-        await User.update(
-          { cardUserKey: result.cardUserKey },
-          { where: { id: order.userId, cardUserKey: null }, transaction: t }
-        );
+        await User.update({ cardUserKey: result.cardUserKey },
+          { where: { id: order.userId, cardUserKey: null }, transaction });
       }
-
-      if (n === 0) {
-        // Reaper TTL'de iptal etmiş ama ödeme gerçekleşmiş -> para alındı, hold yok -> otomatik iade.
-        await t.commit();
-        try {
-          await iyzicoService.refundItem({ paymentTransactionId, price: paidPrice, ip, conversationId: convId });
-          logger.warn(`[finalize] hold iptal sonrası ödeme -> otomatik iade (order ${order.id})`);
-        } catch (e) {
-          logger.error(`[finalize] geç iade başarısız (order ${order.id}): ${e.message}`);
-        }
-        return { outcome: 'refunded_late', orderId: order.id };
-      }
-
-      await t.commit();
-      await notifyPaid(order);
-      logger.info(`[finalize] ödeme tamamlandı (order ${order.id}, source=${source})`);
+      paidOrder = order;
       return { outcome: 'paid', orderId: order.id, pickupCode: order.pickupCode };
     }
-
-    // 3b) Tutar uyuşmazlığı (iyzico SUCCESS ama beklenenden farklı) -> onurlandırma, iade et
-    if (apiOk && payStatus === 'SUCCESS' && !amountMatches) {
-      await releaseStockGuarded(order, `amount_mismatch_${paidPrice}`, t);
-      await t.commit();
-      logger.error(`[finalize] TUTAR UYUŞMAZLIĞI order ${order.id}: beklenen ${order.finalPrice} gelen ${paidPrice}`);
-      try {
-        await iyzicoService.refundItem({ paymentTransactionId, price: paidPrice, ip, conversationId: convId });
-      } catch (e) {
-        logger.error(`[finalize] uyuşmazlık iadesi başarısız (order ${order.id}): ${e.message}`);
-      }
-      return { outcome: 'amount_mismatch', orderId: order.id };
-    }
-
-    // 3c) Terminal başarısızlık / fraud flag -> hold serbest bırak.
-    // Kesin status:'failure' sonucu da (3DS reddi / payment.retrieve "bulunamadı") terminaldir.
-    if ((apiOk && (isTerminalFailure(payStatus) || fraud === -1)) || payStatus === 'FAILURE') {
-      await releaseStockGuarded(order, fraud === -1 ? 'fraud_flagged' : `failed_${payStatus}`, t);
-      await t.commit();
-      logger.info(`[finalize] ödeme başarısız (order ${order.id}, status=${payStatus}, fraud=${fraud})`);
+    if (isTerminalFailure(payStatus)) {
+      if (order.paymentStatus === 'paid' || order.paidPrice) return { outcome: 'review', orderId: order.id };
+      await releaseStockGuarded(order, `failed_${payStatus}`, transaction);
       return { outcome: 'failed', orderId: order.id };
     }
-
-    // 3d) Belirsiz/yarım (3DS tamamlanmamış, inceleme) -> awaiting_payment bırak, reaper çözecek
-    await t.commit();
     return { outcome: 'pending', orderId: order.id };
-  } catch (e) {
-    await t.rollback();
-    throw e;
+  });
+  if (refundOrderId) {
+    const refund = await settlementService.processRefund(refundOrderId, ip);
+    if (refund.refunded && outcome.outcome === 'refund_pending') outcome.outcome = 'refunded_late';
   }
+  if (paidOrder) await notifyPaid(paidOrder);
+  if (paidOrder || refundOrderId || outcome.outcome === 'failed') await cacheService.invalidateNamespace('packages:list');
+  return outcome;
 };
 
 /**
@@ -194,7 +170,7 @@ const expireUnpaidHold = async (orderId) => {
   const t = await sequelize.transaction();
   try {
     const order = await Order.findByPk(orderId, { transaction: t, lock: true });
-    if (!order || order.status !== 'awaiting_payment') {
+    if (!order || order.status !== 'awaiting_payment' || order.fraudReview || Number(order.paidPrice) > 0) {
       await t.commit();
       return false;
     }
@@ -219,4 +195,29 @@ const expireUnpaidHold = async (orderId) => {
   }
 };
 
-module.exports = { finalize, expireUnpaidHold };
+// Continue checking recently cancelled checkouts: a delayed charge must remain
+// discoverable even if every callback/webhook was lost.
+const reconcileCancelledPayments = async () => {
+  const orders = await Order.findAll({ where: {
+    status: 'cancelled', paymentProvider: 'iyzico',
+    paymentStatus: { [Op.in]: ['pending', 'failed'] },
+    refundStatus: { [Op.in]: ['none', 'review'] },
+    createdAt: { [Op.gt]: new Date(Date.now() - 7 * 86400000) },
+  }, order: [['paymentCheckedAt', 'ASC NULLS FIRST']], limit: 100 });
+  for (const order of orders) {
+    try {
+      if (order.paymentToken) {
+        await finalize({ token: order.paymentToken, conversationId: order.conversationId, source: 'cancelled-reconciliation' });
+      } else {
+        const result = await iyzicoService.retrievePayment({ conversationId: order.conversationId, paymentId: order.paymentId });
+        await finalize({ retrieveResult: result, conversationId: order.conversationId, source: 'cancelled-reconciliation' });
+      }
+    } catch (error) {
+      logger.error(`[finalize] iptal sonrası ödeme kontrolü başarısız (order ${order.id})`);
+    } finally {
+      await Order.update({ paymentCheckedAt: new Date() }, { where: { id: order.id } });
+    }
+  }
+};
+
+module.exports = { finalize, expireUnpaidHold, reconcileCancelledPayments };

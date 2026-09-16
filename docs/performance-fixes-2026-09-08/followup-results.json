@@ -1,0 +1,267 @@
+{
+  "timestamp": "2026-09-08T00:31:46.999Z",
+  "sustained": [
+    {
+      "name": "packages-cache-hit",
+      "concurrency": 50,
+      "seconds": 6.003985417,
+      "requests": 52313,
+      "statusCounts": {
+        "200": 52313
+      },
+      "medianMs": 5.518874999999753,
+      "p95Ms": 7.337541999999985,
+      "p99Ms": 9.574166999999761,
+      "maxMs": 68.32895899999994,
+      "avgResponseKiB": 8.21484375,
+      "requestsPerSecond": 8713.045813182394,
+      "queries": 0,
+      "cpuMs": 6553.091,
+      "cpuOneCorePercent": 109.13447568079258,
+      "rssMiB": 381.375,
+      "heapMiB": 95.88471221923828,
+      "eventLoopP95Ms": 11.730943,
+      "eventLoopMaxMs": 15.359999,
+      "queriesPerRequest": 0
+    },
+    {
+      "name": "packages-cache-miss",
+      "concurrency": 50,
+      "seconds": 6.116406792,
+      "requests": 2064,
+      "statusCounts": {
+        "200": 2064
+      },
+      "medianMs": 144.41250000000036,
+      "p95Ms": 181.5854159999999,
+      "p99Ms": 214.94654100000116,
+      "maxMs": 269.2545829999999,
+      "avgResponseKiB": 8.21484375,
+      "requestsPerSecond": 337.45302923599263,
+      "queries": 4128,
+      "cpuMs": 3862.04,
+      "cpuOneCorePercent": 63.140070573666016,
+      "rssMiB": 384.9375,
+      "heapMiB": 136.0856475830078,
+      "eventLoopP95Ms": 21.086207,
+      "eventLoopMaxMs": 35.094527,
+      "queriesPerRequest": 2
+    },
+    {
+      "name": "coupons-100",
+      "concurrency": 50,
+      "seconds": 6.057636542000002,
+      "requests": 3245,
+      "statusCounts": {
+        "200": 3245
+      },
+      "medianMs": 90.01954100000148,
+      "p95Ms": 117.58329199999935,
+      "p99Ms": 140.85974999999962,
+      "maxMs": 158.78316599999926,
+      "avgResponseKiB": 29.044875529661017,
+      "requestsPerSecond": 535.6874710955544,
+      "queries": 16225,
+      "cpuMs": 6546.328,
+      "cpuOneCorePercent": 108.06014831675658,
+      "rssMiB": 454.09375,
+      "heapMiB": 107.5252685546875,
+      "eventLoopP95Ms": 16.449535,
+      "eventLoopMaxMs": 25.657343,
+      "queriesPerRequest": 5
+    },
+    {
+      "name": "map-cache-hit",
+      "concurrency": 50,
+      "seconds": 6.0543785419999985,
+      "requests": 4378,
+      "statusCounts": {
+        "200": 4378
+      },
+      "medianMs": 68.32641700000022,
+      "p95Ms": 81.57929199999853,
+      "p99Ms": 86.85337500000242,
+      "maxMs": 123.37066699999923,
+      "avgResponseKiB": 258.9453125,
+      "requestsPerSecond": 723.113027972938,
+      "queries": 4380,
+      "cpuMs": 8170.535,
+      "cpuOneCorePercent": 134.93931988677565,
+      "rssMiB": 729.9375,
+      "heapMiB": 113.6751480102539,
+      "eventLoopP95Ms": 19.972095,
+      "eventLoopMaxMs": 80.674815,
+      "queriesPerRequest": 1.0004568296025582
+    },
+    {
+      "name": "orders-history-nonempty",
+      "concurrency": 10,
+      "seconds": 6.014472458,
+      "requests": 3268,
+      "statusCounts": {
+        "200": 3268
+      },
+      "medianMs": 17.994791000000987,
+      "p95Ms": 24.360249999997905,
+      "p99Ms": 27.69462499999645,
+      "maxMs": 31.988874999999098,
+      "avgResponseKiB": 33.771044802344704,
+      "requestsPerSecond": 543.3560503969308,
+      "queries": 9804,
+      "cpuMs": 6342.415,
+      "cpuOneCorePercent": 105.44495917464188,
+      "rssMiB": 697.25,
+      "heapMiB": 180.31551361083984,
+      "eventLoopP95Ms": 15.646719,
+      "eventLoopMaxMs": 18.513919,
+      "queriesPerRequest": 3
+    }
+  ],
+  "probes": {
+    "orderHistoryRows": 20,
+    "mixedPasswordTraffic": {
+      "browsing": {
+        "requests": 41178,
+        "statusCounts": {
+          "200": 41178
+        },
+        "medianMs": 0.6563329999989946,
+        "p95Ms": 1.078125,
+        "p99Ms": 2.0107500000012806,
+        "maxMs": 14.90899999999965,
+        "avgResponseKiB": 8.21484375
+      },
+      "logins": {
+        "requests": 351,
+        "statusCounts": {
+          "200": 351
+        },
+        "medianMs": 78.94320800000423,
+        "p95Ms": 123.62995800000135,
+        "p99Ms": 130.6961250000022,
+        "maxMs": 176.42725000000064,
+        "avgResponseKiB": 0.9285495681980057
+      },
+      "metrics": {
+        "queries": 351,
+        "cpuMs": 29703.94,
+        "cpuOneCorePercent": 487.32387383557676,
+        "rssMiB": 708.5,
+        "heapMiB": 227.1614532470703,
+        "eventLoopP95Ms": 10.190847,
+        "eventLoopMaxMs": 12.402687
+      }
+    },
+    "stockContention": [
+      {
+        "concurrency": 10,
+        "seconds": 0.040015833999997995,
+        "requests": 10,
+        "statusCounts": {
+          "201": 10
+        },
+        "medianMs": 27.63341699999728,
+        "p95Ms": 39.82679199999984,
+        "p99Ms": 39.82679199999984,
+        "maxMs": 39.82679199999984,
+        "avgResponseKiB": 0.9765625,
+        "metrics": {
+          "queries": 140,
+          "cpuMs": 57.146,
+          "cpuOneCorePercent": 142.34706309358657,
+          "rssMiB": 709.03125,
+          "heapMiB": 187.45148468017578,
+          "eventLoopP95Ms": 10.436607,
+          "eventLoopMaxMs": 10.436607
+        },
+        "remainingQuantity": 0,
+        "createdOrders": 10,
+        "waitsAfter1200ms": [
+          {
+            "state": "idle",
+            "wait_event_type": "Client",
+            "wait_event": "ClientRead",
+            "count": 14
+          }
+        ],
+        "messages": [
+          "Sipariş oluşturuldu"
+        ]
+      },
+      {
+        "concurrency": 20,
+        "seconds": 0.06444941700000345,
+        "requests": 20,
+        "statusCounts": {
+          "201": 10,
+          "400": 10
+        },
+        "medianMs": 40.34537499999715,
+        "p95Ms": 61.273958999998285,
+        "p99Ms": 64.05583299999853,
+        "maxMs": 64.05583299999853,
+        "avgResponseKiB": 0.50146484375,
+        "metrics": {
+          "queries": 270,
+          "cpuMs": 57.354,
+          "cpuOneCorePercent": 88.78826404732328,
+          "rssMiB": 709.390625,
+          "heapMiB": 209.56647491455078,
+          "eventLoopP95Ms": 10.239999,
+          "eventLoopMaxMs": 10.239999
+        },
+        "remainingQuantity": 0,
+        "createdOrders": 10,
+        "waitsAfter1200ms": [
+          {
+            "state": "idle",
+            "wait_event_type": "Client",
+            "wait_event": "ClientRead",
+            "count": 20
+          }
+        ],
+        "messages": [
+          "Sipariş oluşturuldu",
+          "Yetersiz stok"
+        ]
+      },
+      {
+        "concurrency": 50,
+        "seconds": 0.12848683399999572,
+        "requests": 50,
+        "statusCounts": {
+          "201": 10,
+          "400": 40
+        },
+        "medianMs": 87.22495900000649,
+        "p95Ms": 123.95041700000002,
+        "p99Ms": 127.73879199999647,
+        "maxMs": 127.73879199999647,
+        "avgResponseKiB": 0.21640625,
+        "metrics": {
+          "queries": 660,
+          "cpuMs": 114.556,
+          "cpuOneCorePercent": 89.0393885348426,
+          "rssMiB": 710.0625,
+          "heapMiB": 212.47809600830078,
+          "eventLoopP95Ms": 10.231807,
+          "eventLoopMaxMs": 10.231807
+        },
+        "remainingQuantity": 0,
+        "createdOrders": 10,
+        "waitsAfter1200ms": [
+          {
+            "state": "idle",
+            "wait_event_type": "Client",
+            "wait_event": "ClientRead",
+            "count": 20
+          }
+        ],
+        "messages": [
+          "Sipariş oluşturuldu",
+          "Yetersiz stok"
+        ]
+      }
+    ]
+  }
+}

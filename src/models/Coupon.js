@@ -2,6 +2,14 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Coupon = sequelize.define('Coupon', {
+  title: { type: DataTypes.STRING(100), allowNull: true },
+  firstOrderOnly: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  perUserLimit: { type: DataTypes.INTEGER, allowNull: true },
+  maxDiscountAmount: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+  budgetLimit: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+  isDiscoverable: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  businessIds: { type: DataTypes.ARRAY(DataTypes.UUID), allowNull: false, defaultValue: [] },
+  merchantConsentConfirmed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,

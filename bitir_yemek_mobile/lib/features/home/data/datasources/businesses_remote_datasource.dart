@@ -123,11 +123,13 @@ class BusinessesRemoteDataSource {
     int quantity = 1,
     String? couponCode,
     Map<String, dynamic>? paymentCard,
+    double? expectedFinalPrice,
   }) async {
     try {
       final data = <String, dynamic>{
         'packageId': packageId,
         'quantity': quantity,
+        'expectedFinalPrice': ?expectedFinalPrice,
       };
       if (couponCode != null && couponCode.isNotEmpty) {
         data['couponCode'] = couponCode;
@@ -143,11 +145,21 @@ class BusinessesRemoteDataSource {
     }
   }
 
-  Future<Map<String, dynamic>> validateCoupon({required String code}) async {
+  Future<Map<String, dynamic>> validateCoupon({
+    required String code,
+    String? packageId,
+    double? orderAmount,
+    int quantity = 1,
+  }) async {
     try {
       final response = await _dioClient.dio.post(
         '/coupons/validate',
-        data: {'code': code},
+        data: {
+          'code': code,
+          'quantity': quantity,
+          'packageId': ?packageId,
+          'orderAmount': ?orderAmount,
+        },
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {

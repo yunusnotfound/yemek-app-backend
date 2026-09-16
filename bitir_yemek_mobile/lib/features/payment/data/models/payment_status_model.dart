@@ -4,8 +4,10 @@ import 'package:equatable/equatable.dart';
 class PaymentStatusModel extends Equatable {
   final String orderId;
   final String conversationId;
-  final String status; // awaiting_payment / pending / confirmed / picked_up / cancelled
-  final String paymentStatus; // unpaid / pending / paid / failed / refunded / partially_refunded
+  final String
+  status; // awaiting_payment / pending / confirmed / picked_up / cancelled
+  final String
+  paymentStatus; // unpaid / pending / paid / failed / refunded / partially_refunded
   final double finalPrice;
   final double? paidPrice;
   final String? pickupCode;
@@ -20,7 +22,9 @@ class PaymentStatusModel extends Equatable {
     this.pickupCode,
   });
 
-  bool get isPaid => paymentStatus == 'paid';
+  bool get isPaid =>
+      paymentStatus == 'paid' &&
+      ['pending', 'confirmed', 'picked_up'].contains(status);
 
   bool get isFailed =>
       paymentStatus == 'failed' ||
@@ -35,7 +39,9 @@ class PaymentStatusModel extends Equatable {
       status: json['status'] as String? ?? 'awaiting_payment',
       paymentStatus: json['paymentStatus'] as String? ?? 'pending',
       finalPrice: _parseDouble(json['finalPrice']),
-      paidPrice: json['paidPrice'] != null ? _parseDouble(json['paidPrice']) : null,
+      paidPrice: json['paidPrice'] != null
+          ? _parseDouble(json['paidPrice'])
+          : null,
       pickupCode: json['pickupCode'] as String?,
     );
   }
@@ -47,6 +53,13 @@ class PaymentStatusModel extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [orderId, conversationId, status, paymentStatus, finalPrice, paidPrice, pickupCode];
+  List<Object?> get props => [
+    orderId,
+    conversationId,
+    status,
+    paymentStatus,
+    finalPrice,
+    paidPrice,
+    pickupCode,
+  ];
 }

@@ -2,11 +2,11 @@
 // akışının DB mantığını (atomik stok, yetki, iptal) test ederiz.
 jest.mock('../src/services/iyzicoService', () => ({
   calcSubMerchantPrice: (p) => Number((Number(p) * 0.9).toFixed(2)),
-  initializeCheckoutForm: jest.fn().mockResolvedValue({
-    token: 'test-token',
+  initializeCheckoutForm: jest.fn().mockImplementation(async ({ order }) => ({
+    token: `test-token-${order.id}`,
     checkoutFormContent: '<html></html>',
     paymentPageUrl: 'https://sandbox.example/pay',
-  }),
+  })),
   initializeThreeDS: jest.fn().mockResolvedValue({ threeDSHtmlContent: '<html></html>' }),
   refundItem: jest.fn().mockResolvedValue({}),
 }));

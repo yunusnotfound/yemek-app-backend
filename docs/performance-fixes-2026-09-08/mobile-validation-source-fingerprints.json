@@ -1,0 +1,115 @@
+{
+  "capturedAt": "2026-09-08T00:32:28.694353+00:00",
+  "files": [
+    {
+      "path": "bitir_yemek_mobile/lib/core/services/location_service.dart",
+      "sha256": "8fed81712d0365e806a1db61c2283ef22a5f5376f315323c165caf87dc39c41b",
+      "modifiedAt": "2026-09-08T00:22:00.958388+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/lib/core/services/geocoding_service.dart",
+      "sha256": "3749cdb81e43b641fdbdb1cfe320497b05cd4e9942b1cd4d800432edb4067182",
+      "modifiedAt": "2026-08-26T15:55:25.014398+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/lib/core/services/cache_service.dart",
+      "sha256": "81a63f4ff87842691563a5d184407173f1a306ef8c0db95b7b0689c9eaa3ba67",
+      "modifiedAt": "2026-09-08T00:18:21.724267+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/lib/features/map/presentation/services/map_marker_icons.dart",
+      "sha256": "417d3c6a768f1b269cb9619aa3ecd8c61cddf1f0eae31d84e8520a1174f9401b",
+      "modifiedAt": "2026-09-08T00:24:49.020971+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/lib/features/map/presentation/services/marker_load_queue.dart",
+      "sha256": "b8cba9a906bf2932bf78ad0e4edf885b356a6d48b6616c22122e606765caa6b4",
+      "modifiedAt": "2026-09-08T00:19:07.296362+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/lib/features/splash/presentation/pages/splash_page.dart",
+      "sha256": "ef69b484cfaea02323626db554635bfa734f9f9a9e2342fa0e0cdbd24310fe28",
+      "modifiedAt": "2026-09-08T00:24:49.021549+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/lib/features/map/presentation/pages/map_page.dart",
+      "sha256": "3cecb288ca5d3de40312589608ffc178f986da0608e9ad25a366c6d2ffa910e2",
+      "modifiedAt": "2026-09-08T00:22:58.001652+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/lib/features/map/presentation/bloc/map_bloc.dart",
+      "sha256": "84df0264ac0dd1c981fbe56cf4ecbea23dd98145f4d7d1264d459c833e8ed6b3",
+      "modifiedAt": "2026-09-08T00:23:40.807658+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/lib/features/coupons/presentation/coupons_page.dart",
+      "sha256": "35bd06366dcd207bb41f592efc46b56bcb490dde16fb7eab084a89d677d79634",
+      "modifiedAt": "2026-09-08T00:22:32.998602+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/android/app/build.gradle.kts",
+      "sha256": "a14580e78ce1ad36d05ff4a5621ecf62f98ce754742673562cf4efef7fcde3fb",
+      "modifiedAt": "2026-09-08T00:31:35.912083+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/ios/Runner.xcodeproj/project.pbxproj",
+      "sha256": "63fd7ed69114ebf7aa62251592727930bfc717f6bb4ea41dec2aff8efd8aa4fb",
+      "modifiedAt": "2026-09-07T21:09:40.504945+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/ios/Podfile",
+      "sha256": "4534e4d5d39ab1b923ab587bcfadefcc35137fcc015f88dd64a46877bf375eb7",
+      "modifiedAt": "2026-08-26T15:55:25.008129+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/pubspec.yaml",
+      "sha256": "25455d394ecc468c563159bef6ed1560032d963a1753a31368407faf8bfba032",
+      "modifiedAt": "2026-09-08T00:18:54.712042+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/pubspec.lock",
+      "sha256": "209faa9a114163eeb7ba9356b25fc86ce42d1b1b442ba4d9bb6053767b80e6a1",
+      "modifiedAt": "2026-09-08T00:18:57.522494+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/test/mobile_performance_test.dart",
+      "sha256": "5edf8d4eb6d51e1d8c311afdf05bb86f09debbf879f0dca225138dd3291b0644",
+      "modifiedAt": "2026-09-08T00:23:40.586971+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/test/security_test.dart",
+      "sha256": "1fa5ccfcfdca22be6dd92e01704fd592983be9c474c5358da22888a6928d6450",
+      "modifiedAt": "2026-09-07T22:44:52.890274+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/test/widget_test.dart",
+      "sha256": "2a3f5ea96b6a54983e7eea71f6739aa993bf83b2f695e0ffe30a74994bd06f14",
+      "modifiedAt": "2026-09-07T22:48:57.125576+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/test/map_request_races_test.dart",
+      "sha256": "742b8a5837730721d6fb0622c5c35634dd2079fa997de1117ba94138c28e5796",
+      "modifiedAt": "2026-09-08T00:23:40.802722+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/test/design_ui_test.dart",
+      "sha256": "52cd86f78a0e9a61df719882ade73d9cfeec7d5204ba94a50b891fd0edfbdcf9",
+      "modifiedAt": "2026-09-08T00:25:38.075163+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/test/campaign_ui_test.dart",
+      "sha256": "e1f25c44665c654c2547006e74fdd4a27ef426593b90d17a437a9a4e80edb476",
+      "modifiedAt": "2026-09-08T00:04:16.679795+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/integration_test/phone_performance_test.dart",
+      "sha256": "f46176323b7af51a5b47f8e82e7886604ad1081ad4928d54e9b5b615e4836f21",
+      "modifiedAt": "2026-09-08T00:23:12.797818+00:00"
+    },
+    {
+      "path": "bitir_yemek_mobile/test_driver/phone_performance.dart",
+      "sha256": "0baf369425bfa546b1f5397be3ed95ba69cd31f7ae481d89d0018c0902e68ba2",
+      "modifiedAt": "2026-09-08T00:22:25.090774+00:00"
+    }
+  ]
+}

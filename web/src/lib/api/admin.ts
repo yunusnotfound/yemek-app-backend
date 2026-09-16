@@ -96,6 +96,7 @@ export function getOrders(
     limit?: number;
     status?: OrderStatus;
     paymentStatus?: PaymentStatus;
+    refundStatus?: Order["refundStatus"];
     businessId?: string;
     search?: string;
   } = {},

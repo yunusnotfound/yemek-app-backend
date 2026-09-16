@@ -49,6 +49,7 @@ class RefreshPackages extends PackagesEvent {
   final String? categoryId;
   final double radius;
   final Completer<void>? onDone;
+  final bool background;
 
   const RefreshPackages({
     required this.latitude,
@@ -56,11 +57,18 @@ class RefreshPackages extends PackagesEvent {
     this.categoryId,
     this.radius = 5.0,
     this.onDone,
+    this.background = false,
   });
 
   // onDone eşitliğe dahil edilmez (yalnız sorgu parametreleri).
   @override
-  List<Object?> get props => [latitude, longitude, categoryId, radius];
+  List<Object?> get props => [
+    latitude,
+    longitude,
+    categoryId,
+    radius,
+    background,
+  ];
 }
 
 class LoadMorePackages extends PackagesEvent {

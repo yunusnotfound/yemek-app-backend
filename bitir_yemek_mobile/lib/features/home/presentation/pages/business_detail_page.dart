@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../config/theme.dart';
+import '../../../../core/utils/time_format.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../data/datasources/businesses_remote_datasource.dart';
@@ -642,7 +643,7 @@ class _BusinessDetailPageState extends State<BusinessDetailPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${pkg.pickupStart} - ${pkg.pickupEnd}',
+                    pickupWindow(pkg.pickupStart, pkg.pickupEnd),
                     style: AppTypography.bodySmall.copyWith(
                       color: AppColors.textHint,
                     ),

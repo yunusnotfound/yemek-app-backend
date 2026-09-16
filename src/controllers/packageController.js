@@ -2,6 +2,7 @@ const { SurprisePackage, Business, Category, Order, sequelize } = require('../mo
 const { Op } = require('sequelize');
 const { paginate, paginatedResponse, haversineSql } = require('../utils/helpers');
 const cacheService = require('../services/cacheService');
+const coalesce = require('../services/requestCoalescer');
 
 exports.getAll = async (req, res, next) => {
   try {
@@ -17,32 +18,39 @@ exports.getAll = async (req, res, next) => {
     const useGeoFilter =
       Number.isFinite(userLat) && Number.isFinite(userLng) && Number.isFinite(maxRadius) && maxRadius > 0;
 
-    // Koordinatlar ~1.1 km'lik ızgaraya (2 ondalık) yuvarlanır. 3 ondalık ~110 m
-    // demekti; yürüyen bir kullanıcı her 110 m'de yeni anahtar üretiyor, her giriş
-    // yaklaşık BİR kez okunup ölüyordu — cache'in maliyeti vardı, faydası yoktu.
-    // Yarıçap zaten km mertebesinde olduğu için 1.1 km'lik merkez kayması sonucu
-    // pratikte değiştirmez, buna karşılık anahtar sayısını ~100 kat düşürür.
+    // SQL filters and orders by the exact coordinate. Its cache key must use
+    // the same coordinate, otherwise nearby users can receive the wrong list.
     const cacheKeyParts = { city, district, categoryId, maxPrice, excludeExpired, page, limit };
     if (useGeoFilter) {
-      cacheKeyParts.lat = parseFloat(lat).toFixed(2);
-      cacheKeyParts.lng = parseFloat(lng).toFixed(2);
-      cacheKeyParts.radius = radius;
+      cacheKeyParts.lat = userLat;
+      cacheKeyParts.lng = userLng;
+      cacheKeyParts.radius = maxRadius;
     }
     // Sürümlü anahtar: geçersiz kılma tek INCR ile O(1) (bkz. cacheService).
     const cacheKey = await cacheService.versionedKey('packages:list', cacheKeyParts);
-    const cached = await cacheService.get(cacheKey);
+    const cached = req.campaign ? null : await cacheService.get(cacheKey);
     if (cached) {
       return res.json(cached);
     }
 
+    const responseData = await coalesce(req.campaign ? null : cacheKey, async () => {
     // Yalnızca onaylı + aktif işletmelerin paketleri herkese listelenir.
-    const businessWhere = { isActive: true, isApproved: true };
+    const businessWhere = { isActive: true, isApproved: true, isSuspended: false };
+    if (req.campaign?.businessIds.length) businessWhere.id = { [Op.in]: req.campaign.businessIds };
     if (city) businessWhere.city = city;
     if (district) businessWhere.district = district;
     if (categoryId) businessWhere.categoryId = categoryId;
 
-    const packageWhere = { isActive: true, remainingQuantity: { [Op.gt]: 0 } };
+    const packageWhere = { isActive: true, isSuspended: false, remainingQuantity: { [Op.gt]: 0 } };
     if (maxPrice) packageWhere.discountedPrice = { [Op.lte]: maxPrice };
+    if (req.campaign) {
+      packageWhere[Op.and] = [
+        sequelize.where(sequelize.literal('"SurprisePackage"."discountedPrice" * LEAST("SurprisePackage"."remainingQuantity", 100)'), { [Op.gte]: Number(req.campaign.minOrderAmount) }),
+        sequelize.literal(`(("SurprisePackage"."pickupDate"::date + "SurprisePackage"."pickupEnd"::time +
+          CASE WHEN "SurprisePackage"."pickupEnd"::time <= "SurprisePackage"."pickupStart"::time
+          THEN INTERVAL '1 day' ELSE INTERVAL '0 day' END) AT TIME ZONE 'Europe/Istanbul') > NOW()`),
+      ];
+    }
 
     if (excludeExpired !== 'false') {
       const today = new Date();
@@ -108,7 +116,9 @@ exports.getAll = async (req, res, next) => {
     const { count, rows: packages } = await SurprisePackage.findAndCountAll(queryOptions);
 
     const responseData = paginatedResponse(packages, count, page, limit);
-    await cacheService.set(cacheKey, responseData, 300);
+    if (!req.campaign) await cacheService.set(cacheKey, responseData, 300);
+    return responseData;
+    });
     res.json(responseData);
   } catch (error) {
     next(error);
@@ -126,12 +136,14 @@ exports.getById = async (req, res, next) => {
           // (bkz. routes/packages.js). Whitelist olmadan işletmenin iban,
           // identityNumber, gsmNumber gibi alanları herkese açılırdı.
           attributes: Business.PUBLIC_ATTRIBUTES,
+          where: { isActive: true, isApproved: true, isSuspended: false },
+          required: true,
           include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
         },
       ],
     });
 
-    if (!pkg) {
+    if (!pkg || !pkg.isActive || pkg.isSuspended) {
       return res.status(404).json({ message: 'Paket bulunamadı' });
     }
 
@@ -200,21 +212,29 @@ exports.update = async (req, res, next) => {
 
     const { title, description, originalPrice, discountedPrice, quantity, remainingQuantity, pickupStart, pickupEnd, pickupDate, imageUrl, isActive } = req.body;
 
-    // remainingQuantity validasyonu
-    if (remainingQuantity !== undefined && quantity !== undefined) {
-      if (remainingQuantity > quantity) {
-        return res.status(400).json({ message: 'Kalan miktar toplam miktardan fazla olamaz' });
+    await sequelize.transaction(async (transaction) => {
+      await pkg.reload({ transaction, lock: { level: transaction.LOCK.UPDATE, of: SurprisePackage } });
+      if (pkg.isSuspended && isActive === true && req.user.role !== 'admin') {
+        throw Object.assign(new Error('Paket yönetici tarafından askıya alınmış'), { statusCode: 403 });
       }
-    } else if (remainingQuantity !== undefined) {
-      if (remainingQuantity > pkg.quantity) {
-        return res.status(400).json({ message: 'Kalan miktar toplam miktardan fazla olamaz' });
+      // Read both counters under the row lock: a concurrent reservation may
+      // have reduced availability since the edit form was opened. Changing the
+      // total adds/removes only that difference, preserving committed stock.
+      const nextQuantity = quantity ?? pkg.quantity;
+      const nextRemainingQuantity = remainingQuantity ??
+        (pkg.remainingQuantity + nextQuantity - pkg.quantity);
+      if (nextRemainingQuantity < 0) {
+        throw Object.assign(new Error('Toplam adet, satılmış veya rezerve edilmiş adetten az olamaz'), { statusCode: 400 });
       }
-    }
-
-    await pkg.update({
-      title, description, originalPrice, discountedPrice,
-      quantity, remainingQuantity, pickupStart, pickupEnd,
-      pickupDate, imageUrl, isActive,
+      if (nextRemainingQuantity > nextQuantity) {
+        throw Object.assign(new Error('Kalan miktar toplam miktardan fazla olamaz'), { statusCode: 400 });
+      }
+      if (Number(discountedPrice ?? pkg.discountedPrice) >= Number(originalPrice ?? pkg.originalPrice)) {
+        throw Object.assign(new Error('İndirimli fiyat orijinal fiyattan düşük olmalı'), { statusCode: 400 });
+      }
+      await pkg.update({ title, description, originalPrice, discountedPrice,
+        quantity: nextQuantity, remainingQuantity: nextRemainingQuantity,
+        pickupStart, pickupEnd, pickupDate, imageUrl, isActive }, { transaction });
     });
 
     await cacheService.invalidateNamespace('packages:list');
@@ -242,19 +262,14 @@ exports.remove = async (req, res, next) => {
       return res.status(403).json({ message: 'Bu paketi silme yetkiniz yok' });
     }
 
-    // Aktif sipariş kontrolü
-    const activeOrders = await Order.count({
-      where: {
-        packageId: pkg.id,
-        status: { [Op.in]: ['pending', 'confirmed'] },
-      },
+    await sequelize.transaction(async (transaction) => {
+      await pkg.reload({ transaction, lock: { level: transaction.LOCK.UPDATE, of: SurprisePackage } });
+      const activeOrders = await Order.count({ where: { packageId: pkg.id,
+        [Op.or]: [{ status: { [Op.in]: ['awaiting_payment', 'pending', 'confirmed'] } },
+          { refundStatus: { [Op.in]: ['pending', 'processing', 'review'] } }] }, transaction });
+      if (activeOrders > 0) throw Object.assign(new Error('Bu paket için aktif sipariş veya iade var, silinemez'), { statusCode: 409 });
+      await pkg.destroy({ transaction });
     });
-
-    if (activeOrders > 0) {
-      return res.status(400).json({ message: 'Bu paket için aktif siparişler var, silinemez' });
-    }
-
-    await pkg.destroy();
 
     await cacheService.invalidateNamespace('packages:list');
 

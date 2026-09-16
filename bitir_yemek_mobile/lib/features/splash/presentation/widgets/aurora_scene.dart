@@ -247,7 +247,7 @@ class _AuroraSceneState extends State<AuroraScene>
       mainAxisSize: MainAxisSize.min,
       children: List.generate(chars.length, (i) {
         // Her harf bir öncekinden biraz sonra başlar: dalga etkisi.
-        final start = 0.46 + i * 0.018;
+        final start = 0.28 + i * 0.018;
         final a = _stage(t, start, start + 0.16, curve: Curves.easeOutCubic);
 
         return Opacity(

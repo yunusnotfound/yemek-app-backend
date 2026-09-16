@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { Star } from "lucide-react";
-import type { Review } from "@/lib/types";
 import { getBusinessReviews } from "@/lib/api/panel";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -12,6 +11,8 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { LoadingBlock } from "@/components/ui/Spinner";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePaginatedList } from "@/components/panel/usePaginatedList";
 
 function Stars({ rating }: { rating: number }) {
   return (
@@ -30,16 +31,9 @@ function Stars({ rating }: { rating: number }) {
 }
 
 function ReviewsView({ businessId }: { businessId: string }) {
-  const [items, setItems] = useState<Review[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setItems(null);
-    setError(null);
-    getBusinessReviews(businessId, { limit: 50 })
-      .then((res) => setItems(res.data))
-      .catch((e) => setError(e instanceof Error ? e.message : "Yüklenemedi"));
-  }, [businessId]);
+  const loadPage = useCallback((page: number) =>
+    getBusinessReviews(businessId, { page, limit: 50 }), [businessId]);
+  const { items, error, page, totalPages, setPage } = usePaginatedList(loadPage);
 
   if (error) return <Alert tone="error">{error}</Alert>;
   if (!items) return <LoadingBlock />;
@@ -73,6 +67,7 @@ function ReviewsView({ businessId }: { businessId: string }) {
           </CardBody>
         </Card>
       ))}
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }
@@ -84,7 +79,7 @@ export default function ReviewsPage() {
         title="Değerlendirmeler"
         description="Müşterilerinin yorum ve puanları."
       />
-      <RequireBusiness>{(b) => <ReviewsView businessId={b.id} />}</RequireBusiness>
+      <RequireBusiness>{(b) => <ReviewsView key={b.id} businessId={b.id} />}</RequireBusiness>
     </>
   );
 }

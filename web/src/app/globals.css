@@ -18,6 +18,16 @@
   --color-sand: #f4e9da; /* biraz daha koyu krem (kartlar/ayraçlar) */
   --color-ink: #241712; /* koyu sıcak kahve — dark full-bleed bölümler + footer */
   --color-ink-700: #3a261d;
+  --color-surface: hsl(0 0% 100%);
+  --color-surface-muted: hsl(30 50% 98%);
+  --color-surface-border: hsl(28 32% 88%);
+  --color-muted-ink: hsl(23 13% 42%);
+  --shadow-surface: 0 8px 28px -12px hsl(24 48% 24% / 0.16),
+    0 2px 5px hsl(24 48% 24% / 0.04);
+  --shadow-floating: 0 24px 64px -16px hsl(24 48% 18% / 0.24),
+    0 4px 12px hsl(24 48% 18% / 0.06);
+  --shadow-control: 0 3px 8px -3px hsl(22 80% 34% / 0.26),
+    inset 0 1px 0 hsl(0 0% 100% / 0.18);
 
   /* İkincil aksan — altın/amber */
   --color-gold-400: #f6c453;
@@ -63,6 +73,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   .animate-marquee {
     animation: none;
   }

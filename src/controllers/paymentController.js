@@ -13,7 +13,7 @@ const resultBase = () =>
  * Form-urlencoded { token }. retrieve+finalize, sonra webview'i sonuç sayfasına yönlendir.
  */
 exports.iyzicoCallback = async (req, res) => {
-  const token = req.body?.token;
+  const token = typeof req.body?.token === 'string' && req.body.token.length <= 1024 ? req.body.token : null;
   let orderId = null;
   let ok = false;
   try {
@@ -38,108 +38,65 @@ exports.iyzicoCallback = async (req, res) => {
  * aksi halde kesin başarısızlık -> hold hemen serbest bırakılır.
  */
 exports.iyzico3dsCallback = async (req, res) => {
-  const { status, paymentId, conversationId, conversationData, mdStatus } = req.body || {};
+  const { paymentId, conversationId, conversationData, mdStatus } = req.body || {};
   let orderId = null;
   let ok = false;
   try {
-    const order = conversationId ? await Order.findOne({ where: { conversationId } }) : null;
-    orderId = order?.id || null;
-
-    if (!order) {
-      logger.warn(`[payments] 3ds-callback bilinmeyen conversationId=${conversationId || '-'}`);
-    } else if (order.paymentStatus === 'paid') {
-      ok = true; // replay -> idempotent kısa devre
-    } else if (status === 'success' && String(mdStatus) === '1' && paymentId) {
-      let result;
-      try {
-        result = await iyzicoService.completeThreeDS({ paymentId, conversationData, conversationId });
-      } catch (e) {
-        // Ağ hatası vb. -> tahsilat gerçekleşmiş olabilir; retrieve ile gerçeği öğren (çifte işlem koruması).
-        logger.warn(`[payments] 3ds auth çağrısı hata, retrieve ile doğrulanıyor: ${e.message}`);
-        result = await iyzicoService.retrievePayment({ conversationId, paymentId }).catch(() => null);
+    const order = typeof conversationId === 'string' && conversationId.length <= 64
+      ? await Order.findOne({ where: { conversationId } }) : null;
+    // A callback is public input. A matching provider payment must be proved
+    // before capture; a forged failure callback must never cancel a hold.
+    if (order && !order.paymentToken && typeof paymentId === 'string' && paymentId.length <= 128) {
+      const matches = order.paymentId === paymentId;
+      let verified = null;
+      if (!matches && !order.paymentId) {
+        // Compatibility for 3DS checkouts initialized before paymentId storage.
+        verified = await iyzicoService.retrievePayment({ conversationId, paymentId });
       }
-      // Auth "zaten işlendi" tarzı hata dönerse de retrieve ile doğrula.
-      if (result && result.status !== 'success') {
-        const check = await iyzicoService.retrievePayment({ conversationId, paymentId }).catch(() => null);
-        if (check?.status === 'success') result = check;
+      if (matches || (verified?.status === 'success' && String(verified.basketId) === conversationId && String(verified.paymentId) === paymentId)) {
+        orderId = order.id;
+        if (String(mdStatus) === '1' && order.paymentStatus !== 'paid' && order.status === 'awaiting_payment') {
+          await iyzicoService.completeThreeDS({ paymentId, conversationId,
+            conversationData: typeof conversationData === 'string' ? conversationData : undefined }).catch(() => null);
+        }
+        // Always use an authoritative retrieval, including unsuccessful callbacks.
+        const result = await iyzicoService.retrievePayment({ conversationId, paymentId });
+        const r = await paymentFinalizeService.finalize({ retrieveResult: result, conversationId, source: '3ds-callback', ip: req.ip });
+        ok = ['paid', 'already_paid'].includes(r.outcome);
       }
-      if (result) {
-        const r = await paymentFinalizeService.finalize({
-          retrieveResult: result,
-          conversationId,
-          source: '3ds-callback',
-          ip: req.ip,
-        });
-        ok = r.outcome === 'paid' || r.outcome === 'already_paid';
-      }
-      // result null (auth + retrieve ikisi de ulaşılamadı) -> awaiting bırak; webhook/poll-sync/reaper çözer.
-    } else {
-      // Banka 3DS reddi (mdStatus != 1) -> kesin başarısızlık, stok hemen iade.
-      await paymentFinalizeService.finalize({
-        retrieveResult: { status: 'failure', errorMessage: `3ds_md_${mdStatus ?? 'yok'}` },
-        conversationId,
-        source: '3ds-callback',
-        ip: req.ip,
-      });
     }
-  } catch (e) {
-    logger.error(`[payments] 3ds-callback hata: ${e.message}`);
-  }
-  const url = `${resultBase()}?status=${ok ? 'ok' : 'fail'}${orderId ? `&orderId=${orderId}` : ''}`;
-  return res.redirect(302, url);
+  } catch (e) { logger.error(`[payments] 3ds-callback hata: ${e.message}`); }
+  return res.redirect(302, `${resultBase()}?status=${ok ? 'ok' : 'fail'}${orderId ? `&orderId=${encodeURIComponent(orderId)}` : ''}`);
 };
 
-/**
- * POST /payments/iyzico/webhook — imzalı yedek bildirim (raw body, app.js'te ayarlı).
- * İmza savunma katmanıdır; asıl doğrulama retrieve'dir. 200 döner (iyzico retry'ını engellemek için).
- */
+/** Signed notifications are hints; the provider API remains the payment authority. */
 exports.iyzicoWebhook = async (req, res) => {
   try {
-    const signature = req.headers['x-iyz-signature'] || req.headers['x-iyzico-signature'];
-    const rawBody = req.body; // express.raw -> Buffer
-    const check = iyzicoService.verifyWebhookSignature(rawBody, signature);
-    if (!check.valid && check.enforced) {
-      logger.warn('[payments] webhook imza geçersiz (enforced) - reddedildi');
-      return res.status(401).json({ message: 'invalid signature' });
+    const rawBody = req.body;
+    const check = iyzicoService.verifyWebhookSignature(rawBody, req.headers['x-iyz-signature-v3']);
+    if (!check.valid) return res.status(401).json({ message: 'invalid signature' });
+    const payload = JSON.parse(rawBody.toString('utf8'));
+    const conversationId = payload.paymentConversationId;
+    if (typeof conversationId !== 'string' || conversationId.length > 64) {
+      return res.status(400).json({ message: 'invalid payment reference' });
     }
-    if (!check.valid) {
-      logger.warn('[payments] webhook imza doğrulanamadı - retrieve ile devam ediliyor');
+    const order = await Order.findOne({ where: { conversationId } });
+    if (!order) return res.status(200).json({ received: true });
+    if ((payload.token && payload.token !== order.paymentToken) ||
+        (order.paymentId && String(payload.iyziPaymentId || payload.paymentId) !== order.paymentId)) {
+      return res.status(400).json({ message: 'payment reference mismatch' });
     }
-
-    let payload = {};
-    try {
-      payload = JSON.parse((Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : rawBody) || '{}');
-    } catch (_) {
-      payload = {};
-    }
-
-    let token = payload.token || payload.checkoutFormToken || null;
-    const convId = payload.paymentConversationId || payload.conversationId || null;
-
-    // Token yoksa siparişten kayıtlı token'ı al (retrieve için gerekli).
-    let tokenlessOrder = null;
-    if (!token && convId) {
-      const order = await Order.findOne({ where: { conversationId: convId } });
-      token = order?.paymentToken || null;
-      if (!token) tokenlessOrder = order;
-    }
-
-    if (token) {
-      await paymentFinalizeService.finalize({ token, conversationId: convId, source: 'webhook', ip: req.ip });
-    } else if (tokenlessOrder?.paymentProvider === 'iyzico') {
-      // 3DS siparişi (checkout token'ı yok) -> payment.retrieve ile doğrula.
-      // Yalnız SUCCESS finalize edilir; "bulunamadı" 3DS henüz tamamlanmamış olabilir.
-      const result = await iyzicoService.retrievePayment({ conversationId: convId }).catch(() => null);
-      if (result?.status === 'success') {
-        await paymentFinalizeService.finalize({ retrieveResult: result, conversationId: convId, source: 'webhook', ip: req.ip });
-      }
-    } else {
-      logger.warn('[payments] webhook token çözülemedi');
+    if (order.paymentToken) {
+      await paymentFinalizeService.finalize({ token: order.paymentToken, conversationId, source: 'webhook', ip: req.ip });
+    } else if (order.paymentProvider === 'iyzico') {
+      const result = await iyzicoService.retrievePayment({ conversationId, paymentId: order.paymentId });
+      await paymentFinalizeService.finalize({ retrieveResult: result, conversationId, source: 'webhook', ip: req.ip });
     }
     return res.status(200).json({ received: true });
   } catch (e) {
     logger.error(`[payments] webhook hata: ${e.message}`);
-    return res.status(200).json({ received: true });
+    // Preserve provider retries on transient failures.
+    return res.status(503).json({ received: false });
   }
 };
 
@@ -170,7 +127,7 @@ exports.getStatus = async (req, res, next) => {
           // 3DS siparişi -> payment.retrieve. Yalnız SUCCESS finalize edilir:
           // "bulunamadı" sonucu 3DS henüz tamamlanmamış demek olabilir (kullanıcı banka
           // sayfasında) — terminal sayıp erken iptal ETME; reaper TTL'de temizler.
-          const result = await iyzicoService.retrievePayment({ conversationId }).catch(() => null);
+          const result = await iyzicoService.retrievePayment({ conversationId, paymentId: order.paymentId }).catch(() => null);
           if (result?.status === 'success') {
             await paymentFinalizeService.finalize({
               retrieveResult: result,

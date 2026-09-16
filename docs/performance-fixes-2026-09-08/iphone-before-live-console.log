@@ -1,0 +1,38 @@
+03:42:56  Acquired tunnel connection to device.
+03:42:56  Enabling developer disk image services.
+03:42:57  Acquired usage assertion.
+Launched application with com.bitiryemek.performance bundle identifier.
+Waiting for the application to terminate…
+2026-09-08 03:42:57.463075+0300 Runner[3672:1043614] [common] [Info, common]: Using Mapbox Common SDK v24.21.0(14638fff3e36908c89962e9ce157070cb2e5ce4e)
+2026-09-08 03:42:57.465965+0300 Runner[3672:1043614] [maps-core] [Info, maps-core]: Using Mapbox Core Maps SDK v11.21.0(14638fff3)
+2026-09-08 03:42:57.537316+0300 Runner[3672:1043614] [UIFocus] FlutterView implements focusItemsInRect: - caching for linear focus movement is limited as long as this view is on screen.
+2026-09-08 03:42:57.537569+0300 Runner[3672:1043614] This FlutterEngine was already invoked.
+2026-09-08 03:42:57.554075+0300 Runner[3672:1043614] flutter: 00:00 +0: (setUpAll)
+2026-09-08 03:42:57.554726+0300 Runner[3672:1043614] flutter: 00:00 +1: profile real discovery, package and coupon scrolling
+2026-09-08 03:42:57.560053+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE home_first_render
+2026-09-08 03:42:59.293403+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE_DONE home_first_render
+2026-09-08 03:42:59.294345+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE home_scroll
+2026-09-08 03:43:11.307933+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE_DONE home_scroll
+2026-09-08 03:43:11.308036+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE packages_first_render
+2026-09-08 03:43:13.037369+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE_DONE packages_first_render
+2026-09-08 03:43:13.038008+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE packages_scroll_cold_images
+2026-09-08 03:44:05.989213+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE_DONE packages_scroll_cold_images
+2026-09-08 03:44:05.989301+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE packages_scroll_warm_images
+2026-09-08 03:44:58.574182+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE_DONE packages_scroll_warm_images
+2026-09-08 03:44:58.574277+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE coupons_first_render
+2026-09-08 03:44:59.265649+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE_DONE coupons_first_render
+2026-09-08 03:44:59.266232+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE coupons_scroll
+2026-09-08 03:45:38.026893+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_SCENE_DONE coupons_scroll
+2026-09-08 03:45:38.056008+0300 Runner[3672:1043614] flutter: 02:40 +2: (tearDownAll)
+2026-09-08 03:45:38.056853+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"complete":true}
+2026-09-08 03:45:38.057030+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"environment":{"profileMode":true,"os":"ios","osVersion":"Version 18.3 (Build 22D63)","logicalCores":6,"displayHz":120.0,"framePolicy":"fullyLive","fixtureLatencyMs":150,"packages":80,"coupons":100,"scope":"real production widgets; local synthetic API/images; no end-to-end backend/native map timing"}}
+2026-09-08 03:45:38.057115+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"home_first_render":{"elapsedMs":1228,"frames":150,"buildP50Ms":1.094,"buildP95Ms":1.467,"buildMaxMs":25.507,"rasterP50Ms":1.123,"rasterP95Ms":1.284,"rasterMaxMs":4.23,"over60HzBudgetCount":1,"over120HzBudgetCount":1,"rssMiB":106.625}}
+2026-09-08 03:45:38.057187+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"home_scroll":{"elapsedMs":11504,"frames":1380,"buildP50Ms":0.462,"buildP95Ms":0.981,"buildMaxMs":2.976,"rasterP50Ms":0.893,"rasterP95Ms":1.074,"rasterMaxMs":1.665,"over60HzBudgetCount":0,"over120HzBudgetCount":0,"rssMiB":108.765625}}
+2026-09-08 03:45:38.057281+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"packages_first_render":{"elapsedMs":1224,"frames":146,"buildP50Ms":0.836,"buildP95Ms":0.986,"buildMaxMs":11.779,"rasterP50Ms":0.931,"rasterP95Ms":1.063,"rasterMaxMs":2.705,"over60HzBudgetCount":0,"over120HzBudgetCount":1,"rssMiB":111.046875}}
+2026-09-08 03:45:38.057370+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"packages_scroll_cold_images":{"elapsedMs":52428,"frames":6290,"buildP50Ms":0.427,"buildP95Ms":1.136,"buildMaxMs":3.014,"rasterP50Ms":0.806,"rasterP95Ms":1.288,"rasterMaxMs":1.793,"over60HzBudgetCount":0,"over120HzBudgetCount":0,"rssMiB":117.234375}}
+2026-09-08 03:45:38.057508+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"packages_scroll_warm_images":{"elapsedMs":52061,"frames":6246,"buildP50Ms":0.338,"buildP95Ms":0.616,"buildMaxMs":2.229,"rasterP50Ms":0.724,"rasterP95Ms":0.867,"rasterMaxMs":1.332,"over60HzBudgetCount":0,"over120HzBudgetCount":0,"rssMiB":121.109375}}
+2026-09-08 03:45:38.057609+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"coupons_first_render":{"elapsedMs":186,"frames":22,"buildP50Ms":0.482,"buildP95Ms":4.18,"buildMaxMs":7.331,"rasterP50Ms":0.312,"rasterP95Ms":1.55,"rasterMaxMs":5.62,"over60HzBudgetCount":0,"over120HzBudgetCount":0,"rssMiB":117.9375}}
+2026-09-08 03:45:38.057682+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"coupons_scroll":{"elapsedMs":38243,"frames":4589,"buildP50Ms":0.323,"buildP95Ms":0.568,"buildMaxMs":2.3,"rasterP50Ms":0.576,"rasterP95Ms":0.679,"rasterMaxMs":1.42,"over60HzBudgetCount":0,"over120HzBudgetCount":0,"rssMiB":121.734375}}
+2026-09-08 03:45:38.057740+0300 Runner[3672:1043614] flutter: PHONE_PERFORMANCE_RESULT {"fixtureRequests":{"images":66,"wallet":2,"packageRefreshes":3}}
+2026-09-08 03:45:38.058244+0300 Runner[3672:1043614] flutter: 02:40 +3: All tests passed!
+App terminated due to signal 9.

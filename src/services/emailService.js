@@ -64,7 +64,7 @@ const sendPasswordResetEmail = async (email, token) => {
       <h2 style="color: #FF7043;">Şifre Sıfırlama</h2>
       <p>Şifrenizi sıfırlamak için aşağıdaki kodu uygulamaya girin:</p>
       <h1 style="letter-spacing: 8px; text-align: center; font-size: 36px; padding: 16px; background: #f5f5f5; border-radius: 8px; color: #333;">${token}</h1>
-      <p style="color: #999; font-size: 12px; margin-top: 24px;">Bu kod 1 saat geçerlidir. Eğer bu işlemi siz yapmadıysanız bu e-postayı dikkate almayın.</p>
+      <p style="color: #999; font-size: 12px; margin-top: 24px;">Bu kod 15 dakika geçerlidir. Eğer bu işlemi siz yapmadıysanız bu e-postayı dikkate almayın.</p>
     </div>
   `);
 };

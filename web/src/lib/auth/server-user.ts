@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { callBackend } from "@/lib/api/client";
-import { getAccessToken } from "@/lib/auth/session";
+import { getAccessToken, getRefreshToken } from "@/lib/auth/session";
 import type { Role } from "@/lib/types";
 
 export interface ServerUser {
@@ -38,7 +38,10 @@ export async function getServerUser(): Promise<ServerUser | null> {
  */
 export async function requireAdmin(nextPath = "/admin"): Promise<ServerUser> {
   const user = await getServerUser();
-  if (!user) redirect(`/giris?next=${encodeURIComponent(nextPath)}`);
+  if (!user) {
+    const entry = await getRefreshToken() ? "/oturum-yenile" : "/giris";
+    redirect(`${entry}?next=${encodeURIComponent(nextPath)}`);
+  }
   if (user.role !== "admin") redirect("/panel");
   return user;
 }

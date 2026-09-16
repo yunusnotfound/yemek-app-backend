@@ -54,6 +54,7 @@ const SurprisePackage = sequelize.define('SurprisePackage', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  isSuspended: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

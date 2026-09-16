@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { businessSchema, type BusinessInput } from "@/lib/validations/schemas";
@@ -17,8 +18,12 @@ import { Alert } from "@/components/ui/Alert";
 import { Spinner } from "@/components/ui/Spinner";
 import { Card, CardBody } from "@/components/ui/Card";
 import { ImageUploader } from "@/components/panel/ImageUploader";
-import { LocationPicker } from "@/components/panel/LocationPicker";
 import { MAPBOX_TOKEN } from "@/lib/config";
+
+const LocationPicker = dynamic(
+  () => import("@/components/panel/LocationPicker").then((module) => module.LocationPicker),
+  { ssr: false, loading: () => <div className="h-64 animate-pulse rounded-xl bg-slate-100" aria-label="Harita yükleniyor" /> },
+);
 
 function num(v: number | string | null | undefined): number | undefined {
   if (v == null || v === "") return undefined;

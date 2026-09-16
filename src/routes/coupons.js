@@ -3,21 +3,14 @@ const couponController = require('../controllers/couponController');
 const { authenticate } = require('../middlewares/auth');
 const { authorize } = require('../middlewares/role');
 const { validate, validateQuery, validateParams } = require('../middlewares/validate');
-const { paginationSchema, idParamSchema } = require('../validations/schemas');
+const { paginationSchema, idParamSchema, packageQuerySchema } = require('../validations/schemas');
 const { z } = require('zod');
 
 const validateCouponSchema = z.object({
-  code: z.string().min(1, 'Kupon kodu gerekli'),
-  orderAmount: z.number().optional(),
-});
-
-const createCouponSchema = z.object({
-  code: z.string().min(1, 'Kupon kodu gerekli'),
-  discountType: z.enum(['percentage', 'fixed']),
-  discountValue: z.number().min(0),
-  minOrderAmount: z.number().min(0).optional(),
-  maxUsage: z.number().int().min(1).optional(),
-  expiresAt: z.string().datetime(),
+  code: z.string().trim().min(1, 'Kupon kodu gerekli').max(40),
+  orderAmount: z.number().finite().min(0).optional(),
+  packageId: z.string().uuid().optional(),
+  quantity: z.number().int().min(1).max(100).optional(),
 });
 
 /**
@@ -54,6 +47,9 @@ const createCouponSchema = z.object({
  *       404:
  *         description: Geçersiz kupon
  */
+router.get('/mine', authenticate, couponController.mine);
+router.get('/:id/packages', authenticate, validateParams(idParamSchema), validateQuery(packageQuerySchema), couponController.packages);
+
 router.post('/validate', authenticate, validate(validateCouponSchema), couponController.validate);
 
 /**
@@ -157,7 +153,7 @@ router.get('/:id', authenticate, authorize('admin'), validateParams(idParamSchem
  *       409:
  *         description: Kupon kodu zaten kullanımda
  */
-router.post('/', authenticate, authorize('admin'), validate(createCouponSchema), couponController.create);
+router.post('/', authenticate, authorize('admin'), couponController.create);
 
 /**
  * @swagger

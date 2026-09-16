@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../../core/utils/time_format.dart';
 import 'business_model.dart';
 
 class PackageModel extends Equatable {
@@ -112,9 +113,8 @@ class PackageModel extends Equatable {
     return discount.toStringAsFixed(0);
   }
 
-  String get formattedPickupTime {
-    return '$pickupStart - $pickupEnd';
-  }
+  /// Alım penceresi, saniyeler kırpılmış olarak (bkz. core/utils/time_format).
+  String get formattedPickupTime => pickupWindow(pickupStart, pickupEnd);
 }
 
 class PackagesResponse extends Equatable {

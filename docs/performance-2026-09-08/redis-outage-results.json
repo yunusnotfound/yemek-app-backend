@@ -1,0 +1,20 @@
+{
+  "fault": "Connection refused on an unused loopback Redis port",
+  "results": [
+    {
+      "ms": 3703.7003330000002,
+      "status": 200,
+      "returned": 10
+    },
+    {
+      "ms": 3654.681958,
+      "status": 200,
+      "returned": 10
+    },
+    {
+      "ms": 3656.004749999999,
+      "status": 200,
+      "returned": 10
+    }
+  ]
+}

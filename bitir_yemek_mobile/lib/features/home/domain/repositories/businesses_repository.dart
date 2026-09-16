@@ -40,9 +40,15 @@ abstract class BusinessesRepository {
     int quantity = 1,
     String? couponCode,
     Map<String, dynamic>? paymentCard,
+    double? expectedFinalPrice,
   });
 
-  Future<CouponResult> validateCoupon({required String code});
+  Future<CouponResult> validateCoupon({
+    required String code,
+    String? packageId,
+    double? orderAmount,
+    int quantity = 1,
+  });
 
   Future<BusinessDetailResult> getBusinessDetail(String businessId);
 }

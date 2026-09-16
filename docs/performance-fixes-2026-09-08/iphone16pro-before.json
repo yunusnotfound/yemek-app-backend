@@ -1,0 +1,111 @@
+{
+  "complete": true,
+  "environment": {
+    "profileMode": true,
+    "os": "ios",
+    "osVersion": "Version 18.3 (Build 22D63)",
+    "logicalCores": 6,
+    "displayHz": 120.0,
+    "framePolicy": "fullyLive",
+    "fixtureLatencyMs": 150,
+    "packages": 80,
+    "coupons": 100,
+    "scope": "real production widgets; local synthetic API/images; no end-to-end backend/native map timing"
+  },
+  "home_first_render": {
+    "elapsedMs": 1228,
+    "frames": 150,
+    "buildP50Ms": 1.094,
+    "buildP95Ms": 1.467,
+    "buildMaxMs": 25.507,
+    "rasterP50Ms": 1.123,
+    "rasterP95Ms": 1.284,
+    "rasterMaxMs": 4.23,
+    "over60HzBudgetCount": 1,
+    "over120HzBudgetCount": 1,
+    "rssMiB": 106.625
+  },
+  "home_scroll": {
+    "elapsedMs": 11504,
+    "frames": 1380,
+    "buildP50Ms": 0.462,
+    "buildP95Ms": 0.981,
+    "buildMaxMs": 2.976,
+    "rasterP50Ms": 0.893,
+    "rasterP95Ms": 1.074,
+    "rasterMaxMs": 1.665,
+    "over60HzBudgetCount": 0,
+    "over120HzBudgetCount": 0,
+    "rssMiB": 108.765625
+  },
+  "packages_first_render": {
+    "elapsedMs": 1224,
+    "frames": 146,
+    "buildP50Ms": 0.836,
+    "buildP95Ms": 0.986,
+    "buildMaxMs": 11.779,
+    "rasterP50Ms": 0.931,
+    "rasterP95Ms": 1.063,
+    "rasterMaxMs": 2.705,
+    "over60HzBudgetCount": 0,
+    "over120HzBudgetCount": 1,
+    "rssMiB": 111.046875
+  },
+  "packages_scroll_cold_images": {
+    "elapsedMs": 52428,
+    "frames": 6290,
+    "buildP50Ms": 0.427,
+    "buildP95Ms": 1.136,
+    "buildMaxMs": 3.014,
+    "rasterP50Ms": 0.806,
+    "rasterP95Ms": 1.288,
+    "rasterMaxMs": 1.793,
+    "over60HzBudgetCount": 0,
+    "over120HzBudgetCount": 0,
+    "rssMiB": 117.234375
+  },
+  "packages_scroll_warm_images": {
+    "elapsedMs": 52061,
+    "frames": 6246,
+    "buildP50Ms": 0.338,
+    "buildP95Ms": 0.616,
+    "buildMaxMs": 2.229,
+    "rasterP50Ms": 0.724,
+    "rasterP95Ms": 0.867,
+    "rasterMaxMs": 1.332,
+    "over60HzBudgetCount": 0,
+    "over120HzBudgetCount": 0,
+    "rssMiB": 121.109375
+  },
+  "coupons_first_render": {
+    "elapsedMs": 186,
+    "frames": 22,
+    "buildP50Ms": 0.482,
+    "buildP95Ms": 4.18,
+    "buildMaxMs": 7.331,
+    "rasterP50Ms": 0.312,
+    "rasterP95Ms": 1.55,
+    "rasterMaxMs": 5.62,
+    "over60HzBudgetCount": 0,
+    "over120HzBudgetCount": 0,
+    "rssMiB": 117.9375
+  },
+  "coupons_scroll": {
+    "elapsedMs": 38243,
+    "frames": 4589,
+    "buildP50Ms": 0.323,
+    "buildP95Ms": 0.568,
+    "buildMaxMs": 2.3,
+    "rasterP50Ms": 0.576,
+    "rasterP95Ms": 0.679,
+    "rasterMaxMs": 1.42,
+    "over60HzBudgetCount": 0,
+    "over120HzBudgetCount": 0,
+    "rssMiB": 121.734375
+  },
+  "fixtureRequests": {
+    "images": 66,
+    "wallet": 2,
+    "packageRefreshes": 3
+  }
+}

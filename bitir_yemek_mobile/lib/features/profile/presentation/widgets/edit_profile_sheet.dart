@@ -38,7 +38,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.only(
         left: AppSpacing.screenPadding,
         right: AppSpacing.screenPadding,
@@ -63,7 +63,7 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text('Profili Duzenle', style: AppTypography.h3),
+            Text('Profili Düzenle', style: AppTypography.h3),
             const SizedBox(height: AppSpacing.lg),
             // Name field
             Text(
@@ -76,12 +76,12 @@ class _EditProfileSheetState extends State<EditProfileSheet> {
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(
-                hintText: 'Adinizi girin',
+                hintText: 'Adınızı girin',
                 prefixIcon: Icon(Icons.person_outline),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Ad alani bos birakilamaz';
+                  return 'Ad alanı boş bırakılamaz';
                 }
                 return null;
               },

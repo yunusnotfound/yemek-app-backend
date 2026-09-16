@@ -30,6 +30,7 @@ class CacheService {
   // Internal storage
   // ---------------------------------------------------------------------------
   final Map<String, _CacheEntry> _cache = {};
+  static const int maxEntries = 100;
 
   // ---------------------------------------------------------------------------
   // Public API
@@ -40,10 +41,13 @@ class CacheService {
   T? get<T>(String key) {
     final entry = _cache[key];
     if (entry == null) return null;
-    if (DateTime.now().isAfter(entry.expiry)) {
+    if (!DateTime.now().isBefore(entry.expiry)) {
       _cache.remove(key);
       return null;
     }
+    // Map insertion order doubles as a least-recently-used queue.
+    _cache.remove(key);
+    _cache[key] = entry;
     return entry.data as T?;
   }
 
@@ -53,6 +57,10 @@ class CacheService {
     dynamic data, {
     Duration ttl = const Duration(minutes: 5),
   }) {
+    _evictExpired();
+    _cache.remove(key);
+    if (ttl <= Duration.zero) return;
+    if (_cache.length >= maxEntries) _cache.remove(_cache.keys.first);
     _cache[key] = _CacheEntry(data: data, expiry: DateTime.now().add(ttl));
   }
 
@@ -60,7 +68,7 @@ class CacheService {
   bool has(String key) {
     final entry = _cache[key];
     if (entry == null) return false;
-    if (DateTime.now().isAfter(entry.expiry)) {
+    if (!DateTime.now().isBefore(entry.expiry)) {
       _cache.remove(key);
       return false;
     }
@@ -94,7 +102,7 @@ class CacheService {
   /// before any size/stats check to keep memory usage in check.
   void _evictExpired() {
     final now = DateTime.now();
-    _cache.removeWhere((_, entry) => now.isAfter(entry.expiry));
+    _cache.removeWhere((_, entry) => !now.isBefore(entry.expiry));
   }
 }
 

@@ -38,7 +38,10 @@ class AuthRemoteDataSource {
       if (phone != null && phone.isNotEmpty) data['phone'] = phone;
       data['role'] = role;
 
-      final response = await _dioClient.dio.post('/auth/otp/verify', data: data);
+      final response = await _dioClient.dio.post(
+        '/auth/otp/verify',
+        data: data,
+      );
 
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
@@ -60,8 +63,11 @@ class AuthRemoteDataSource {
   }
 
   Future<void> logout() async {
-    // Clear auth token from dio client
-    _dioClient.clearAuthToken();
+    try {
+      await _dioClient.logout();
+    } on DioException {
+      /* Local session is cleared even offline. */
+    }
   }
 
   Future<Map<String, dynamic>> googleLogin({
@@ -124,7 +130,12 @@ class AuthRemoteDataSource {
 
       return AuthException(
         message: message,
-        errors: errors?.cast<String>(),
+        errors: errors
+            ?.map(
+              (item) =>
+                  item is Map ? item['message'].toString() : item.toString(),
+            )
+            .toList(),
         statusCode: e.response?.statusCode,
       );
     }

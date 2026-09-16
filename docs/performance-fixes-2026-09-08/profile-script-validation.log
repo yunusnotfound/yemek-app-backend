@@ -1,0 +1,11 @@
+test_android_only_loopback_is_permitted_in_profile_overlay (__main__.ProfilePreparationTests.test_android_only_loopback_is_permitted_in_profile_overlay) ... ok
+test_binary_with_production_identifier_is_rejected (__main__.ProfilePreparationTests.test_binary_with_production_identifier_is_rejected) ... ok
+test_copied_config_symlink_cannot_modify_source (__main__.ProfilePreparationTests.test_copied_config_symlink_cannot_modify_source) ... ok
+test_device_platform_mismatch_stops_before_build_or_install (__main__.ProfilePreparationTests.test_device_platform_mismatch_stops_before_build_or_install) ... ok
+test_ios_identity_entitlements_network_and_optional_team_are_isolated (__main__.ProfilePreparationTests.test_ios_identity_entitlements_network_and_optional_team_are_isolated) ... ok
+test_mocked_run_uses_profile_fixture_driver_and_result_environment (__main__.ProfilePreparationTests.test_mocked_run_uses_profile_fixture_driver_and_result_environment) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 1.315s
+
+OK

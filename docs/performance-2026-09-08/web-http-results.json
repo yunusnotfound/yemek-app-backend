@@ -1,0 +1,109 @@
+{
+  "mode": "Next standalone production server, loopback HTTP gzip, no browser rendering",
+  "firstHomeResponse": {
+    "status": 200,
+    "ttfbMs": 30.633208000000003,
+    "completeMs": 31.778083000000002,
+    "transferBytes": 10662
+  },
+  "homeScripts": [
+    {
+      "src": "/_next/static/chunks/19mx3mg6lkumu.js",
+      "status": 200,
+      "transferBytes": 7617,
+      "bodyBytes": 28907
+    },
+    {
+      "src": "/_next/static/chunks/1mh6a-0e61pyc.js",
+      "status": 200,
+      "transferBytes": 71641,
+      "bodyBytes": 229156
+    },
+    {
+      "src": "/_next/static/chunks/2-rtuqsgzmno4.js",
+      "status": 200,
+      "transferBytes": 45057,
+      "bodyBytes": 165743
+    },
+    {
+      "src": "/_next/static/chunks/turbopack-30koqklv8_-oi.js",
+      "status": 200,
+      "transferBytes": 3854,
+      "bodyBytes": 9721
+    },
+    {
+      "src": "/_next/static/chunks/39k2w7jjkx8dl.js",
+      "status": 200,
+      "transferBytes": 9225,
+      "bodyBytes": 29282
+    },
+    {
+      "src": "/_next/static/chunks/167ed5m97m963.js",
+      "status": 200,
+      "transferBytes": 1659,
+      "bodyBytes": 4010
+    },
+    {
+      "src": "/_next/static/chunks/0cz1d0mv5g_q7.js",
+      "status": 200,
+      "transferBytes": 39473,
+      "bodyBytes": 112594
+    },
+    {
+      "src": "/_next/static/chunks/310vm2bl3xxpt.js",
+      "status": 200,
+      "transferBytes": 1958,
+      "bodyBytes": 5364
+    }
+  ],
+  "scenarios": [
+    {
+      "route": "/",
+      "concurrency": 1,
+      "requests": 1060,
+      "seconds": 2.000540583,
+      "requestsPerSecond": 529.8567842150094,
+      "p50Ms": 1.6530410000000302,
+      "p95Ms": 2.8440410000000043,
+      "statusCounts": {
+        "200": 1060
+      }
+    },
+    {
+      "route": "/",
+      "concurrency": 10,
+      "requests": 3191,
+      "seconds": 2.0025554169999995,
+      "requestsPerSecond": 1593.4640174804215,
+      "p50Ms": 5.982292000000143,
+      "p95Ms": 8.528207999999722,
+      "statusCounts": {
+        "200": 3191
+      }
+    },
+    {
+      "route": "/giris",
+      "concurrency": 1,
+      "requests": 768,
+      "seconds": 2.00066575,
+      "requestsPerSecond": 383.87221853525506,
+      "p50Ms": 2.327874999999949,
+      "p95Ms": 3.297625000000153,
+      "statusCounts": {
+        "200": 768
+      }
+    },
+    {
+      "route": "/giris",
+      "concurrency": 10,
+      "requests": 1341,
+      "seconds": 2.005832834,
+      "requestsPerSecond": 668.5502287475268,
+      "p50Ms": 14.538249999999607,
+      "p95Ms": 18.59637500000008,
+      "statusCounts": {
+        "200": 1341
+      }
+    }
+  ]
+}

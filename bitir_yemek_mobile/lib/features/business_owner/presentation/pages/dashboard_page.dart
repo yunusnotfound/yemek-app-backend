@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
+import '../../../../core/utils/money_format.dart';
 import '../bloc/dashboard_bloc.dart';
 import '../widgets/mini_bar_chart.dart';
 import '../widgets/stat_card.dart';
@@ -107,8 +108,7 @@ class _DashboardPageState extends State<DashboardPage>
                             Expanded(
                               child: StatCard(
                                 label: 'Bugün Kazanç',
-                                value:
-                                    '${state.stats.todayRevenue.toStringAsFixed(0)} ₺',
+                                value: formatMoney(state.stats.todayRevenue),
                                 icon: Icons.attach_money,
                                 iconColor: AppColors.success,
                                 valueColor: AppColors.success,
@@ -164,8 +164,7 @@ class _DashboardPageState extends State<DashboardPage>
                             Expanded(
                               child: StatCard(
                                 label: 'Toplam Kazanç',
-                                value:
-                                    '${state.stats.totalRevenue.toStringAsFixed(0)} ₺',
+                                value: formatMoney(state.stats.totalRevenue),
                                 icon: Icons.account_balance_wallet_outlined,
                                 iconColor: AppColors.primary,
                               ),
@@ -181,8 +180,7 @@ class _DashboardPageState extends State<DashboardPage>
                             Expanded(
                               child: StatCard(
                                 label: 'Haftalık',
-                                value:
-                                    '${state.stats.weeklyRevenue.toStringAsFixed(0)} ₺',
+                                value: formatMoney(state.stats.weeklyRevenue),
                                 icon: Icons.calendar_view_week,
                                 iconColor: AppColors.info,
                               ),
@@ -191,8 +189,7 @@ class _DashboardPageState extends State<DashboardPage>
                             Expanded(
                               child: StatCard(
                                 label: 'Aylık',
-                                value:
-                                    '${state.stats.monthlyRevenue.toStringAsFixed(0)} ₺',
+                                value: formatMoney(state.stats.monthlyRevenue),
                                 icon: Icons.calendar_month,
                                 iconColor: AppColors.info,
                               ),

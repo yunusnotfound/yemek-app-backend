@@ -18,6 +18,8 @@ export async function callBackend(
       ...rest,
       headers: h,
       cache: "no-store",
+      signal: init.signal ?? AbortSignal.timeout(25000),
+      redirect: "error",
     });
   } catch {
     // Backend'e ulaşılamadı (ağ/bağlantı hatası) → her tüketicinin tek biçimde

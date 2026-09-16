@@ -1,3 +1,5 @@
+const { assertAccountCanClose } = require('../services/accountClosureService');
+const { cancelOrder, cancellationMessage } = require('../services/orderCancellationService');
 const { User, Business, Order, SurprisePackage, Review, Category, AdminAuditLog, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { paginate, paginatedResponse } = require('../utils/helpers');
@@ -132,7 +134,16 @@ exports.updateUser = async (req, res, next) => {
     if (role !== undefined) updates.role = role;
     if (isEmailVerified !== undefined) updates.isEmailVerified = isEmailVerified;
 
-    await user.update(updates);
+    await sequelize.transaction(async (transaction) => {
+      await sequelize.query('SELECT pg_advisory_xact_lock(190001)', { transaction });
+      await user.reload({ transaction, lock: true });
+      if (user.role === 'admin' && role && role !== 'admin' &&
+          await User.count({ where: { role: 'admin' }, transaction }) <= 1) {
+        throw Object.assign(new Error('Sistemdeki son admin yetkisi kaldırılamaz'), { statusCode: 409 });
+      }
+      await user.update({ ...updates,
+        ...((role !== undefined || isEmailVerified !== undefined) ? { authVersion: user.authVersion + 1 } : {}) }, { transaction });
+    });
 
     await auditService.record({
       req,
@@ -166,7 +177,19 @@ exports.deleteUser = async (req, res, next) => {
       }
     }
 
-    await user.destroy();
+    await sequelize.transaction(async (transaction) => {
+      await sequelize.query('SELECT pg_advisory_xact_lock(190001)', { transaction });
+      await assertAccountCanClose(user.id, transaction);
+      await user.reload({ transaction, lock: true });
+      if (user.role === 'admin' && await User.count({ where: { role: 'admin' }, transaction }) <= 1) {
+        throw Object.assign(new Error('Sistemdeki son admin silinemez'), { statusCode: 409 });
+      }
+      await Business.update({ isActive: false, isApproved: false, isSuspended: true }, { where: { ownerId: user.id }, transaction });
+      await user.update({ cardUserKey: null, authVersion: user.authVersion + 1 }, { transaction });
+      await user.destroy({ transaction });
+    });
+    await cacheService.invalidateNamespace('businesses:list');
+    await cacheService.invalidateNamespace('packages:list');
     await auditService.record({
       req, action: 'user.delete', targetType: 'user', targetId: user.id,
       metadata: { email: user.email, role: user.role },
@@ -258,7 +281,7 @@ exports.setBusinessActive = async (req, res, next) => {
     }
 
     const { isActive } = req.body;
-    await business.update({ isActive });
+    await business.update({ isActive, isSuspended: !isActive });
     await auditService.record({
       req, action: 'business.active', targetType: 'business', targetId: business.id, metadata: { isActive },
     });
@@ -339,11 +362,12 @@ exports.rejectBusiness = async (req, res, next) => {
 exports.getAllOrders = async (req, res, next) => {
   try {
     const { page, limit, offset } = paginate(req.query);
-    const { status, paymentStatus, businessId, search, startDate, endDate } = req.query;
+    const { status, paymentStatus, refundStatus, businessId, search, startDate, endDate } = req.query;
 
     const where = {};
     if (status) where.status = status;
     if (paymentStatus) where.paymentStatus = paymentStatus;
+    if (refundStatus) where.refundStatus = refundStatus;
     if (search) where.pickupCode = search;
     if (startDate && endDate) {
       where.createdAt = { [Op.between]: [new Date(startDate), new Date(endDate)] };
@@ -412,40 +436,8 @@ exports.refundOrder = async (req, res, next) => {
       return res.status(400).json({ message: 'İade edilecek ödeme yok veya zaten iade edilmiş' });
     }
 
-    let refundedAmount = 0;
-    try {
-      const r = await settlementService.refundOrder(order, req.ip);
-      if (r.refunded) refundedAmount = r.amount;
-    } catch (e) {
-      logger.error(`[admin] iade başarısız (order ${order.id}): ${e.message}`);
-      return res.status(502).json({ message: 'İade işlemi başarısız, lütfen tekrar deneyin' });
-    }
-
-    const t = await sequelize.transaction();
-    try {
-      const [n] = await Order.update(
-        { status: 'cancelled', paymentStatus: 'refunded', settlementStatus: 'refunded', refundAmount: refundedAmount },
-        { where: { id: order.id, status: order.status }, transaction: t }
-      );
-      if (n === 0) {
-        await t.rollback();
-        logger.error(`[admin] iade yapıldı ama durum değişmiş (order ${order.id}) - manuel mutabakat gerekli`);
-        return res.status(409).json({ message: 'Sipariş durumu değişmiş' });
-      }
-      // Teslim alınmamışsa stok geri yüklenir (teslim edilmişse mal gitti, iade etme).
-      if (order.status !== 'picked_up') {
-        await SurprisePackage.update(
-          { remainingQuantity: sequelize.literal(`"remainingQuantity" + ${order.quantity}`) },
-          { where: { id: order.packageId }, transaction: t }
-        );
-      }
-      await t.commit();
-    } catch (e) {
-      await t.rollback();
-      throw e;
-    }
-
-    await cacheService.invalidateNamespace('packages:list');
+    const cancelled = await cancelOrder(order.id, { ip: req.ip, allowPickedUp: true });
+    const refundedAmount = Number(cancelled.refundAmount);
     await auditService.record({
       req, action: 'order.refund', targetType: 'order', targetId: order.id,
       metadata: { amount: refundedAmount, reason: req.body?.reason },
@@ -453,7 +445,7 @@ exports.refundOrder = async (req, res, next) => {
     try { await notifyOrderStatus(order.userId, order.id, 'cancelled'); } catch (_) { /* yut */ }
 
     const fresh = await Order.findByPk(order.id);
-    res.json({ message: 'Sipariş iade edildi', order: fresh });
+    res.json({ message: cancellationMessage(cancelled), order: fresh });
   } catch (error) {
     next(error);
   }
@@ -493,7 +485,7 @@ exports.setPackageActive = async (req, res, next) => {
     }
 
     const { isActive } = req.body;
-    await pkg.update({ isActive });
+    await pkg.update({ isActive, isSuspended: !isActive });
     await auditService.record({
       req, action: 'package.active', targetType: 'package', targetId: pkg.id, metadata: { isActive },
     });

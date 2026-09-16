@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ShoppingBag, Phone, User as UserIcon, Clock } from "lucide-react";
 import type { Order, OrderStatus } from "@/lib/types";
 import { getBusinessOrders, updateOrderStatus } from "@/lib/api/panel";
@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/Button";
 import { LoadingBlock } from "@/components/ui/Spinner";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePaginatedList } from "@/components/panel/usePaginatedList";
 
 const FILTERS: { key: OrderStatus | "all"; label: string }[] = [
   { key: "all", label: "Tümü" },
@@ -35,7 +37,7 @@ function OrderRow({
   onChanged,
 }: {
   order: Order;
-  onChanged: (o: Order) => void;
+  onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,10 +46,11 @@ function OrderRow({
     setBusy(true);
     setError(null);
     try {
-      const res = await updateOrderStatus(order.id, status);
-      onChanged(res.order);
+      await updateOrderStatus(order.id, status);
+      onChanged();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Güncellenemedi");
+    } finally {
       setBusy(false);
     }
   }
@@ -132,33 +135,23 @@ function OrderRow({
 
 function OrdersView({ businessId }: { businessId: string }) {
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
-  const [items, setItems] = useState<Order[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    setItems(null);
-    setError(null);
+  const loadPage = useCallback((page: number) =>
     getBusinessOrders(businessId, {
       status: filter === "all" ? undefined : filter,
+      page,
       limit: 50,
-    })
-      .then((res) => setItems(res.data))
-      .catch((e) => setError(e instanceof Error ? e.message : "Yüklenemedi"));
-  }, [businessId, filter]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+    }), [businessId, filter]);
+  const { items, error, page, totalPages, setPage, reload } = usePaginatedList(loadPage);
 
   return (
     <div className="space-y-6">
-      <VerifyOrderBox businessId={businessId} onVerified={load} />
+      <VerifyOrderBox businessId={businessId} onVerified={reload} />
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
             key={f.key}
-            onClick={() => setFilter(f.key)}
+            onClick={() => { setFilter(f.key); setPage(1); }}
             className={cn(
               "rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
               filter === f.key
@@ -187,17 +180,12 @@ function OrdersView({ businessId }: { businessId: string }) {
             <OrderRow
               key={o.id}
               order={o}
-              onChanged={(updated) =>
-                setItems(
-                  (cur) =>
-                    cur?.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)) ??
-                    null,
-                )
-              }
+              onChanged={reload}
             />
           ))}
         </div>
       )}
+      {items ? <Pagination page={page} totalPages={totalPages} onPageChange={setPage} /> : null}
     </div>
   );
 }
@@ -209,7 +197,7 @@ export default function OrdersPage() {
         title="Siparişler"
         description="Gelen siparişleri yönet ve teslimatları doğrula."
       />
-      <RequireBusiness>{(b) => <OrdersView businessId={b.id} />}</RequireBusiness>
+      <RequireBusiness>{(b) => <OrdersView key={b.id} businessId={b.id} />}</RequireBusiness>
     </>
   );
 }

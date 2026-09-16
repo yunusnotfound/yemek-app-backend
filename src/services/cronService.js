@@ -130,14 +130,14 @@ const startPaymentReaperJob = () => {
               source: 'reaper',
               ip: '0.0.0.0',
             });
-            if (r.outcome === 'paid' || r.outcome === 'already_paid') {
+            if (r.outcome === 'paid' || r.outcome === 'already_paid' || r.outcome === 'review' || r.outcome === 'unknown') {
               recovered++;
               continue;
             }
           } else if (order.paymentProvider === 'iyzico') {
             // 3DS siparişi (token yok) -> payment.retrieve ile kontrol.
             // SUCCESS değilse (3DS yarıda bırakıldı / reddedildi) aşağıda hold serbest bırakılır.
-            const result = await iyzicoService.retrievePayment({ conversationId: order.conversationId }).catch(() => null);
+            const result = await iyzicoService.retrievePayment({ conversationId: order.conversationId, paymentId: order.paymentId });
             if (result?.status === 'success') {
               const r = await paymentFinalizeService.finalize({
                 retrieveResult: result,
@@ -145,7 +145,7 @@ const startPaymentReaperJob = () => {
                 source: 'reaper',
                 ip: '0.0.0.0',
               });
-              if (r.outcome === 'paid' || r.outcome === 'already_paid') {
+              if (r.outcome === 'paid' || r.outcome === 'already_paid' || r.outcome === 'review' || r.outcome === 'unknown') {
                 recovered++;
                 continue;
               }
@@ -176,6 +176,8 @@ const startApprovalRetryJob = () => {
     try {
       if (!iyzicoService.isConfigured()) return;
       await settlementService.retryHeldApprovals();
+      await settlementService.retryPendingRefunds();
+      await paymentFinalizeService.reconcileCancelledPayments();
     } catch (error) {
       logger.error('Approval retry hatası:', error);
     }

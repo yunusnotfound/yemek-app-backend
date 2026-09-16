@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../config/theme.dart';
+import '../../../../core/utils/money_format.dart';
+import '../../../../shared/widgets/app_surface.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import '../../data/models/order_model.dart';
 
@@ -12,19 +14,9 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return AppSurface(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header: business name + status badge
           Padding(
@@ -58,17 +50,20 @@ class OrderCard extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text(
-                    order.package?.business?.name ?? 'Isletme',
-                    style: AppTypography.bodyLarge.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        order.package?.business?.name ?? 'İşletme',
+                        style: AppTypography.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      _buildStatusBadge(),
+                    ],
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                _buildStatusBadge(),
               ],
             ),
           ),
@@ -99,60 +94,63 @@ class OrderCard extends StatelessWidget {
           // Bottom section: pickup code, date, price
           Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Pickup code
-                if (order.isActive || order.isCompleted) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: 4,
+                Wrap(
+                  spacing: AppSpacing.md,
+                  runSpacing: AppSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (!order.isAwaitingPayment &&
+                        (order.isActive || order.isCompleted))
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 6,
+                        ),
+                        decoration: AppDepth.iconTile(),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.qr_code,
+                              size: 18,
+                              color: AppColors.primaryInk,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              order.pickupCode,
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: AppColors.primaryInk,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    Text(
+                      _formatDate(order.createdAt),
+                      style: AppTypography.bodySmall,
                     ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.3),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text('Toplam', style: AppTypography.bodySmall),
+                    Text(
+                      formatMoney(order.finalPrice),
+                      style: AppTypography.h3.copyWith(
+                        color: AppColors.ink,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.qr_code, size: 14, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text(
-                          order.pickupCode,
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                ],
-
-                // Date
-                Icon(Icons.access_time, size: 14, color: AppColors.textHint),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDate(order.createdAt),
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textHint,
-                  ),
-                ),
-
-                const Spacer(),
-
-                // Price
-                Text(
-                  '${order.finalPrice.toStringAsFixed(0)} TL',
-                  style: AppTypography.bodyLarge.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -168,14 +166,14 @@ class OrderCard extends StatelessWidget {
                 bottomRight: Radius.circular(AppRadius.lg),
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.close, size: 16, color: AppColors.error),
                     const SizedBox(width: 4),
                     Text(
-                      'Siparisi Iptal Et',
+                      'Siparişi İptal Et',
                       style: AppTypography.bodySmall.copyWith(
                         color: AppColors.error,
                         fontWeight: FontWeight.w600,
@@ -198,15 +196,15 @@ class OrderCard extends StatelessWidget {
     switch (order.status) {
       case 'pending':
         bgColor = AppColors.warning.withValues(alpha: 0.1);
-        textColor = AppColors.warning;
+        textColor = AppColors.warningInk;
         break;
       case 'confirmed':
         bgColor = AppColors.info.withValues(alpha: 0.1);
-        textColor = AppColors.info;
+        textColor = AppColors.infoInk;
         break;
       case 'picked_up':
         bgColor = AppColors.success.withValues(alpha: 0.1);
-        textColor = AppColors.success;
+        textColor = AppColors.successInk;
         break;
       case 'cancelled':
         bgColor = AppColors.error.withValues(alpha: 0.1);
@@ -238,7 +236,7 @@ class OrderCard extends StatelessWidget {
     if (date.year == now.year &&
         date.month == now.month &&
         date.day == now.day) {
-      return 'Bugun, ${DateFormat('HH:mm').format(date)}';
+      return 'Bugün, ${DateFormat('HH:mm').format(date)}';
     }
     return DateFormat('d MMM, HH:mm', 'tr_TR').format(date);
   }
@@ -247,10 +245,10 @@ class OrderCard extends StatelessWidget {
     AppDialog.confirm(
       context,
       icon: Icons.event_busy_rounded,
-      title: 'Siparisi iptal et',
-      message: 'Bu siparisi iptal etmek istediginizden emin misiniz?',
-      cancelLabel: 'Vazgec',
-      confirmLabel: 'Iptal Et',
+      title: 'Siparişi iptal et',
+      message: 'Bu siparişi iptal etmek istediğinizden emin misiniz?',
+      cancelLabel: 'Vazgeç',
+      confirmLabel: 'İptal Et',
     ).then((confirmed) {
       if (confirmed) onCancel?.call();
     });

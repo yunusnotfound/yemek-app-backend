@@ -2,6 +2,8 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Order = sequelize.define('Order', {
+  originalTotal: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
+  couponReleased: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -122,9 +124,21 @@ const Order = sequelize.define('Order', {
     type: DataTypes.STRING(500),
     allowNull: true,
   },
+  // Durable refund reservation. An ambiguous provider response requires review,
+  // never an automatic second charge/refund request.
+  refundStatus: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'none' },
+  refundRequestedAt: { type: DataTypes.DATE, allowNull: true },
+  refundAttemptedAt: { type: DataTypes.DATE, allowNull: true },
+  fraudReview: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  paymentCheckedAt: { type: DataTypes.DATE, allowNull: true },
 }, {
   timestamps: true,
   paranoid: true,
+  indexes: [
+    { unique: true, fields: ['paymentId'], name: 'orders_payment_id_unique' },
+    { unique: true, fields: ['paymentTransactionId'], name: 'orders_payment_transaction_unique' },
+    { unique: true, fields: ['paymentToken'], name: 'orders_payment_token_unique' },
+  ],
 });
 
 module.exports = Order;

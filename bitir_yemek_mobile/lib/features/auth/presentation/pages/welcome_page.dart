@@ -38,9 +38,9 @@ class _WelcomePageState extends State<WelcomePage> {
   ];
 
   void _goToLogin() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const EmailEntryPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (context) => const EmailEntryPage()));
   }
 
   @override
@@ -177,33 +177,40 @@ class _WelcomePageState extends State<WelcomePage> {
   Widget _buildPage(int index) {
     final page = _pages[index];
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildVisual(index),
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FittedBox(fit: BoxFit.scaleDown, child: _buildVisual(index)),
 
-        const SizedBox(height: AppSpacing.xl),
+              const SizedBox(height: AppSpacing.xl),
 
-        Text(
-          page.title,
-          textAlign: TextAlign.center,
-          style: AppTypography.h1.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.bold,
+              Text(
+                page.title,
+                textAlign: TextAlign.center,
+                style: AppTypography.h1.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+
+              const SizedBox(height: AppSpacing.md),
+
+              Text(
+                page.description,
+                textAlign: TextAlign.center,
+                style: AppTypography.bodyLarge.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+            ],
           ),
         ),
-
-        const SizedBox(height: AppSpacing.md),
-
-        Text(
-          page.description,
-          textAlign: TextAlign.center,
-          style: AppTypography.bodyLarge.copyWith(
-            color: AppColors.textSecondary,
-            height: 1.5,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -225,8 +232,5 @@ class _OnboardingData {
   final String title;
   final String description;
 
-  const _OnboardingData({
-    required this.title,
-    required this.description,
-  });
+  const _OnboardingData({required this.title, required this.description});
 }

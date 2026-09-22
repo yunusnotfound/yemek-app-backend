@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../config/theme.dart';
+import 'hinged_package.dart';
 
 /// Onboarding'de kullanıcının dokunarak açtığı sürpriz paket.
 ///
 /// Amaç: "sürpriz paket" fikrini ANLATMAK yerine bir kez YAŞATMAK. Kullanıcı
-/// kutuya dokunuyor, kapak havalanıyor, içinden rastgele bir ürün ve indirim
+/// kutuya dokunuyor, paket açılıyor, içinden rastgele bir ürün ve indirim
 /// damgası çıkıyor. Tekrar dokunursa başka bir ürün geliyor — "ne çıkacağını
 /// bilmemek" hissi, uygulamanın çekirdek duygusu, daha kayıt olmadan tadılıyor.
 ///
@@ -26,38 +27,26 @@ class _SurpriseBoxState extends State<SurpriseBox>
   /// Kutudan çıkabilecek temsili paketler.
   static const List<_SurpriseItem> _items = [
     _SurpriseItem(
-      icon: Icons.bakery_dining_rounded,
+      asset: 'assets/images/onboarding/foodbox-bakery.png',
       color: Color(0xFFD98E3E),
       label: 'Fırın Sepeti',
       discount: 70,
     ),
     _SurpriseItem(
-      icon: Icons.local_cafe_rounded,
-      color: Color(0xFF8D6E63),
-      label: 'Kahve & Kurabiye',
-      discount: 60,
-    ),
-    _SurpriseItem(
-      icon: Icons.lunch_dining_rounded,
+      asset: 'assets/images/onboarding/foodbox-meal.png',
       color: Color(0xFFE0663D),
       label: 'Öğle Menüsü',
       discount: 50,
     ),
     _SurpriseItem(
-      icon: Icons.ramen_dining_rounded,
+      asset: 'assets/images/onboarding/foodbox-dessert.png',
       color: Color(0xFFC1443B),
-      label: 'Sıcak Çorba',
-      discount: 65,
-    ),
-    _SurpriseItem(
-      icon: Icons.icecream_rounded,
-      color: Color(0xFF00897B),
       label: 'Tatlı Kutusu',
       discount: 55,
     ),
   ];
 
-  /// Kapak + içerik açılış animasyonu.
+  /// Paket + içerik açılış animasyonu.
   late final AnimationController _openController;
 
   /// Kapalıyken hafif nefes alma — kutunun dokunulabilir olduğunu belli eder.
@@ -75,7 +64,8 @@ class _SurpriseBoxState extends State<SurpriseBox>
     super.initState();
     _openController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 620),
+      duration: const Duration(milliseconds: 1200),
+      reverseDuration: const Duration(milliseconds: 650),
     );
     _idleController = AnimationController(
       vsync: this,
@@ -91,6 +81,7 @@ class _SurpriseBoxState extends State<SurpriseBox>
   }
 
   Future<void> _handleTap() async {
+    if (_openController.isAnimating) return;
     HapticFeedback.mediumImpact();
 
     if (!_isOpen) {
@@ -109,8 +100,8 @@ class _SurpriseBoxState extends State<SurpriseBox>
     await _openController.reverse();
     if (!mounted) return;
     setState(() {
-      _itemIndex = (_itemIndex + 1 + _random.nextInt(_items.length - 1)) %
-          _items.length;
+      _itemIndex =
+          (_itemIndex + 1 + _random.nextInt(_items.length - 1)) % _items.length;
     });
     await _openController.forward();
   }
@@ -126,12 +117,12 @@ class _SurpriseBoxState extends State<SurpriseBox>
         onTap: _handleTap,
         behavior: HitTestBehavior.opaque,
         child: SizedBox(
-          width: 260,
-          height: 240,
+          width: 300,
+          height: 360,
           child: AnimatedBuilder(
             animation: Listenable.merge([_openController, _idleController]),
             builder: (context, _) {
-              final t = Curves.easeOutCubic.transform(_openController.value);
+              final t = Curves.easeInOutCubic.transform(_openController.value);
               // Kapalıyken 3 piksellik salınım; açılınca durur.
               final bob = _isOpen
                   ? 0.0
@@ -141,11 +132,10 @@ class _SurpriseBoxState extends State<SurpriseBox>
                 alignment: Alignment.center,
                 children: [
                   _buildGlow(t),
-                  _buildRevealedItem(t),
-                  _buildBoxBody(bob),
-                  _buildLid(t, bob),
+                  _buildPackage(t, bob),
                   _buildStamp(t),
                   if (!_isOpen) _buildTapHint(),
+                  if (_isOpen) _buildItemLabel(t),
                 ],
               );
             },
@@ -176,131 +166,28 @@ class _SurpriseBoxState extends State<SurpriseBox>
     );
   }
 
-  /// Kutudan yukarı doğru çıkan ürün rozeti.
-  Widget _buildRevealedItem(double t) {
-    if (t == 0) return const SizedBox.shrink();
-
-    // Yukarı fırlama + elastik ölçek: "fırlayıp yerine oturma" hissi.
-    final pop = Curves.elasticOut.transform(t.clamp(0.0, 1.0));
-
+  Widget _buildItemLabel(double t) {
     return Positioned(
-      top: 10,
+      bottom: 0,
       child: Opacity(
-        opacity: t.clamp(0.0, 1.0),
-        child: Transform.translate(
-          offset: Offset(0, (1 - t) * 60),
-          child: Transform.scale(
-            scale: 0.6 + pop * 0.4,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 92,
-                  height: 92,
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _item.color.withValues(alpha: 0.28),
-                        blurRadius: 18,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Icon(_item.icon, size: 46, color: _item.color),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  _item.label,
-                  style: AppTypography.bodyMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ],
-            ),
+        opacity: ((t - 0.7) / 0.3).clamp(0.0, 1.0),
+        child: Text(
+          _item.label,
+          style: AppTypography.bodyMedium.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
     );
   }
 
-  /// Kutunun ön yüzü — ürün bunun ARKASINDAN çıkıyormuş gibi görünsün diye
-  /// Stack'te üründen SONRA çiziliyor.
-  Widget _buildBoxBody(double bob) {
+  Widget _buildPackage(double t, double bob) {
     return Positioned(
-      bottom: 24,
+      top: 0,
       child: Transform.translate(
         offset: Offset(0, bob),
-        child: Container(
-          width: 168,
-          height: 104,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFD9A066), Color(0xFFBE7F49)],
-            ),
-            borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(AppRadius.md),
-              top: Radius.circular(6),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.18),
-                blurRadius: 14,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Center(
-            // Karton kutu üzerindeki marka şeridi.
-            child: Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-              child: const Icon(
-                Icons.eco_rounded,
-                color: Colors.white,
-                size: 30,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Açılışta yukarı fırlayıp yana devrilen kapak.
-  Widget _buildLid(double t, double bob) {
-    return Positioned(
-      bottom: 118 + t * 74 - bob,
-      child: Transform.rotate(
-        angle: t * -0.42,
-        child: Transform.translate(
-          offset: Offset(t * 34, 0),
-          child: Container(
-            width: 184,
-            height: 26,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFE8B583), Color(0xFFD9A066)],
-              ),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.16),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-          ),
-        ),
+        child: HingedPackage(opening: t, foodAsset: _item.asset),
       ),
     );
   }
@@ -314,8 +201,8 @@ class _SurpriseBoxState extends State<SurpriseBox>
     final scale = 1.9 - Curves.easeOutBack.transform(p) * 0.9;
 
     return Positioned(
-      top: 6,
-      right: 4,
+      top: 24,
+      left: 8,
       child: Opacity(
         opacity: p,
         child: Transform.rotate(
@@ -379,13 +266,13 @@ class _SurpriseBoxState extends State<SurpriseBox>
 }
 
 class _SurpriseItem {
-  final IconData icon;
+  final String asset;
   final Color color;
   final String label;
   final int discount;
 
   const _SurpriseItem({
-    required this.icon,
+    required this.asset,
     required this.color,
     required this.label,
     required this.discount,

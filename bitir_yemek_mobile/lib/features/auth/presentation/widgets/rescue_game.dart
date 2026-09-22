@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../config/theme.dart';
+import 'onboarding_photo.dart';
 
 /// Onboarding'in son sayfasındaki küçük "kurtar" etkileşimi.
 ///
@@ -23,16 +24,15 @@ class RescueGame extends StatefulWidget {
   State<RescueGame> createState() => _RescueGameState();
 }
 
-class _RescueGameState extends State<RescueGame>
-    with TickerProviderStateMixin {
+class _RescueGameState extends State<RescueGame> with TickerProviderStateMixin {
   static const int _hedef = 3;
 
   static const List<_Food> _foods = [
-    _Food(Icons.bakery_dining_rounded, Color(0xFFD98E3E)),
-    _Food(Icons.local_pizza_rounded, Color(0xFFE0663D)),
-    _Food(Icons.ramen_dining_rounded, Color(0xFFC1443B)),
-    _Food(Icons.icecream_rounded, Color(0xFF00897B)),
-    _Food(Icons.lunch_dining_rounded, Color(0xFF8D6E63)),
+    _Food(OnboardingAssets.bakery, Color(0xFFD98E3E)),
+    _Food(OnboardingAssets.sandwich, Color(0xFFE0663D)),
+    _Food(OnboardingAssets.meal, Color(0xFFC1443B)),
+    _Food(OnboardingAssets.dessert, Color(0xFF00897B)),
+    _Food(OnboardingAssets.coffee, Color(0xFF8D6E63)),
   ];
 
   /// Yemeğin havada süzülmesi — sürüklenebilir olduğunu belli eder.
@@ -79,8 +79,8 @@ class _RescueGameState extends State<RescueGame>
       _rescued++;
       _isOverBag = false;
       // Sonraki yemek farklı olsun; aynısının tekrarı oyunu tekdüze yapıyor.
-      _foodIndex = (_foodIndex + 1 + _random.nextInt(_foods.length - 1)) %
-          _foods.length;
+      _foodIndex =
+          (_foodIndex + 1 + _random.nextInt(_foods.length - 1)) % _foods.length;
     });
 
     _burstController.forward(from: 0);
@@ -155,10 +155,7 @@ class _RescueGameState extends State<RescueGame>
       child: Draggable<bool>(
         data: true,
         feedback: _buildFoodChip(scale: 1.15, elevated: true),
-        childWhenDragging: Opacity(
-          opacity: 0.25,
-          child: _buildFoodChip(),
-        ),
+        childWhenDragging: Opacity(opacity: 0.25, child: _buildFoodChip()),
         onDragStarted: () => HapticFeedback.selectionClick(),
         onDraggableCanceled: (velocity, offset) {
           if (mounted) setState(() => _isOverBag = false);
@@ -185,7 +182,7 @@ class _RescueGameState extends State<RescueGame>
             ),
           ],
         ),
-        child: Icon(_food.icon, size: 42, color: _food.color),
+        child: OnboardingPhoto(asset: _food.asset, size: 86),
       ),
     );
   }
@@ -207,8 +204,8 @@ class _RescueGameState extends State<RescueGame>
           builder: (context, _) {
             final b = _burstController.value;
             return SizedBox(
-              width: 116,
-              height: 116,
+              width: 132,
+              height: 132,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -220,33 +217,20 @@ class _RescueGameState extends State<RescueGame>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: AppColors.success
-                              .withValues(alpha: (1 - b) * 0.7),
+                          color: AppColors.success.withValues(
+                            alpha: (1 - b) * 0.7,
+                          ),
                           width: 3,
                         ),
                       ),
                     ),
-                  AnimatedContainer(
+                  AnimatedScale(
                     duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeOut,
-                    width: _isOverBag ? 100 : 88,
-                    height: _isOverBag ? 100 : 88,
-                    decoration: BoxDecoration(
-                      color: _isOverBag
-                          ? AppColors.success.withValues(alpha: 0.16)
-                          : AppColors.primary.withValues(alpha: 0.10),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _isOverBag
-                            ? AppColors.success
-                            : AppColors.primary.withValues(alpha: 0.35),
-                        width: _isOverBag ? 3 : 2,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.shopping_bag_rounded,
-                      size: _isOverBag ? 44 : 38,
-                      color: _isOverBag ? AppColors.success : AppColors.primary,
+                    scale: _isOverBag ? 1.12 : 1,
+                    child: const OnboardingPhoto(
+                      asset: OnboardingAssets.bag,
+                      size: 126,
+                      cutout: true,
                     ),
                   ),
                 ],
@@ -266,22 +250,10 @@ class _RescueGameState extends State<RescueGame>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: AppColors.textHint.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.textHint.withValues(alpha: 0.35),
-                width: 2,
-              ),
-            ),
-            child: const Icon(
-              Icons.delete_outline_rounded,
-              size: 32,
-              color: AppColors.textHint,
-            ),
+          const OnboardingPhoto(
+            asset: OnboardingAssets.bin,
+            size: 92,
+            cutout: true,
           ),
           const SizedBox(height: 6),
           Text(
@@ -301,18 +273,10 @@ class _RescueGameState extends State<RescueGame>
       curve: Curves.elasticOut,
       builder: (context, t, child) =>
           Transform.scale(scale: 0.6 + t * 0.4, child: child),
-      child: Container(
-        width: 92,
-        height: 92,
-        decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.14),
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(
-          Icons.eco_rounded,
-          size: 46,
-          color: AppColors.success,
-        ),
+      child: const OnboardingPhoto(
+        asset: OnboardingAssets.openBox,
+        size: 104,
+        cutout: true,
       ),
     );
   }
@@ -345,7 +309,7 @@ class _RescueGameState extends State<RescueGame>
 }
 
 class _Food {
-  final IconData icon;
+  final String asset;
   final Color color;
-  const _Food(this.icon, this.color);
+  const _Food(this.asset, this.color);
 }

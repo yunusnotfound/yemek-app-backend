@@ -161,10 +161,12 @@ void main() {
     tester,
   ) async {
     await mount(tester, const LocationPermissionPage());
+    await tester.ensureVisible(find.text('Mevcut konumumu kullan'));
     await tester.tap(find.text('Mevcut konumumu kullan'));
     await tester.pumpAndSettle();
     expect(gps.permissionRequests, 1);
     expect(find.byType(LocationPermissionPage), findsOneWidget);
+    await tester.ensureVisible(find.text('Konum seç'));
     await tester.tap(find.text('Konum seç'));
     await tester.pumpAndSettle();
     await search(tester);
@@ -192,6 +194,7 @@ void main() {
     tester,
   ) async {
     await mount(tester, const LocationPermissionPage(isBusinessOwner: true));
+    await tester.ensureVisible(find.text('Konum seç'));
     await tester.tap(find.text('Konum seç'));
     await tester.pumpAndSettle();
     await search(tester);
@@ -207,6 +210,7 @@ void main() {
     tester,
   ) async {
     await mount(tester, const LocationPermissionPage());
+    await tester.ensureVisible(find.text('Konum seç'));
     await tester.tap(find.text('Konum seç'));
     await tester.pumpAndSettle();
     await tester.pageBack();
@@ -215,6 +219,7 @@ void main() {
       find.widgetWithText(TextButton, 'Konum seç'),
     );
     expect(select.onPressed, isNotNull);
+    await tester.ensureVisible(find.text('Konum seç'));
     await tester.tap(find.text('Konum seç'));
     await tester.pumpAndSettle();
     expect(find.byType(ManualLocationPage), findsOneWidget);
@@ -250,6 +255,7 @@ void main() {
   ) async {
     gps.pendingEnabled = Completer<bool>();
     await mount(tester, const LocationPermissionPage());
+    await tester.ensureVisible(find.text('Mevcut konumumu kullan'));
     await tester.tap(find.text('Mevcut konumumu kullan'));
     await tester.pump();
     await tester.pumpWidget(const MaterialApp(home: SizedBox()));

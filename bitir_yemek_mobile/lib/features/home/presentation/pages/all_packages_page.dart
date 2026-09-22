@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
 import '../../../../core/di/service_locator.dart';
 import '../../../../shared/widgets/shimmer_loader.dart';
+import '../../../../shared/widgets/app_notice.dart';
 import '../../data/datasources/businesses_remote_datasource.dart';
 import '../../data/repositories/businesses_repository_impl.dart';
 import '../bloc/packages_bloc.dart';
 import '../widgets/package_card.dart';
+import '../widgets/packages_empty_state.dart';
 import '../../../favorites/presentation/bloc/favorites_bloc.dart';
 import 'package_detail_page.dart';
 
@@ -27,9 +30,7 @@ class AllPackagesPage extends StatelessWidget {
     return BlocProvider(
       create: (context) => PackagesBloc(
         repository: BusinessesRepositoryImpl(
-          remoteDataSource: BusinessesRemoteDataSource(
-            dioClient: appDioClient,
-          ),
+          remoteDataSource: BusinessesRemoteDataSource(dioClient: appDioClient),
         ),
       )..add(LoadNearbyPackages(latitude: latitude, longitude: longitude)),
       child: AllPackagesView(
@@ -103,7 +104,10 @@ class _AllPackagesViewState extends State<AllPackagesView> {
         ),
         centerTitle: true,
       ),
-      body: BlocBuilder<PackagesBloc, PackagesState>(
+      body: BlocConsumer<PackagesBloc, PackagesState>(
+        listener: (context, state) {
+          if (state is PackagesError) AppNotice.error(context, state.message);
+        },
         buildWhen: (previous, current) =>
             previous.runtimeType != current.runtimeType ||
             current is PackagesLoaded ||
@@ -154,18 +158,12 @@ class _AllPackagesViewState extends State<AllPackagesView> {
             final isLoadingMore = state is PackagesLoadingMore;
 
             if (packages.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.shopping_bag_outlined,
-                      size: 64,
-                      color: AppColors.primary.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text('Henüz paket bulunmuyor', style: AppTypography.h3),
-                  ],
+              return PackagesEmptyState(
+                onRefresh: () => context.read<PackagesBloc>().add(
+                  RefreshPackages(
+                    latitude: widget.latitude,
+                    longitude: widget.longitude,
+                  ),
                 ),
               );
             }
@@ -183,12 +181,15 @@ class _AllPackagesViewState extends State<AllPackagesView> {
 
                 return RefreshIndicator(
                   onRefresh: () async {
+                    final done = Completer<void>();
                     context.read<PackagesBloc>().add(
-                      LoadNearbyPackages(
+                      RefreshPackages(
                         latitude: widget.latitude,
                         longitude: widget.longitude,
+                        onDone: done,
                       ),
                     );
+                    await done.future;
                   },
                   color: AppColors.primary,
                   child: ListView.builder(

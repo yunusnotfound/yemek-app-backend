@@ -1,3 +1,4 @@
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/favorite_model.dart';
@@ -15,11 +16,15 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
   FavoritesBloc({required FavoritesRepository repository})
     : _repository = repository,
       super(const FavoritesInitial()) {
-    on<LoadFavorites>(_onLoadFavorites);
-    on<LoadMoreFavorites>(_onLoadMoreFavorites);
-    on<RefreshFavorites>(_onRefreshFavorites);
-    on<RemoveFavorite>(_onRemoveFavorite);
-    on<ToggleFavorite>(_onToggleFavorite);
+    // One queue across event types: a late list response must not undo a
+    // completed mutation, and rapid toggles must follow the user's order.
+    on<FavoritesEvent>((event, emit) async {
+      if (event is LoadFavorites) await _onLoadFavorites(event, emit);
+      if (event is LoadMoreFavorites) await _onLoadMoreFavorites(event, emit);
+      if (event is RefreshFavorites) await _onRefreshFavorites(event, emit);
+      if (event is RemoveFavorite) await _onRemoveFavorite(event, emit);
+      if (event is ToggleFavorite) await _onToggleFavorite(event, emit);
+    }, transformer: sequential());
   }
 
   Set<String> get favoriteBusinessIds =>
@@ -39,10 +44,7 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
       _favorites = response.favorites;
       _hasReachedMax = response.page >= response.totalPages;
       emit(
-        FavoritesLoaded(
-          favorites: _favorites,
-          hasReachedMax: _hasReachedMax,
-        ),
+        FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
       );
     } catch (e) {
       emit(FavoritesError(message: e.toString()));
@@ -65,18 +67,12 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
       _favorites = [..._favorites, ...response.favorites];
       _hasReachedMax = response.page >= response.totalPages;
       emit(
-        FavoritesLoaded(
-          favorites: _favorites,
-          hasReachedMax: _hasReachedMax,
-        ),
+        FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
       );
     } catch (e) {
       _currentPage--;
       emit(
-        FavoritesLoaded(
-          favorites: _favorites,
-          hasReachedMax: _hasReachedMax,
-        ),
+        FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
       );
     }
   }
@@ -91,10 +87,7 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
       _favorites = response.favorites;
       _hasReachedMax = response.page >= response.totalPages;
       emit(
-        FavoritesLoaded(
-          favorites: _favorites,
-          hasReachedMax: _hasReachedMax,
-        ),
+        FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
       );
     } catch (e) {
       emit(FavoritesError(message: e.toString()));
@@ -116,18 +109,12 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
 
       emit(FavoriteRemoveSuccess(businessId: event.businessId));
       emit(
-        FavoritesLoaded(
-          favorites: _favorites,
-          hasReachedMax: _hasReachedMax,
-        ),
+        FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
       );
     } catch (e) {
       emit(FavoriteRemoveError(message: e.toString()));
       emit(
-        FavoritesLoaded(
-          favorites: _favorites,
-          hasReachedMax: _hasReachedMax,
-        ),
+        FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
       );
     }
   }
@@ -147,18 +134,12 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
             .toList();
         emit(FavoriteRemoveSuccess(businessId: event.businessId));
         emit(
-          FavoritesLoaded(
-            favorites: _favorites,
-            hasReachedMax: _hasReachedMax,
-          ),
+          FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
         );
       } catch (e) {
         emit(FavoriteRemoveError(message: e.toString()));
         emit(
-          FavoritesLoaded(
-            favorites: _favorites,
-            hasReachedMax: _hasReachedMax,
-          ),
+          FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
         );
       }
     } else {
@@ -178,10 +159,7 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
       _favorites = [placeholder, ..._favorites];
       emit(FavoriteAddSuccess(businessId: event.businessId));
       emit(
-        FavoritesLoaded(
-          favorites: _favorites,
-          hasReachedMax: _hasReachedMax,
-        ),
+        FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
       );
 
       try {
@@ -209,10 +187,7 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
             .toList();
         emit(FavoriteAddError(message: e.toString()));
         emit(
-          FavoritesLoaded(
-            favorites: _favorites,
-            hasReachedMax: _hasReachedMax,
-          ),
+          FavoritesLoaded(favorites: _favorites, hasReachedMax: _hasReachedMax),
         );
       }
     }

@@ -9,10 +9,19 @@ part 'payment_state.dart';
 class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
   final PaymentRepository _repository;
   final String conversationId;
+  bool _stopping = false;
 
-  PaymentBloc({required PaymentRepository repository, required this.conversationId})
-      : _repository = repository,
-        super(const PaymentWebViewActive()) {
+  @override
+  Future<void> close() {
+    _stopping = true;
+    return super.close();
+  }
+
+  PaymentBloc({
+    required PaymentRepository repository,
+    required this.conversationId,
+  }) : _repository = repository,
+       super(const PaymentWebViewActive()) {
     on<PaymentVerificationRequested>(_onVerify);
   }
 
@@ -44,11 +53,13 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
 
     for (var i = 0; i < _delays.length; i++) {
       await Future.delayed(_delays[i]);
+      if (_stopping || emit.isDone || isClosed) return;
       final result = await _repository.getStatus(
         conversationId,
         // İlk ve son denemede backend'e iyzico retrieve tetikletip senkronize et.
         sync: i == 0 || i == _delays.length - 1,
       );
+      if (_stopping || emit.isDone || isClosed) return;
       if (!result.isSuccess || result.status == null) continue;
 
       final s = result.status!;
@@ -57,7 +68,11 @@ class PaymentBloc extends Bloc<PaymentEvent, PaymentState> {
         return;
       }
       if (s.isFailed) {
-        emit(const PaymentFailedState(message: 'Ödeme tamamlanamadı veya iptal edildi'));
+        emit(
+          const PaymentFailedState(
+            message: 'Ödeme tamamlanamadı veya iptal edildi',
+          ),
+        );
         return;
       }
     }

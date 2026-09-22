@@ -1,3 +1,4 @@
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/saved_card_model.dart';
@@ -13,9 +14,13 @@ class CardsBloc extends Bloc<CardsEvent, CardsState> {
   CardsBloc({required CardsRepository repository})
     : _repository = repository,
       super(const CardsInitial()) {
-    on<LoadCards>(_onLoadCards);
-    on<AddCard>(_onAddCard);
-    on<DeleteCard>(_onDeleteCard);
+    // One queue across event types: a late list response must not undo a
+    // completed mutation, and rapid toggles must follow the user's order.
+    on<CardsEvent>((event, emit) async {
+      if (event is LoadCards) await _onLoadCards(event, emit);
+      if (event is AddCard) await _onAddCard(event, emit);
+      if (event is DeleteCard) await _onDeleteCard(event, emit);
+    }, transformer: sequential());
   }
 
   Future<void> _onLoadCards(LoadCards event, Emitter<CardsState> emit) async {

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../config/theme.dart';
-import '../../../../shared/widgets/app_surface.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import '../../../../shared/widgets/app_cached_image.dart';
 import '../../data/models/favorite_model.dart';
@@ -19,186 +18,238 @@ class FavoriteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppSurface(
-      onTap: onTap,
-      child: Column(
-        children: [
-          // Image section
-          ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(AppRadius.lg),
-              topRight: Radius.circular(AppRadius.lg),
-            ),
-            child: SizedBox(
-              height: 140,
-              width: double.infinity,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Business image
-                  AppCachedImage(
-                    imageUrl: favorite.imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: _buildPlaceholderImage(),
-                  ),
-
-                  // Gradient overlay
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      height: 60,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.4),
-                          ],
-                        ),
-                      ),
+    final photoHeight = 118 + (MediaQuery.textScalerOf(context).scale(12) - 12);
+    final category = favorite.categoryName?.trim();
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D704B32),
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: const Color(0xFFFFF9F2),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: AppDepth.border, width: 0.8),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: photoHeight,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    AppCachedImage(
+                      imageUrl: favorite.imageUrl,
+                      height: photoHeight,
+                      fit: BoxFit.cover,
+                      placeholder: _placeholder(),
+                      loadingWidget: _placeholder(),
                     ),
-                  ),
-
-                  // Remove button
-                  Positioned(
-                    top: AppSpacing.sm,
-                    right: AppSpacing.sm,
-                    child: IconButton.filledTonal(
-                      tooltip: 'Favorilerden kaldır',
-                      onPressed: () => _showRemoveDialog(context),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.surface,
-                        foregroundColor: AppColors.error,
-                        minimumSize: const Size(48, 48),
-                      ),
-                      icon: const Icon(Icons.favorite, size: 22),
-                    ),
-                  ),
-
-                  // Category badge
-                  if (favorite.categoryName != null)
-                    Positioned(
-                      bottom: AppSpacing.sm,
-                      left: AppSpacing.sm,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: 4,
-                        ),
+                    const IgnorePointer(
+                      child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(AppRadius.full),
-                        ),
-                        child: Text(
-                          favorite.categoryName!,
-                          style: AppTypography.bodySmall.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0x18000000),
+                              Colors.transparent,
+                              Color(0x20000000),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                ],
+                    if (category != null && category.isNotEmpty)
+                      Positioned(
+                        top: 12,
+                        left: 14,
+                        right: 68,
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xF5FFF9F2),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Text(
+                              category,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.ink,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: IconButton(
+                        tooltip: 'Favorilerden kaldır',
+                        onPressed: onRemove == null
+                            ? null
+                            : () => _showRemoveDialog(context),
+                        style: IconButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                          padding: const EdgeInsets.all(6),
+                        ),
+                        icon: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: Color(0x65000000),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.favorite_rounded,
+                            size: 23,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-
-          // Info section
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Business name + rating
-                Row(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 13, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        favorite.businessName,
-                        style: AppTypography.bodyLarge.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      favorite.businessName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.h3.copyWith(
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.ink,
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    _buildRatingBadge(),
-                  ],
-                ),
-
-                const SizedBox(height: AppSpacing.xs),
-
-                // Address
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 14,
-                      color: AppColors.textHint,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        favorite.fullAddress,
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    if (favorite.fullAddress.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(top: 1),
+                            child: Icon(
+                              Icons.location_on_outlined,
+                              size: 15,
+                              color: AppColors.inkSoft,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              favorite.fullAddress,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.inkSoft,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8EBDC),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Wrap(
+                        spacing: 14,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (favorite.rating > 0)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: 17,
+                                  color: AppColors.successInk,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  favorite.rating.toStringAsFixed(1),
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: AppColors.ink,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  'Paketleri keşfet',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: AppColors.primaryInk,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 16,
+                                color: AppColors.primaryInk,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderImage() {
-    return Container(
-      color: AppColors.primary.withValues(alpha: 0.1),
-      child: Center(
-        child: Icon(
-          Icons.restaurant,
-          size: 48,
-          color: AppColors.primary.withValues(alpha: 0.4),
         ),
       ),
     );
   }
 
-  Widget _buildRatingBadge() {
-    if (favorite.rating <= 0) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppRadius.full),
+  Widget _placeholder() => ColoredBox(
+    color: const Color(0xFFF3E4D5),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Image.asset(
+        'assets/images/food_box.png',
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star, size: 14, color: AppColors.warning),
-          const SizedBox(width: 2),
-          Text(
-            favorite.rating.toStringAsFixed(1),
-            style: AppTypography.bodySmall.copyWith(
-              color: AppColors.warningInk,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    ),
+  );
 
   void _showRemoveDialog(BuildContext context) {
     AppDialog.confirm(

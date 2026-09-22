@@ -10,8 +10,18 @@ import '../bloc/favorites_bloc.dart';
 class FavoriteButton extends StatelessWidget {
   final String businessId;
   final double size;
+  final Color inactiveColor;
+  final Color activeColor;
+  final Color? backgroundColor;
 
-  const FavoriteButton({super.key, required this.businessId, this.size = 22});
+  const FavoriteButton({
+    super.key,
+    required this.businessId,
+    this.size = 22,
+    this.inactiveColor = AppColors.textHint,
+    this.activeColor = AppColors.error,
+    this.backgroundColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +44,20 @@ class FavoriteButton extends StatelessWidget {
             child: SizedBox(
               width: 48,
               height: 48,
-              child: Icon(
-                isFav ? Icons.favorite : Icons.favorite_border,
-                size: size,
-                color: isFav ? AppColors.error : AppColors.textHint,
+              child: Center(
+                child: Container(
+                  width: size + 10,
+                  height: size + 10,
+                  decoration: BoxDecoration(
+                    color: backgroundColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isFav ? Icons.favorite : Icons.favorite_border,
+                    size: size,
+                    color: isFav ? activeColor : inactiveColor,
+                  ),
+                ),
               ),
             ),
           ),

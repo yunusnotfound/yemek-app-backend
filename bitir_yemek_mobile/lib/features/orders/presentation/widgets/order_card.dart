@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../config/theme.dart';
 import '../../../../core/utils/money_format.dart';
-import '../../../../shared/widgets/app_surface.dart';
+import '../../../../shared/widgets/app_cached_image.dart';
 import '../../../../shared/widgets/app_dialog.dart';
 import '../../data/models/order_model.dart';
 
@@ -14,218 +14,218 @@ class OrderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppSurface(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header: business name + status badge
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.md,
-              0,
-            ),
-            child: Row(
+    final statusColor = switch (order.status) {
+      'confirmed' => AppColors.successInk,
+      'pending' || 'awaiting_payment' => AppColors.warningInk,
+      'picked_up' => AppColors.infoInk,
+      'cancelled' => AppColors.inkSoft,
+      _ => AppColors.textSecondary,
+    };
+    final statusIcon = switch (order.status) {
+      'confirmed' => Icons.check_circle_outline_rounded,
+      'pending' => Icons.schedule_rounded,
+      'awaiting_payment' => Icons.account_balance_wallet_outlined,
+      'picked_up' => Icons.task_alt_rounded,
+      'cancelled' => Icons.cancel_outlined,
+      _ => Icons.receipt_long_outlined,
+    };
+    final showCode =
+        !order.isAwaitingPayment &&
+        (order.isActive || order.isCompleted) &&
+        order.pickupCode.isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF9F2),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppDepth.border, width: 0.8),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D704B32),
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10,
+              runSpacing: 8,
               children: [
-                // Business avatar
                 Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 6,
                   ),
-                  child: Center(
-                    child: Text(
-                      order.package?.business?.name.isNotEmpty == true
-                          ? order.package!.business!.name[0].toUpperCase()
-                          : '?',
-                      style: AppTypography.bodyLarge.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(statusIcon, size: 15, color: statusColor),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(
+                          order.statusText,
+                          style: AppTypography.bodySmall.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  _formatDate(order.createdAt),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: AppCachedImage(
+                    imageUrl: order.package?.imageUrl,
+                    width: 76,
+                    height: 82,
+                    fit: BoxFit.cover,
+                    placeholder: ColoredBox(
+                      color: const Color(0xFFF5E7D8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Image.asset(
+                          'assets/images/food_box.png',
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         order.package?.business?.name ?? 'İşletme',
-                        style: AppTypography.bodyLarge.copyWith(
-                          fontWeight: FontWeight.w600,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.inkSoft,
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.xs),
-                      _buildStatusBadge(),
+                      const SizedBox(height: 4),
+                      Text(
+                        order.package?.title ?? 'Sürpriz paket',
+                        style: AppTypography.bodyLarge.copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            '${order.quantity} paket',
+                            style: AppTypography.bodySmall,
+                          ),
+                          Text(
+                            formatMoney(order.finalPrice),
+                            style: AppTypography.h3.copyWith(
+                              color: AppColors.ink,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
-          ),
-
-          const SizedBox(height: AppSpacing.sm),
-
-          // Package title
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                order.package?.title ?? 'Paket',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
+            if (showCode) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: AppSpacing.sm),
-
-          // Divider
-          const Divider(height: 1, color: AppColors.divider),
-
-          // Bottom section: pickup code, date, price
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: AppSpacing.md,
-                  runSpacing: AppSpacing.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                decoration: BoxDecoration(
+                  color: order.isActive
+                      ? const Color(0xFFFFEBDD)
+                      : const Color(0xFFF3EADF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (!order.isAwaitingPayment &&
-                        (order.isActive || order.isCompleted))
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: 6,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          'Teslim alma kodu',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.primaryInk,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        decoration: AppDepth.iconTile(),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.qr_code,
-                              size: 18,
-                              color: AppColors.primaryInk,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              order.pickupCode,
-                              style: AppTypography.bodyMedium.copyWith(
-                                color: AppColors.primaryInk,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          order.pickupCode,
+                          style: AppTypography.h3.copyWith(
+                            color: AppColors.primaryInk,
+                            letterSpacing: 2,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (order.isActive) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Paketini alırken bu kodu işletmeye göster.',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.inkSoft,
                         ),
                       ),
-                    Text(
-                      _formatDate(order.createdAt),
-                      style: AppTypography.bodySmall,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.xs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text('Toplam', style: AppTypography.bodySmall),
-                    Text(
-                      formatMoney(order.finalPrice),
-                      style: AppTypography.h3.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Cancel button for active orders
-          if (order.canCancel && onCancel != null) ...[
-            const Divider(height: 1, color: AppColors.divider),
-            InkWell(
-              onTap: () => _showCancelDialog(context),
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(AppRadius.lg),
-                bottomRight: Radius.circular(AppRadius.lg),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.close, size: 16, color: AppColors.error),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Siparişi İptal Et',
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.error,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),
-            ),
+            ],
+            if (order.canCancel && onCancel != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _showCancelDialog(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.inkSoft,
+                    textStyle: AppTypography.bodySmall,
+                    padding: const EdgeInsets.fromLTRB(10, 12, 0, 0),
+                    minimumSize: const Size(48, 44),
+                    tapTargetSize: MaterialTapTargetSize.padded,
+                  ),
+                  child: const Text('Siparişi İptal Et'),
+                ),
+              ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge() {
-    Color bgColor;
-    Color textColor;
-
-    switch (order.status) {
-      case 'pending':
-        bgColor = AppColors.warning.withValues(alpha: 0.1);
-        textColor = AppColors.warningInk;
-        break;
-      case 'confirmed':
-        bgColor = AppColors.info.withValues(alpha: 0.1);
-        textColor = AppColors.infoInk;
-        break;
-      case 'picked_up':
-        bgColor = AppColors.success.withValues(alpha: 0.1);
-        textColor = AppColors.successInk;
-        break;
-      case 'cancelled':
-        bgColor = AppColors.error.withValues(alpha: 0.1);
-        textColor = AppColors.error;
-        break;
-      default:
-        bgColor = AppColors.divider;
-        textColor = AppColors.textHint;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(AppRadius.full),
-      ),
-      child: Text(
-        order.statusText,
-        style: AppTypography.bodySmall.copyWith(
-          color: textColor,
-          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -233,9 +233,7 @@ class OrderCard extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
+    if (DateUtils.isSameDay(date, now)) {
       return 'Bugün, ${DateFormat('HH:mm').format(date)}';
     }
     return DateFormat('d MMM, HH:mm', 'tr_TR').format(date);

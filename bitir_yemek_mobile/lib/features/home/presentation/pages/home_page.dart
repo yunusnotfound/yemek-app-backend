@@ -10,11 +10,12 @@ import '../bloc/home_bloc.dart';
 import '../bloc/packages_bloc.dart';
 import '../widgets/category_tiles.dart';
 import '../widgets/location_header.dart';
-import '../widgets/package_card.dart';
+import '../widgets/home_catalog_cards.dart';
+import '../../data/models/business_model.dart';
 import '../widgets/packages_empty_state.dart';
 import '../../../favorites/presentation/bloc/favorites_bloc.dart';
 import 'package_detail_page.dart';
-import 'all_packages_page.dart';
+import 'business_detail_page.dart';
 
 class HomePage extends StatelessWidget {
   final double latitude;
@@ -45,6 +46,7 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   int _selectedCategoryIndex = 0;
   List<CategoryModel> _categories = [];
+  final _scrollController = ScrollController();
 
   /// Seçili kategori id'si (null = "Hepsi"). Pull-to-refresh bunu kullanır.
   String? _currentCategoryId;
@@ -52,6 +54,7 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_loadMore);
 
     // Bloc'lar sekmeler arası paylaşıldığı için veri zaten yüklenmiş olabilir.
     // Burada yalnız ilk yükleme yapılır; CatalogRefresh görünür sekmenin
@@ -72,15 +75,27 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  /// İkinci bölümde ("Yerel En İyiler") gösterilecek kart sayısı.
-  ///
-  /// Üstteki bölüm ilk 5'i gösteriyor; bu bölüm listenin sonundan besleniyor.
-  /// Toplam 5 veya altındaysa iki bölüm tamamen çakışacağı için en fazla
-  /// `toplam - 5` kart gösterilir (yoksa hiç gösterilmez).
-  int _sonSansSayisi(int toplam) {
-    final kalan = toplam - 5;
-    if (kalan <= 0) return 0;
-    return kalan > 5 ? 5 : kalan;
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _loadMore() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > 400) {
+      return;
+    }
+    final bloc = context.read<PackagesBloc>();
+    final state = bloc.state;
+    if (state is PackagesLoaded && !state.hasReachedMax) {
+      bloc.add(
+        LoadMorePackages(
+          latitude: widget.latitude,
+          longitude: widget.longitude,
+        ),
+      );
+    }
   }
 
   void _onCategorySelected(int index) {
@@ -88,6 +103,7 @@ class _HomeViewState extends State<HomeView> {
       _selectedCategoryIndex = index;
     });
 
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
     if (_categories.isEmpty) return;
 
     final categoryId = _categories[index].id == 0
@@ -264,6 +280,15 @@ class _HomeViewState extends State<HomeView> {
                       return _buildEmptyState();
                     }
 
+                    final businesses = <String, BusinessModel>{};
+                    for (final package in packages) {
+                      businesses.putIfAbsent(
+                        package.business.id,
+                        () => package.business,
+                      );
+                    }
+                    final nearbyBusinesses = businesses.values.toList();
+
                     // Favori durumu her kartın içindeki FavoriteButton
                     // tarafından izleniyor; liste favori değişiminde rebuild
                     // olmaz (yalnız ilgili kalp yeniden çizilir).
@@ -285,6 +310,9 @@ class _HomeViewState extends State<HomeView> {
                       },
                       color: AppColors.primary,
                       child: CustomScrollView(
+                        key: const PageStorageKey('home-catalog'),
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
                           SliverToBoxAdapter(
                             child: CampaignBanner(
@@ -292,199 +320,99 @@ class _HomeViewState extends State<HomeView> {
                               longitude: widget.longitude,
                             ),
                           ),
-                          // Popular Section Title
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                AppSpacing.screenPadding,
-                                0,
-                                AppSpacing.screenPadding,
-                                AppSpacing.xs,
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'Yakınındaki fırsatlar',
-                                      style: AppTypography.h3.copyWith(
-                                        fontSize: 15,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      final favBloc = context
-                                          .read<FavoritesBloc>();
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => BlocProvider.value(
-                                            value: favBloc,
-                                            child: AllPackagesPage(
-                                              title: 'Yakınındaki Fırsatlar',
-                                              latitude: widget.latitude,
-                                              longitude: widget.longitude,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: Text(
-                                      'Hepsini Gör',
-                                      style: AppTypography.bodyMedium.copyWith(
-                                        color: AppColors.primary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                              child: Text(
+                                'Yakınındaki fırsatlar',
+                                style: AppTypography.h3.copyWith(fontSize: 17),
                               ),
                             ),
                           ),
-
-                          // Horizontal Package List
                           SliverToBoxAdapter(
                             child: SizedBox(
-                              height: PackageCard.carouselHeight(context),
-                              child: ListView.builder(
+                              height: HomeBusinessCard.carouselHeight(context),
+                              child: ListView.separated(
+                                key: const PageStorageKey('home-businesses'),
                                 scrollDirection: Axis.horizontal,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.screenPadding,
+                                  horizontal: 20,
                                 ),
-                                itemCount: packages.length > 5
-                                    ? 5
-                                    : packages.length,
+                                itemCount: nearbyBusinesses.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 12),
                                 itemBuilder: (context, index) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(
-                                      right: AppSpacing.md,
-                                    ),
-                                    child: PackageCard(
-                                      package: packages[index],
-                                      isHorizontal: true,
-                                      onTap: () {
-                                        final favBloc = context
-                                            .read<FavoritesBloc>();
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => BlocProvider.value(
-                                              value: favBloc,
-                                              child: PackageDetailPage(
-                                                package: packages[index],
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
+                                  final business = nearbyBusinesses[index];
+                                  return HomeBusinessCard(
+                                    key: ValueKey(business.id),
+                                    business: business,
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => BusinessDetailPage(
+                                          businessId: business.id,
+                                          businessName: business.name,
+                                        ),
+                                      ),
                                     ),
                                   );
                                 },
                               ),
                             ),
                           ),
-
-                          // Additional nearby packages
-                          if (_sonSansSayisi(packages.length) > 0)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.screenPadding,
-                                  vertical: AppSpacing.md,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Keşfetmeye devam et',
-                                        style: AppTypography.h3.copyWith(
-                                          fontSize: 18,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    TextButton(
-                                      onPressed: () {
-                                        final favBloc = context
-                                            .read<FavoritesBloc>();
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => BlocProvider.value(
-                                              value: favBloc,
-                                              child: AllPackagesPage(
-                                                title: 'Keşfetmeye devam et',
-                                                latitude: widget.latitude,
-                                                longitude: widget.longitude,
-                                              ),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                24,
+                                20,
+                                12,
+                              ),
+                              child: Text(
+                                'Keşfetmeye devam et',
+                                style: AppTypography.h3.copyWith(fontSize: 18),
+                              ),
+                            ),
+                          ),
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            sliver: SliverList.builder(
+                              itemCount: packages.length,
+                              itemBuilder: (context, index) {
+                                final package = packages[index];
+                                return Padding(
+                                  key: ValueKey(package.id),
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: HomeProductCard(
+                                    package: package,
+                                    onTap: () {
+                                      final favorites = context
+                                          .read<FavoritesBloc>();
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => BlocProvider.value(
+                                            value: favorites,
+                                            child: PackageDetailPage(
+                                              package: package,
                                             ),
                                           ),
-                                        );
-                                      },
-                                      child: Text(
-                                        'Hepsini Gör',
-                                        style: AppTypography.bodyMedium
-                                            .copyWith(
-                                              color: AppColors.primary,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                          // İkinci bölüm de yatay karusel. Keşfet artık
-                          // dikey sonsuz liste değil, bölümlerden oluşuyor;
-                          // tam liste "Hepsini Gör" ile açılan
-                          // AllPackagesPage'de (sayfalama orada).
-                          if (_sonSansSayisi(packages.length) > 0)
-                            SliverToBoxAdapter(
-                              child: SizedBox(
-                                height: PackageCard.carouselHeight(context),
-                                child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.screenPadding,
+                                        ),
+                                      );
+                                    },
                                   ),
-                                  itemCount: _sonSansSayisi(packages.length),
-                                  itemBuilder: (context, index) {
-                                    // Bu bölüm listenin SONUNDAN besleniyor:
-                                    // üstteki bölüm ilk 5'i gösterdiği için
-                                    // aynı kartları tekrar etmesin.
-                                    final pkg =
-                                        packages[packages.length - 1 - index];
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        right: AppSpacing.md,
-                                      ),
-                                      child: PackageCard(
-                                        package: pkg,
-                                        isHorizontal: true,
-                                        onTap: () {
-                                          final favBloc = context
-                                              .read<FavoritesBloc>();
-                                          Navigator.of(context).push(
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  BlocProvider.value(
-                                                    value: favBloc,
-                                                    child: PackageDetailPage(
-                                                      package: pkg,
-                                                    ),
-                                                  ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    );
-                                  },
+                                );
+                              },
+                            ),
+                          ),
+                          if (state is PackagesLoadingMore)
+                            const SliverToBoxAdapter(
+                              child: Padding(
+                                padding: EdgeInsets.all(20),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
                                 ),
                               ),
                             ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 20)),
                         ],
                       ),
                     );
@@ -544,7 +472,7 @@ class _HomeViewState extends State<HomeView> {
         // Horizontal Cards Shimmer
         SliverToBoxAdapter(
           child: SizedBox(
-            height: PackageCard.carouselHeight(context),
+            height: HomeBusinessCard.carouselHeight(context),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(
@@ -557,7 +485,7 @@ class _HomeViewState extends State<HomeView> {
                   child: ShimmerLoader(
                     isLoading: true,
                     child: Container(
-                      width: 240,
+                      width: 280,
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(AppRadius.lg),

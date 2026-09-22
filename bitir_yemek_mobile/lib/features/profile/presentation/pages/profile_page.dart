@@ -334,26 +334,13 @@ class ProfilePage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Gerçek uygulama logosu — açılış sahnesindeki rozetin küçüğü.
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.32),
-                    blurRadius: 26,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: ClipOval(
-                child: Image.asset(
-                  'assets/icon/app_icon.png',
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.medium,
-                ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.asset(
+                'assets/icon/app_icon.png',
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -379,7 +366,7 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Gida israfini onlemek icin isletmeler ve musterileri bulusturan platform.',
+              'Gıda israfını önlemek için işletmeler ve müşterileri buluşturan platform.',
               style: AppTypography.bodyMedium.copyWith(
                 color: AppColors.inkSoft,
                 height: 1.4,
@@ -398,7 +385,7 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Birlikte israfi bitirelim, gitsin!',
+              'Birlikte israfı bitirelim, gitsin!',
               style: AppTypography.bodyLarge.copyWith(
                 color: AppColors.primary,
                 fontWeight: FontWeight.w600,
@@ -417,9 +404,9 @@ class ProfilePage extends StatelessWidget {
     AppDialog.confirm(
       context,
       icon: Icons.logout_rounded,
-      title: 'Cikis yap',
-      message: 'Hesabinizdan cikis yapmak istediginize emin misiniz?',
-      cancelLabel: 'Iptal',
+      title: 'Çıkış yap',
+      message: 'Hesabınızdan çıkış yapmak istediğinize emin misiniz?',
+      cancelLabel: 'Vazgeç',
       confirmLabel: 'Çıkış Yap',
     ).then((confirmed) {
       if (confirmed && context.mounted) {
@@ -432,10 +419,10 @@ class ProfilePage extends StatelessWidget {
     AppDialog.confirm(
       context,
       icon: Icons.person_off_rounded,
-      title: 'Hesabi sil',
+      title: 'Hesabı sil',
       message:
-          'Hesabinizi silmek istediginize emin misiniz? Bu islem geri alinamaz ve tum verileriniz kalici olarak silinecektir.',
-      cancelLabel: 'Iptal',
+          'Hesabınızı silmek istediğinize emin misiniz? Bu işlem geri alınamaz ve tüm verileriniz kalıcı olarak silinecektir.',
+      cancelLabel: 'Vazgeç',
       confirmLabel: 'Hesabı Sil',
     ).then((confirmed) {
       if (confirmed && context.mounted) {
@@ -445,39 +432,25 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-/// "Hakkında" panelini kapatan tam genişlikte hayalet düğme.
 class _AboutCloseButton extends StatelessWidget {
   const _AboutCloseButton({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        height: 50,
-        width: double.infinity,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.primaryLight, AppColors.primary],
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.full),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.34),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Text(
-          'Tamam',
-          style: AppTypography.button.copyWith(fontSize: 15),
-        ),
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    child: TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        backgroundColor: const Color(0xFFF1E5D9),
+        foregroundColor: AppColors.ink,
+        minimumSize: const Size(48, 48),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        textStyle: AppTypography.button.copyWith(fontSize: 15),
       ),
-    );
-  }
+      child: const Text('Tamam'),
+    ),
+  );
 }

@@ -94,6 +94,7 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   void _onTabSelected(int index) {
     if (index == _currentIndex && _visited.contains(index)) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _visited.add(index);
       _currentIndex = index;
@@ -112,16 +113,8 @@ class _MainScaffoldState extends State<MainScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    // Paylaşılan blocs.
-    //
-    // Sekme sayfaları yeniden kurulabildiği için (Ara sekmesi seçilince
-    // IndexedStack tamamen yerini MapPage'e bırakır, geri dönülünce baştan
-    // kurulur) sayfa içinde yaratılan bir bloc her geçişte sıfırlanır ve aynı
-    // veriyi tekrar ağdan çeker. Ölçümde tek oturum 46 isteğe çıkıyor ve
-    // sunucudaki 100 istek/15dk limitine (src/app.js generalLimiter) takılıyordu.
-    // Bu yüzden sekmeler arası yaşaması gereken bloc'lar burada tutulur; ilk
-    // yükleme ilgili sayfanın initState'inde YALNIZCA durum hâlâ initial ise
-    // tetiklenir. CatalogRefresh yalnız görünür kataloğu arka planda günceller.
+    // Shared blocs outlive tab changes. Tabs mount on their first visit and
+    // keep both widget state and bloc state afterwards.
     return MultiBlocProvider(
       providers: [
         // Ana sayfa paketleri — HomePage.initState ilk yüklemeyi tetikler.
@@ -200,27 +193,24 @@ class _MainScaffoldState extends State<MainScaffold> {
   }
 
   Widget _buildBody() {
-    // MapPage native PlatformView (Mapbox GL) kullanır ve oluşturulurken görünür
-    // olmalı; bu yüzden IndexedStack'e koymuyoruz, seçilince doğrudan gösteriyoruz.
-    // 'Ara' sekmesi (index 1) haritayı açar.
-    if (_currentIndex == 1) {
-      return MapPage(
-        latitude: widget.latitude,
-        longitude: widget.longitude,
-        dioClient: appDioClient,
-      );
-    }
-
-    // Görsel index → IndexedStack index (0 aynı; 2,3,4 → 1,2,3)
-    final stackIndex = _currentIndex > 1 ? _currentIndex - 1 : _currentIndex;
-
+    // Lazily create the native map only when selected for the first time.
+    // Keep its element afterwards, just like the other tabs: replacing the
+    // entire stack used to reset filters, scroll positions and in-flight UI.
     return IndexedStack(
-      index: stackIndex,
+      index: _currentIndex,
       children: [
         _lazy(
           0,
           () =>
               HomePage(latitude: widget.latitude, longitude: widget.longitude),
+        ),
+        _lazy(
+          1,
+          () => MapPage(
+            latitude: widget.latitude,
+            longitude: widget.longitude,
+            dioClient: appDioClient,
+          ),
         ),
         _lazy(2, () => OrdersPage(onNavigateToHome: () => _onTabSelected(0))),
         _lazy(
@@ -233,6 +223,8 @@ class _MainScaffoldState extends State<MainScaffold> {
   }
 
   Widget _lazy(int navIndex, Widget Function() builder) {
-    return _visited.contains(navIndex) ? builder() : const SizedBox.shrink();
+    return _visited.contains(navIndex)
+        ? TickerMode(enabled: navIndex == _currentIndex, child: builder())
+        : const SizedBox.shrink();
   }
 }

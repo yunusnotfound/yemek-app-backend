@@ -9,6 +9,7 @@ part 'reservation_state.dart';
 
 class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
   final BusinessesRepository _repository;
+  int _couponGeneration = 0;
 
   ReservationBloc({required BusinessesRepository repository})
     : _repository = repository,
@@ -23,6 +24,8 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
     CreateReservation event,
     Emitter<ReservationState> emit,
   ) async {
+    if (state is ReservationLoading || state is ReservationSuccess) return;
+    _couponGeneration++;
     emit(const ReservationLoading());
 
     final result = await _repository.createReservation(
@@ -33,6 +36,7 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
       expectedFinalPrice: event.expectedFinalPrice,
     );
 
+    if (emit.isDone) return;
     if (result.isSuccess) {
       emit(
         ReservationSuccess(
@@ -50,6 +54,8 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
     ValidateCoupon event,
     Emitter<ReservationState> emit,
   ) async {
+    if (state is ReservationLoading) return;
+    final generation = ++_couponGeneration;
     emit(const CouponValidating());
 
     final result = await _repository.validateCoupon(
@@ -59,6 +65,7 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
       quantity: event.quantity,
     );
 
+    if (emit.isDone || generation != _couponGeneration) return;
     if (result.isSuccess) {
       final coupon = result.coupon!;
       if (event.orderTotal < coupon.minOrderAmount) {
@@ -79,6 +86,8 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
   }
 
   void _onClearCoupon(ClearCoupon event, Emitter<ReservationState> emit) {
+    _couponGeneration++;
+    if (state is ReservationLoading) return;
     emit(const ReservationInitial());
   }
 
@@ -86,6 +95,8 @@ class ReservationBloc extends Bloc<ReservationEvent, ReservationState> {
     ResetReservation event,
     Emitter<ReservationState> emit,
   ) {
+    _couponGeneration++;
+    if (state is ReservationLoading) return;
     emit(const ReservationInitial());
   }
 }

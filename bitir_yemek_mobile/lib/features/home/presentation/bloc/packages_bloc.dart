@@ -107,7 +107,9 @@ class PackagesBloc extends Bloc<PackagesEvent, PackagesState> {
       longitude: longitude,
       categoryId: categoryId,
     );
-    final previous = state;
+    final previous = forceRefresh || background
+        ? state
+        : const PackagesInitial();
     final hasVisibleList =
         previous is PackagesLoaded && previous.packages.isNotEmpty;
     if (!background && !(forceRefresh && hasVisibleList)) {
@@ -133,12 +135,37 @@ class PackagesBloc extends Bloc<PackagesEvent, PackagesState> {
                 result.pagination!.page >= result.pagination!.totalPages,
           ),
         );
-      } else if (!background || previous is! PackagesLoaded) {
-        emit(PackagesError(message: result.error!));
+      } else {
+        _emitFailure(emit, result.error!, previous, background);
       }
+    } catch (_) {
+      if (emit.isDone || generation != _loadGeneration) return;
+      _emitFailure(
+        emit,
+        'Paketler yenilenemedi. Tekrar deneyebilirsin.',
+        previous,
+        background,
+      );
     } finally {
       if (generation == _loadGeneration) _catalogLoading = false;
     }
+  }
+
+  void _emitFailure(
+    Emitter<PackagesState> emit,
+    String message,
+    PackagesState previous,
+    bool background,
+  ) {
+    if (background && previous is PackagesLoaded) return;
+    emit(
+      PackagesError(
+        message: message,
+        packages: previous is PackagesLoaded ? previous.packages : null,
+      ),
+    );
+    // Keep the pagination cursor and loaded data usable after a failed refresh.
+    if (previous is PackagesLoaded) emit(previous);
   }
 
   Future<void> _onLoadMorePackages(
@@ -159,30 +186,38 @@ class PackagesBloc extends Bloc<PackagesEvent, PackagesState> {
       ),
     );
 
-    final result = await _repository.getNearbyPackages(
-      latitude: event.latitude,
-      longitude: event.longitude,
-      radius: 50,
-      page: currentState.pagination.page + 1,
-      limit: 10,
-      categoryId: _categoryId,
-    );
-
-    if (emit.isDone || generation != _loadGeneration) return;
-
-    if (result.isSuccess) {
-      final allPackages = [...currentState.packages, ...result.packages!];
-      emit(
-        PackagesLoaded(
-          packages: allPackages,
-          pagination: result.pagination!,
-          hasReachedMax:
-              result.pagination!.page >= result.pagination!.totalPages,
-        ),
+    try {
+      final result = await _repository.getNearbyPackages(
+        latitude: event.latitude,
+        longitude: event.longitude,
+        radius: 50,
+        page: currentState.pagination.page + 1,
+        limit: 10,
+        categoryId: _categoryId,
       );
-    } else {
-      emit(
-        PackagesError(message: result.error!, packages: currentState.packages),
+
+      if (emit.isDone || generation != _loadGeneration) return;
+
+      if (result.isSuccess) {
+        final allPackages = [...currentState.packages, ...result.packages!];
+        emit(
+          PackagesLoaded(
+            packages: allPackages,
+            pagination: result.pagination!,
+            hasReachedMax:
+                result.pagination!.page >= result.pagination!.totalPages,
+          ),
+        );
+      } else {
+        _emitFailure(emit, result.error!, currentState, false);
+      }
+    } catch (_) {
+      if (emit.isDone || generation != _loadGeneration) return;
+      _emitFailure(
+        emit,
+        'Diğer paketler yüklenemedi. Tekrar deneyebilirsin.',
+        currentState,
+        false,
       );
     }
   }

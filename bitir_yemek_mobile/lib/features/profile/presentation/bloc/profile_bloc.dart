@@ -8,6 +8,10 @@ part 'profile_state.dart';
 
 class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
   final ProfileRepository _profileRepository;
+  int _generation = 0;
+  bool _loggingOut = false;
+  bool get _sessionEnded =>
+      state is ProfileLoggedOut || state is AccountDeleted;
 
   ProfileBloc({required ProfileRepository profileRepository})
     : _profileRepository = profileRepository,
@@ -22,10 +26,18 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     LoadProfile event,
     Emitter<ProfileState> emit,
   ) async {
-    if (state is AccountDeleting || state is ProfileLoading) return;
+    if (_loggingOut ||
+        _sessionEnded ||
+        state is AccountDeleting ||
+        state is ProfileLoading ||
+        state is ProfileUpdating) {
+      return;
+    }
+    final generation = ++_generation;
     emit(ProfileLoading());
 
     final result = await _profileRepository.getProfile();
+    if (emit.isDone || generation != _generation) return;
 
     if (result.isSuccess) {
       emit(ProfileLoaded(user: result.user!));
@@ -39,13 +51,15 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     Emitter<ProfileState> emit,
   ) async {
     final currentState = state;
-    if (currentState is ProfileLoaded) {
+    if (currentState is ProfileLoaded && !_loggingOut) {
+      final generation = ++_generation;
       emit(ProfileUpdating(user: currentState.user));
 
       final result = await _profileRepository.updateProfile(
         name: event.name,
         phone: event.phone,
       );
+      if (emit.isDone || generation != _generation) return;
 
       if (result.isSuccess) {
         emit(
@@ -68,9 +82,15 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     ProfileLogoutRequested event,
     Emitter<ProfileState> emit,
   ) async {
-    if (state is AccountDeleting) return;
-    await _profileRepository.logout();
-    emit(ProfileLoggedOut());
+    if (_loggingOut || _sessionEnded || state is AccountDeleting) return;
+    _loggingOut = true;
+    ++_generation;
+    try {
+      await _profileRepository.logout();
+      if (!emit.isDone) emit(ProfileLoggedOut());
+    } finally {
+      _loggingOut = false;
+    }
   }
 
   Future<void> _onDeleteAccount(
@@ -78,10 +98,12 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     Emitter<ProfileState> emit,
   ) async {
     final currentState = state;
-    if (currentState is! ProfileLoaded) return;
+    if (currentState is! ProfileLoaded || _loggingOut) return;
+    final generation = ++_generation;
     emit(AccountDeleting(user: currentState.user));
 
     final result = await _profileRepository.deleteAccount();
+    if (emit.isDone || generation != _generation) return;
 
     if (result.isSuccess) {
       emit(AccountDeleted());

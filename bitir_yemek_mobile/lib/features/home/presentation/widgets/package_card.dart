@@ -24,6 +24,9 @@ class PackageCard extends StatelessWidget {
     this.onFavoriteTap,
   });
 
+  static double carouselHeight(BuildContext context) =>
+      248 + (MediaQuery.textScalerOf(context).scale(16) - 16).clamp(0, 60) * 6;
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -53,7 +56,7 @@ class PackageCard extends StatelessWidget {
             child: Stack(
               children: [
                 Container(
-                  height: 150,
+                  height: 112,
                   width: double.infinity,
                   color: AppColors.divider,
                   child: AppCachedImage(
@@ -81,29 +84,32 @@ class PackageCard extends StatelessWidget {
                   left: AppSpacing.sm,
                   child: _logoCircle(),
                 ),
+                Positioned(
+                  bottom: 4,
+                  right: 4,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      shape: BoxShape.circle,
+                    ),
+                    child: FavoriteButton(businessId: package.business.id),
+                  ),
+                ),
               ],
             ),
           ),
 
           // İçerik
           Padding(
-            padding: const EdgeInsets.all(AppSpacing.cardPadding),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // İşletme adı + favori
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        package.business.name,
-                        style: AppTypography.h3.copyWith(fontSize: 16),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    FavoriteButton(businessId: package.business.id),
-                  ],
+                Text(
+                  package.business.name,
+                  style: AppTypography.h3.copyWith(fontSize: 16),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 // Paket başlığı
@@ -441,8 +447,10 @@ class PackageCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.xs,
+                    crossAxisAlignment: WrapCrossAlignment.end,
                     children: [
                       Text(
                         formatMoney(package.originalPrice),
@@ -451,7 +459,6 @@ class PackageCard extends StatelessWidget {
                           decoration: TextDecoration.lineThrough,
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
                       Text(
                         formatMoney(package.discountedPrice),
                         style: AppTypography.bodyLarge.copyWith(

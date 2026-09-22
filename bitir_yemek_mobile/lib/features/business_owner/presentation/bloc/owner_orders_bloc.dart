@@ -1,3 +1,4 @@
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/owner_order_model.dart';
@@ -14,8 +15,10 @@ class OwnerOrdersBloc extends Bloc<OwnerOrdersEvent, OwnerOrdersState> {
   OwnerOrdersBloc({required BusinessOwnerRepository repository})
     : _repository = repository,
       super(OwnerOrdersInitial()) {
-    on<LoadBusinessOrders>(_onLoadBusinessOrders);
-    on<RefreshOrders>(_onRefreshOrders);
+    on<OwnerOrdersEvent>((event, emit) async {
+      if (event is LoadBusinessOrders) await _onLoadBusinessOrders(event, emit);
+      if (event is RefreshOrders) await _onRefreshOrders(event, emit);
+    }, transformer: restartable());
   }
 
   Future<void> _onLoadBusinessOrders(
@@ -32,8 +35,10 @@ class OwnerOrdersBloc extends Bloc<OwnerOrdersEvent, OwnerOrdersState> {
         page: event.page,
         limit: event.limit,
       );
+      if (emit.isDone) return;
       emit(OwnerOrdersLoaded(orders: orders, status: event.status));
     } catch (e) {
+      if (emit.isDone) return;
       emit(OwnerOrdersError(message: e.toString()));
     }
   }
@@ -49,8 +54,10 @@ class OwnerOrdersBloc extends Bloc<OwnerOrdersEvent, OwnerOrdersState> {
         _currentBusinessId!,
         status: _currentStatus,
       );
+      if (emit.isDone) return;
       emit(OwnerOrdersLoaded(orders: orders, status: _currentStatus));
     } catch (e) {
+      if (emit.isDone) return;
       emit(OwnerOrdersError(message: e.toString()));
     }
   }

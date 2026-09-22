@@ -11,6 +11,7 @@ import '../bloc/packages_bloc.dart';
 import '../widgets/category_tiles.dart';
 import '../widgets/location_header.dart';
 import '../widgets/package_card.dart';
+import '../widgets/packages_empty_state.dart';
 import '../../../favorites/presentation/bloc/favorites_bloc.dart';
 import 'package_detail_page.dart';
 import 'all_packages_page.dart';
@@ -207,7 +208,7 @@ class _HomeViewState extends State<HomeView> {
             Expanded(
               child: BlocConsumer<PackagesBloc, PackagesState>(
                 listener: (context, state) {
-                  if (state is PackagesError && state.packages == null) {
+                  if (state is PackagesError) {
                     AppNotice.error(context, state.message);
                   }
                 },
@@ -236,9 +237,10 @@ class _HomeViewState extends State<HomeView> {
                           ElevatedButton(
                             onPressed: () {
                               context.read<PackagesBloc>().add(
-                                LoadNearbyPackages(
+                                RefreshPackages(
                                   latitude: widget.latitude,
                                   longitude: widget.longitude,
+                                  categoryId: _currentCategoryId,
                                 ),
                               );
                             },
@@ -293,9 +295,11 @@ class _HomeViewState extends State<HomeView> {
                           // Popular Section Title
                           SliverToBoxAdapter(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.screenPadding,
-                                vertical: AppSpacing.md,
+                              padding: const EdgeInsets.fromLTRB(
+                                AppSpacing.screenPadding,
+                                0,
+                                AppSpacing.screenPadding,
+                                AppSpacing.xs,
                               ),
                               child: Row(
                                 mainAxisAlignment:
@@ -343,12 +347,7 @@ class _HomeViewState extends State<HomeView> {
                           // Horizontal Package List
                           SliverToBoxAdapter(
                             child: SizedBox(
-                              height:
-                                  328 +
-                                  (MediaQuery.textScalerOf(context).scale(16) -
-                                              16)
-                                          .clamp(0, 60) *
-                                      6,
+                              height: PackageCard.carouselHeight(context),
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
                                 padding: const EdgeInsets.symmetric(
@@ -445,14 +444,7 @@ class _HomeViewState extends State<HomeView> {
                           if (_sonSansSayisi(packages.length) > 0)
                             SliverToBoxAdapter(
                               child: SizedBox(
-                                height:
-                                    328 +
-                                    (MediaQuery.textScalerOf(
-                                                  context,
-                                                ).scale(16) -
-                                                16)
-                                            .clamp(0, 60) *
-                                        6,
+                                height: PackageCard.carouselHeight(context),
                                 child: ListView.builder(
                                   scrollDirection: Axis.horizontal,
                                   padding: const EdgeInsets.symmetric(
@@ -509,53 +501,20 @@ class _HomeViewState extends State<HomeView> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.shopping_bag_outlined,
-              size: 60,
-              color: AppColors.primary.withValues(alpha: 0.5),
-            ),
+    return PackagesEmptyState(
+      onClearCategory: _currentCategoryId == null
+          ? null
+          : () => _onCategorySelected(0),
+      onRefresh: () {
+        context.read<HomeBloc>().add(const RefreshCategories());
+        context.read<PackagesBloc>().add(
+          RefreshPackages(
+            latitude: widget.latitude,
+            longitude: widget.longitude,
+            categoryId: _currentCategoryId,
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Henüz paket bulunmuyor',
-            style: AppTypography.h3.copyWith(color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Yakınınızdaki restoranlardan\nsürpriz paketler yakında burada!',
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          ElevatedButton.icon(
-            onPressed: () {
-              context.read<HomeBloc>().add(const RefreshCategories());
-              context.read<PackagesBloc>().add(
-                RefreshPackages(
-                  latitude: widget.latitude,
-                  longitude: widget.longitude,
-                  categoryId: _currentCategoryId,
-                ),
-              );
-            },
-            icon: const Icon(Icons.refresh),
-            label: const Text('Yenile'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -585,7 +544,7 @@ class _HomeViewState extends State<HomeView> {
         // Horizontal Cards Shimmer
         SliverToBoxAdapter(
           child: SizedBox(
-            height: 310,
+            height: PackageCard.carouselHeight(context),
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(

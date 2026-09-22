@@ -6,6 +6,7 @@ import '../../../../core/services/location_service.dart';
 import '../../../business_owner/presentation/pages/business_owner_scaffold.dart';
 import '../../../main/presentation/pages/main_scaffold.dart';
 import 'manual_location_page.dart';
+import '../widgets/location_discovery_hero.dart';
 
 class LocationPermissionPage extends StatefulWidget {
   final bool isBusinessOwner;
@@ -95,96 +96,205 @@ class _LocationPermissionPageState extends State<LocationPermissionPage> {
     final busy = _isLoading || _isSelecting;
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.screenPadding),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: (constraints.maxHeight - 40).clamp(
-                  0,
-                  double.infinity,
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.xxl,
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: AppDepth.surface(
-                            radius: AppRadius.full,
-                            warm: true,
-                          ),
-                          child: const Icon(
-                            Icons.location_on_rounded,
-                            size: 60,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-                        Text(
-                          'Paketleri nerede bulmak istersin?',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.h2,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          'Yakınındaki fırsatları görmek için konumunu kullan veya bölgeni kendin seç.',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.bodyLarge.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFAF5), AppColors.background],
+          ),
+        ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: 432,
+                    minHeight: (constraints.maxHeight - 32).clamp(
+                      0,
+                      double.infinity,
                     ),
                   ),
-                  Column(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      ElevatedButton(
-                        onPressed: busy ? null : _useCurrentLocation,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(0, 56),
-                          shape: const StadiumBorder(),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildHeader(),
+                          const SizedBox(height: 24),
+                          const LocationDiscoveryHero(),
+                          const SizedBox(height: 28),
+                          Text(
+                            'Güzel bir keşif,\nyakınında başlar.',
+                            style: AppTypography.h1.copyWith(
+                              fontSize: 34,
+                              height: 1.08,
+                              letterSpacing: -0.9,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Konumunu belirle, çevrendeki lezzetleri keşfet. '
+                            'Kurtarılmayı bekleyen paketlerle tanış.',
+                            style: AppTypography.bodyLarge.copyWith(
+                              height: 1.5,
+                              color: AppColors.inkSoft,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 28),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ElevatedButton(
+                              onPressed: busy ? null : _useCurrentLocation,
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(0, 58),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 17,
                                 ),
-                              )
-                            : const Text(
-                                'Mevcut konumumu kullan',
-                                textAlign: TextAlign.center,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
                               ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      TextButton(
-                        onPressed: busy ? null : _selectLocation,
-                        child: const Text(
-                          'Konum seç',
-                          textAlign: TextAlign.center,
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                        semanticsLabel: 'Konumun alınıyor',
+                                      ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.my_location_rounded,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 10),
+                                        Flexible(
+                                          child: Text(
+                                            'Mevcut konumumu kullan',
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextButton(
+                              onPressed: busy ? null : _selectLocation,
+                              style: TextButton.styleFrom(
+                                backgroundColor: AppColors.creamTop,
+                                foregroundColor: AppColors.ink,
+                                minimumSize: const Size(0, 54),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 15,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  side: const BorderSide(
+                                    color: AppDepth.border,
+                                  ),
+                                ),
+                                textStyle: AppTypography.button,
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.map_outlined, size: 20),
+                                  SizedBox(width: 10),
+                                  Flexible(
+                                    child: Text(
+                                      'Konum seç',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              'Konumun, yakınındaki paketleri göstermek için kullanılır. '
+                              'İzin vermeden de bölgeni seçebilirsin.',
+                              textAlign: TextAlign.center,
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.inkSoft,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.md),
                     ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(11),
+          child: Image.asset(
+            'assets/icon/app_icon.png',
+            width: 34,
+            height: 34,
+            cacheWidth: 102,
+            excludeFromSemantics: true,
+          ),
+        ),
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            'BitirGitsin',
+            style: AppTypography.h3.copyWith(
+              color: AppColors.ink,
+              fontSize: 22,
+              letterSpacing: -0.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        ExcludeSemantics(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0E8DC),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'KEŞFET',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.inkSoft,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.3,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:bloc_concurrency/bloc_concurrency.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/dashboard_stats_model.dart';
@@ -12,7 +13,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   DashboardBloc({required BusinessOwnerRepository repository})
     : _repository = repository,
       super(DashboardInitial()) {
-    on<LoadDashboard>(_onLoadDashboard);
+    on<LoadDashboard>(_onLoadDashboard, transformer: restartable());
   }
 
   Future<void> _onLoadDashboard(
@@ -22,8 +23,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     emit(DashboardLoading());
     try {
       final stats = await _repository.getDashboardStats(event.businessId);
+      if (emit.isDone) return;
       emit(DashboardLoaded(stats: stats));
     } catch (e) {
+      if (emit.isDone) return;
       emit(DashboardError(message: e.toString()));
     }
   }

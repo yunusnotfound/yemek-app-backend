@@ -112,7 +112,9 @@ class _NotificationsPageState extends State<NotificationsPage>
       await _dioClient.dio.patch('/notifications/$id/read');
       if (!mounted) return;
       setState(() {
-        _notifications[index]['isRead'] = true;
+        for (final item in _notifications) {
+          if (item['id'] == id) item['isRead'] = true;
+        }
       });
     } catch (_) {}
   }
@@ -146,7 +148,9 @@ class _NotificationsPageState extends State<NotificationsPage>
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _notifications.insert(index.clamp(0, _notifications.length), removed);
+        if (!_notifications.any((item) => item['id'] == id)) {
+          _notifications.insert(index.clamp(0, _notifications.length), removed);
+        }
       });
       AppNotice.error(context, 'Bildirim silinemedi');
     }
@@ -222,10 +226,8 @@ class _NotificationsPageState extends State<NotificationsPage>
               pulse: _pulse,
               onTap: notification['isRead'] == true
                   ? null
-                  : () => _markAsRead(
-                      notification['id'] as String,
-                      entry.index,
-                    ),
+                  : () =>
+                        _markAsRead(notification['id'] as String, entry.index),
               onDismissed: () => _deleteNotification(
                 notification['id'] as String,
                 entry.index,
@@ -964,10 +966,7 @@ class _LoadingList extends StatelessWidget {
                       height: 13,
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    const ShimmerContainer(
-                      width: double.infinity,
-                      height: 11,
-                    ),
+                    const ShimmerContainer(width: double.infinity, height: 11),
                     const SizedBox(height: 6),
                     const ShimmerContainer(width: 120, height: 11),
                   ],

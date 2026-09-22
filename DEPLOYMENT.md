@@ -173,7 +173,7 @@ ENABLE_SWAGGER=false
 
 # Sign-in providers
 GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
-APPLE_CLIENT_ID=com.bitirgitsin.app
+APPLE_CLIENT_ID=com.bitiryemek.bitirgitsin
 
 # Email + maps
 RESEND_API_KEY=re_xxxx
@@ -330,7 +330,7 @@ JWT_REFRESH_EXPIRES_IN=7d
 CORS_ORIGIN=https://bitirgitsin.com,https://www.bitirgitsin.com
 ENABLE_SWAGGER=false
 GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
-APPLE_CLIENT_ID=com.bitirgitsin.app
+APPLE_CLIENT_ID=com.bitiryemek.bitirgitsin
 RESEND_API_KEY=re_xxxx
 RESEND_FROM=Bitir Yemek <noreply@bitirgitsin.com>
 GOOGLE_MAPS_API_KEY=AIza...
@@ -419,7 +419,7 @@ pm2 reload bitir-yemek
 | `CORS_ORIGIN` | Yes (web) | Comma-separated allowlist of browser origins. The mobile app sends no Origin and is always allowed. In production an undefined value blocks cross-origin browser requests. |
 | `ENABLE_SWAGGER` | No | Swagger UI is **off** in production unless this is `true`. Keep off in prod. |
 | `GOOGLE_CLIENT_ID` | Recommended | Google Sign-In client ID. |
-| `APPLE_CLIENT_ID` | Recommended | Apple Sign-In audience/client ID (e.g. `com.bitirgitsin.app`). Required for Apple login to work. |
+| `APPLE_CLIENT_ID` | Recommended | Apple Sign-In audience/client ID (native iOS bundle ID: `com.bitiryemek.bitirgitsin`). Required for Apple login to work. |
 | `RESEND_API_KEY` | Recommended | Resend API key for transactional email (OTP login codes, order status). |
 | `RESEND_FROM` | Recommended | Sender address (e.g. `Bitir Yemek <noreply@domain>`); the sending domain must be verified in Resend. |
 | `GOOGLE_MAPS_API_KEY` | Recommended | Used by the `/api/maps/*` geocoding/directions endpoints. |

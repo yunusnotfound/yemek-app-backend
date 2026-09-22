@@ -47,14 +47,12 @@
 	<string>$(MAPBOX_ACCESS_TOKEN)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!-- Allow cleartext HTTP only to loopback/.local (e.g. http://localhost:3000
-		     during local development). Public HTTPS endpoints are unaffected. -->
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Yakınınızdaki işletmeleri bulmak için konumunuza ihtiyacımız var.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Yakınınızdaki işletmeleri bulmak için konumunuza ihtiyacımız var.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Yakınınızdaki işletmeleri bulmak için konumunuza ihtiyacımız var.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Yakınınızdaki işletmeleri bulmak için konumunuza ihtiyacımız var.</string>

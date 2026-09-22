@@ -127,12 +127,37 @@ class PackagesBloc extends Bloc<PackagesEvent, PackagesState> {
       );
       if (emit.isDone || generation != _loadGeneration) return;
       if (result.isSuccess) {
+        final refreshedPackages = [...result.packages!];
+        var pagination = result.pagination!;
+        // The home feed now paginates vertically. Refresh every visible page
+        // atomically so a background tick cannot collapse it back to page one.
+        final pagesToRefresh = previous is PackagesLoaded
+            ? previous.pagination.page
+            : 1;
+        while (pagination.page < pagesToRefresh &&
+            pagination.page < pagination.totalPages) {
+          final next = await _repository.getNearbyPackages(
+            latitude: latitude,
+            longitude: longitude,
+            radius: 50,
+            page: pagination.page + 1,
+            limit: 10,
+            forceRefresh: forceRefresh,
+            categoryId: categoryId,
+          );
+          if (emit.isDone || generation != _loadGeneration) return;
+          if (!next.isSuccess) {
+            _emitFailure(emit, next.error!, previous, background);
+            return;
+          }
+          refreshedPackages.addAll(next.packages!);
+          pagination = next.pagination!;
+        }
         emit(
           PackagesLoaded(
-            packages: result.packages!,
-            pagination: result.pagination!,
-            hasReachedMax:
-                result.pagination!.page >= result.pagination!.totalPages,
+            packages: refreshedPackages,
+            pagination: pagination,
+            hasReachedMax: pagination.page >= pagination.totalPages,
           ),
         );
       } else {

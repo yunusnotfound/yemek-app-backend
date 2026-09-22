@@ -5,6 +5,7 @@ import '../../../../shared/widgets/app_notice.dart';
 import '../../../../shared/widgets/shimmer_loader.dart';
 import '../bloc/orders_bloc.dart';
 import '../widgets/order_card.dart';
+import '../../data/repositories/preview_orders_repository.dart';
 
 class OrdersPage extends StatefulWidget {
   final VoidCallback? onNavigateToHome;
@@ -64,9 +65,57 @@ class _OrdersPageState extends State<OrdersPage> {
                 AppSpacing.screenPadding,
                 0,
               ),
-              child: Text('Siparişlerim', style: AppTypography.h2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Siparişlerim',
+                          style: AppTypography.h1.copyWith(
+                            fontSize: 30,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Kurtardığın lezzetler burada.',
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: AppColors.inkSoft,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Image.asset(
+                    'assets/images/food_box.png',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
+
+            if (orderPreviewEnabled)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenPadding,
+                  0,
+                  AppSpacing.screenPadding,
+                  AppSpacing.sm,
+                ),
+                child: Text(
+                  'TEST VERİSİ · Tasarım önizlemesi',
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.primaryInk,
+                  ),
+                ),
+              ),
 
             // Filter tabs
             BlocBuilder<OrdersBloc, OrdersState>(
@@ -92,7 +141,7 @@ class _OrdersPageState extends State<OrdersPage> {
               child: BlocConsumer<OrdersBloc, OrdersState>(
                 listener: (context, state) {
                   if (state is OrderCancelSuccess) {
-                    AppNotice.success(context, 'Siparis iptal edildi');
+                    AppNotice.success(context, 'Sipariş iptal edildi');
                   } else if (state is OrderCancelError) {
                     AppNotice.error(context, state.message);
                   }
@@ -196,69 +245,64 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Widget _buildFilterTabs(OrderFilter currentFilter) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    final tabs = [
+      (OrderFilter.active, 'Aktif'),
+      (OrderFilter.completed, 'Geçmiş'),
+      (OrderFilter.cancelled, 'İptal Edilen'),
+    ];
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-      child: Row(
-        children: [
-          _buildFilterChip(
-            label: 'Aktif',
-            icon: Icons.schedule,
-            isSelected: currentFilter == OrderFilter.active,
-            onTap: () => context.read<OrdersBloc>().add(
-              const ChangeOrderFilter(filter: OrderFilter.active),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
+          final children = tabs.map((tab) {
+            final selected = currentFilter == tab.$1;
+            final button = Semantics(
+              selected: selected,
+              button: true,
+              child: Material(
+                color: selected ? AppColors.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => context.read<OrdersBloc>().add(
+                    ChangeOrderFilter(filter: tab.$1),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Center(
+                      child: Text(
+                        tab.$2,
+                        style: AppTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: selected ? Colors.white : AppColors.inkSoft,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            return largeText ? button : Expanded(child: button);
+          }).toList();
+          final row = Row(children: children);
+          return Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1E5D9),
+              borderRadius: BorderRadius.circular(16),
             ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          _buildFilterChip(
-            label: 'Geçmiş',
-            icon: Icons.check_circle_outline,
-            isSelected: currentFilter == OrderFilter.completed,
-            onTap: () => context.read<OrdersBloc>().add(
-              const ChangeOrderFilter(filter: OrderFilter.completed),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          _buildFilterChip(
-            label: 'İptal Edilen',
-            icon: Icons.cancel_outlined,
-            isSelected: currentFilter == OrderFilter.cancelled,
-            onTap: () => context.read<OrdersBloc>().add(
-              const ChangeOrderFilter(filter: OrderFilter.cancelled),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip({
-    required String label,
-    required IconData icon,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return ChoiceChip(
-      selected: isSelected,
-      onSelected: (_) => onTap(),
-      showCheckmark: false,
-      avatar: Icon(
-        icon,
-        size: 18,
-        color: isSelected ? AppColors.primaryInk : AppColors.textSecondary,
-      ),
-      label: Text(label),
-      labelStyle: AppTypography.bodyMedium.copyWith(
-        color: isSelected ? AppColors.primaryInk : AppColors.textSecondary,
-        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-      ),
-      selectedColor: AppColors.primary.withValues(alpha: 0.10),
-      backgroundColor: AppColors.surface,
-      side: BorderSide(color: isSelected ? AppColors.sand : AppDepth.border),
-      shape: const StadiumBorder(),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.sm,
+            child: largeText
+                ? SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: row,
+                  )
+                : row,
+          );
+        },
       ),
     );
   }
@@ -286,23 +330,19 @@ class _OrdersPageState extends State<OrdersPage> {
   }) {
     String title;
     String subtitle;
-    IconData icon;
 
     switch (filter) {
       case OrderFilter.active:
         title = 'Aktif siparişiniz yok';
         subtitle = 'Yeni bir sürpriz paket keşfetmeye ne dersiniz?';
-        icon = Icons.shopping_bag_outlined;
         break;
       case OrderFilter.completed:
         title = 'Tamamlanan siparişiniz yok';
         subtitle = 'Teslim aldığınız siparişler burada görünecek';
-        icon = Icons.check_circle_outline;
         break;
       case OrderFilter.cancelled:
         title = 'İptal edilen siparişiniz yok';
         subtitle = 'İptal ettiğiniz siparişler burada görünecek';
-        icon = Icons.cancel_outlined;
         break;
     }
 
@@ -318,18 +358,12 @@ class _OrdersPageState extends State<OrdersPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 48,
-                color: AppColors.primary.withValues(alpha: 0.5),
-              ),
+            Image.asset(
+              'assets/images/food_box.png',
+              width: 140,
+              height: 120,
+              fit: BoxFit.contain,
+              excludeFromSemantics: true,
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
@@ -411,10 +445,10 @@ class _OrdersPageState extends State<OrdersPage> {
           child: ShimmerLoader(
             isLoading: true,
             child: Container(
-              height: 140,
+              height: 240,
               decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+                color: const Color(0xFFFFF9F2),
+                borderRadius: BorderRadius.circular(22),
               ),
             ),
           ),

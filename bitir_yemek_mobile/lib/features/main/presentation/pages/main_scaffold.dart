@@ -16,6 +16,7 @@ import '../../../map/presentation/bloc/map_bloc.dart';
 import '../../../map/presentation/pages/map_page.dart';
 import '../../../orders/data/datasources/orders_remote_datasource.dart';
 import '../../../orders/data/repositories/orders_repository_impl.dart';
+import '../../../orders/data/repositories/preview_orders_repository.dart';
 import '../../../orders/presentation/bloc/orders_bloc.dart';
 import '../../../orders/presentation/pages/orders_page.dart';
 import '../../../favorites/data/datasources/favorites_remote_datasource.dart';
@@ -159,9 +160,13 @@ class _MainScaffoldState extends State<MainScaffold> {
         // Siparişler — yalnız Sipariş sekmesi açıldığında (OrdersPage.initState) yüklenir.
         BlocProvider(
           create: (context) => OrdersBloc(
-            repository: OrdersRepositoryImpl(
-              remoteDataSource: OrdersRemoteDataSource(dioClient: appDioClient),
-            ),
+            repository: orderPreviewEnabled
+                ? PreviewOrdersRepository()
+                : OrdersRepositoryImpl(
+                    remoteDataSource: OrdersRemoteDataSource(
+                      dioClient: appDioClient,
+                    ),
+                  ),
           ),
         ),
         // Profil — yalnız Profil sekmesi ilk kez kurulduğunda yüklenir.

@@ -229,6 +229,7 @@ void main() {
         );
         final cancel = find.text('Siparişi İptal Et');
         await tester.ensureVisible(cancel);
+        await tester.pumpAndSettle();
         await tester.tap(cancel);
         await tester.pumpAndSettle();
         expect(repository.cancelled, isFalse);
@@ -242,6 +243,7 @@ void main() {
         expect(repository.cancelled, isTrue);
         final cancelledTab = find.text('İptal Edilen');
         await tester.ensureVisible(cancelledTab);
+        await tester.pumpAndSettle();
         await tester.tap(cancelledTab);
         await tester.pumpAndSettle();
         expect(find.text('499,90 TL'), findsOneWidget);

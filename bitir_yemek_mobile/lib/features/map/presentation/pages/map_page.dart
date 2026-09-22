@@ -10,7 +10,7 @@ import '../../../home/data/models/business_model.dart';
 import '../../../home/data/models/package_model.dart';
 import '../../../home/presentation/pages/business_detail_page.dart';
 import '../../../home/presentation/pages/package_detail_page.dart';
-import '../../../home/presentation/widgets/package_card.dart';
+import '../widgets/map_packages_sheet.dart';
 import '../../../favorites/presentation/bloc/favorites_bloc.dart';
 import '../bloc/map_bloc.dart';
 import '../bloc/map_event.dart';
@@ -447,9 +447,11 @@ class _MapPageContentState extends State<_MapPageContent> {
         await showModalBottomSheet<({double lat, double lng, double radius})>(
           context: context,
           isScrollControlled: true,
-          backgroundColor: AppColors.surface,
+          backgroundColor: const Color(0xFFFFF9F2),
+          useSafeArea: true,
+          clipBehavior: Clip.antiAlias,
           shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           builder: (_) => LocationPickerSheet(
             initialLat: _lat,
@@ -675,7 +677,7 @@ class _MapPageContentState extends State<_MapPageContent> {
                   onPressed: _goToMyLocation,
                   backgroundColor: AppColors.surface,
                   child: const Icon(
-                    Icons.my_location,
+                    Icons.near_me_outlined,
                     color: AppColors.primary,
                   ),
                 ),
@@ -709,112 +711,16 @@ class _MapPageContentState extends State<_MapPageContent> {
     );
   }
 
-  /// "N Sürpriz Paket" başlıklı, yukarı sürüklenince Keşfet tarzı paket
-  /// kartlarına açılan alt panel. Toplanmışken sadece başlık görünür.
   Widget _buildPackageSheet() {
-    final media = MediaQuery.of(context);
-    final bottomInset = media.padding.bottom;
-    // Toplanmış yükseklik: handle + başlık + paddingler.
-    final collapsed = ((96 + bottomInset) / media.size.height).clamp(0.08, 0.5);
-
     final state = context.read<MapBloc>().state;
     final packagesLoaded = state is MapLoaded && state.packages.isNotEmpty;
     final packages = _visiblePackages;
-    // Paketler yüklenene kadar packageCount toplamını, sonra gerçek liste
-    // uzunluğunu göster (başlık ile liste tutarlı olsun).
-    final count = packagesLoaded ? packages.length : _totalPackages;
-
     return Positioned.fill(
-      child: DraggableScrollableSheet(
-        initialChildSize: collapsed,
-        minChildSize: collapsed,
-        maxChildSize: 0.85,
-        snap: true,
-        builder: (context, scrollController) {
-          return Container(
-            decoration: const BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.shadow,
-                  blurRadius: 16,
-                  offset: Offset(0, -4),
-                ),
-              ],
-            ),
-            child: CustomScrollView(
-              controller: scrollController,
-              slivers: [
-                SliverToBoxAdapter(child: _buildSheetHeader(count)),
-                if (packages.isEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.xl),
-                      child: Center(
-                        child: Text(
-                          packagesLoaded
-                              ? 'Bu filtrelerde paket yok'
-                              : 'Paketler yükleniyor...',
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.textHint,
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                      AppSpacing.screenPadding,
-                      0,
-                      AppSpacing.screenPadding,
-                      AppSpacing.md + bottomInset,
-                    ),
-                    sliver: SliverList.builder(
-                      itemCount: packages.length,
-                      itemBuilder: (_, i) => Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                        child: PackageCard(
-                          package: packages[i],
-                          onTap: () => _openPackage(packages[i]),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildSheetHeader(int count) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        AppSpacing.md,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.divider,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            count == 1 ? '1 Sürpriz Paket' : '$count Sürpriz Paket',
-            style: AppTypography.h3,
-          ),
-        ],
+      child: MapPackagesSheet(
+        packages: packages,
+        count: packagesLoaded ? packages.length : _totalPackages,
+        isLoading: !packagesLoaded && _totalPackages > 0,
+        onPackageTap: _openPackage,
       ),
     );
   }
@@ -824,6 +730,8 @@ class _MapPageContentState extends State<_MapPageContent> {
       // Genişletilmiş TGTG kartının üstünde kal.
       return 430 + MediaQuery.of(context).padding.bottom;
     }
-    return 110 + MediaQuery.of(context).padding.bottom;
+    return MapPackagesSheet.headerHeight(context) +
+        14 +
+        MediaQuery.of(context).padding.bottom;
   }
 }

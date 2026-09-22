@@ -274,10 +274,10 @@ class _FavoritesPageState extends State<FavoritesPage> {
           child: ShimmerLoader(
             isLoading: true,
             child: Container(
-              height: 220,
+              height: 248,
               decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.lg),
+                color: const Color(0xFFFFF9F2),
+                borderRadius: BorderRadius.circular(22),
               ),
             ),
           ),

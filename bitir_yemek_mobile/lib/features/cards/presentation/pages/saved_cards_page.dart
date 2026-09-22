@@ -64,8 +64,7 @@ class _SavedCardsView extends StatelessWidget {
             padding: const EdgeInsets.all(AppSpacing.screenPadding),
             itemCount: cards.length,
             separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-            itemBuilder: (context, index) =>
-                _SavedCardTile(card: cards[index]),
+            itemBuilder: (context, index) => _SavedCardTile(card: cards[index]),
           );
         },
       ),
@@ -116,11 +115,14 @@ class _SavedCardsView extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, size: 48, color: AppColors.error),
             const SizedBox(height: AppSpacing.md),
-            Text(message, style: AppTypography.bodyLarge, textAlign: TextAlign.center),
+            Text(
+              message,
+              style: AppTypography.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: AppSpacing.lg),
             ElevatedButton.icon(
-              onPressed: () =>
-                  context.read<CardsBloc>().add(const LoadCards()),
+              onPressed: () => context.read<CardsBloc>().add(const LoadCards()),
               icon: const Icon(Icons.refresh),
               label: const Text('Tekrar Dene'),
             ),
@@ -212,10 +214,10 @@ class _SavedCardTile extends StatelessWidget {
     AppDialog.confirm(
       context,
       icon: Icons.credit_card_off_rounded,
-      title: 'Karti sil',
+      title: 'Kartı sil',
       message:
-          '${card.displayName} (${card.maskedNumber}) kartini silmek istediginize emin misiniz?',
-      cancelLabel: 'Iptal',
+          '${card.displayName} (${card.maskedNumber}) kartını silmek istediğinize emin misiniz?',
+      cancelLabel: 'Vazgeç',
       confirmLabel: 'Sil',
     ).then((confirmed) {
       if (confirmed) bloc.add(DeleteCard(cardToken: card.cardToken));

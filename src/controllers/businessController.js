@@ -15,6 +15,7 @@ const {
 } = require("../utils/helpers");
 const cacheService = require('../services/cacheService');
 const coalesce = require('../services/requestCoalescer');
+const { availablePackageWhere } = require('../utils/packageAvailability');
 
 exports.getAll = async (req, res, next) => {
   try {
@@ -107,8 +108,6 @@ exports.getAll = async (req, res, next) => {
 
 exports.getById = async (req, res, next) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     const business = await Business.findOne({
       where: { id: req.params.id, isActive: true, isApproved: true, isSuspended: false },
       // GET /businesses/:id de PUBLIC (authenticate yok) — bkz. routes/businesses.js.
@@ -129,12 +128,7 @@ exports.getById = async (req, res, next) => {
         {
           model: SurprisePackage,
           as: "packages",
-          where: {
-            isActive: true,
-            isSuspended: false,
-            remainingQuantity: { [Op.gt]: 0 },
-            pickupDate: { [Op.gte]: today },
-          },
+          where: availablePackageWhere('packages'),
           required: false,
         },
       ],

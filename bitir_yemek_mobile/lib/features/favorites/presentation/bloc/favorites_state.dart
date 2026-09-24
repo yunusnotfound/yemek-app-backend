@@ -18,23 +18,29 @@ class FavoritesLoading extends FavoritesState {
 class FavoritesLoaded extends FavoritesState {
   final List<FavoriteModel> favorites;
   final bool hasReachedMax;
+  final Set<String> savedBusinessIds;
 
   const FavoritesLoaded({
     required this.favorites,
     required this.hasReachedMax,
+    this.savedBusinessIds = const {},
   });
 
   @override
-  List<Object?> get props => [favorites, hasReachedMax];
+  List<Object?> get props => [favorites, hasReachedMax, savedBusinessIds];
 }
 
 class FavoritesLoadingMore extends FavoritesState {
   final List<FavoriteModel> favorites;
+  final Set<String> savedBusinessIds;
 
-  const FavoritesLoadingMore({required this.favorites});
+  const FavoritesLoadingMore({
+    required this.favorites,
+    this.savedBusinessIds = const {},
+  });
 
   @override
-  List<Object?> get props => [favorites];
+  List<Object?> get props => [favorites, savedBusinessIds];
 }
 
 class FavoritesError extends FavoritesState {

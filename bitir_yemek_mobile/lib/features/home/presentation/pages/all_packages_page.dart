@@ -174,9 +174,9 @@ class _AllPackagesViewState extends State<AllPackagesView> {
               buildWhen: (previous, current) => false,
               builder: (context, favState) {
                 final favIds = favState is FavoritesLoaded
-                    ? favState.favorites.map((f) => f.businessId).toSet()
+                    ? favState.savedBusinessIds
                     : favState is FavoritesLoadingMore
-                    ? favState.favorites.map((f) => f.businessId).toSet()
+                    ? favState.savedBusinessIds
                     : <String>{};
 
                 return RefreshIndicator(

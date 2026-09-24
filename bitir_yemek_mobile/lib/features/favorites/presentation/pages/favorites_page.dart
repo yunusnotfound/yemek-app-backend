@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../config/theme.dart';
@@ -90,9 +92,11 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
                   return RefreshIndicator(
                     onRefresh: () async {
+                      final done = Completer<void>();
                       context.read<FavoritesBloc>().add(
-                        const RefreshFavorites(),
+                        RefreshFavorites(onDone: done),
                       );
+                      await done.future;
                     },
                     color: AppColors.primary,
                     child: _buildContent(state),
@@ -121,9 +125,16 @@ class _FavoritesPageState extends State<FavoritesPage> {
       final isLoadingMore = state is FavoritesLoadingMore;
 
       if (favorites.isEmpty) {
+        final savedIds = state is FavoritesLoaded
+            ? state.savedBusinessIds
+            : (state as FavoritesLoadingMore).savedBusinessIds;
         return CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [SliverFillRemaining(child: _buildEmptyState())],
+          slivers: [
+            SliverFillRemaining(
+              child: _buildEmptyState(hasSavedFavorites: savedIds.isNotEmpty),
+            ),
+          ],
         );
       }
 
@@ -177,7 +188,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({bool hasSavedFavorites = false}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
@@ -199,13 +210,17 @@ class _FavoritesPageState extends State<FavoritesPage> {
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
-              'Henuz favoriniz yok',
+              hasSavedFavorites
+                  ? 'Şu an uygun paket yok'
+                  : 'Henüz favoriniz yok',
               style: AppTypography.h3.copyWith(color: AppColors.textPrimary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Begendginiz isletmeleri favorilere ekleyerek\nkolayca erisebilirsiniz',
+              hasSavedFavorites
+                  ? 'Favori işletmeleriniz yeni paket eklediğinde burada görünecek.'
+                  : 'Beğendiğiniz işletmeleri favorilere ekleyerek\nkolayca erişebilirsiniz',
               style: AppTypography.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),

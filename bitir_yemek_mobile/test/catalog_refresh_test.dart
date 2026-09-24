@@ -20,6 +20,8 @@ final _package = PackageModel.fromJson({
   'id': 'package',
   'businessId': 'business',
   'title': 'Paket',
+  'isActive': true,
+  'remainingQuantity': 3,
   'pickupDate': '2099-01-01',
   'pickupStart': '18:00',
   'pickupEnd': '20:00',

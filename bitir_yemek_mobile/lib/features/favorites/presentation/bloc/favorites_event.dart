@@ -16,7 +16,13 @@ class LoadMoreFavorites extends FavoritesEvent {
 }
 
 class RefreshFavorites extends FavoritesEvent {
-  const RefreshFavorites();
+  final bool background;
+  final Completer<void>? onDone;
+
+  const RefreshFavorites({this.background = false, this.onDone});
+
+  @override
+  List<Object?> get props => [background, onDone];
 }
 
 class RemoveFavorite extends FavoritesEvent {

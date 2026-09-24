@@ -131,7 +131,7 @@ const userOrIpKey = (req, res) => {
 
 // Foreground catalog refresh can make 2–3 reads every 15 seconds. Give only
 // these read routes their own budget; writes and unrelated APIs retain theirs.
-const catalogPath = /^\/api\/(?:(?:businesses|packages)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?|maps\/nearby)\/?$/i;
+const catalogPath = /^\/api\/(?:(?:businesses|packages)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?|maps\/nearby|favorites)\/?$/i;
 const isCatalogRead = (req) => req.method === 'GET' && catalogPath.test(req.path);
 
 const generalLimiter = rateLimit({

@@ -1,5 +1,6 @@
-const { Favorite, Business, Category } = require('../models');
+const { Favorite, Business, Category, SurprisePackage } = require('../models');
 const { paginate, paginatedResponse } = require('../utils/helpers');
+const { availablePackageWhere, AVAILABILITY_ATTRIBUTES } = require('../utils/packageAvailability');
 
 exports.getAll = async (req, res, next) => {
   try {
@@ -11,9 +12,15 @@ exports.getAll = async (req, res, next) => {
         {
           model: Business,
           as: 'business',
-          where: { isActive: true },
+          where: { isActive: true, isApproved: true, isSuspended: false },
           attributes: ['id', 'name', 'address', 'city', 'district', 'imageUrl', 'rating'],
-          include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
+          include: [
+            { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
+            // Keep the saved relationship while the business has no offers.
+            // A separate query keeps favorite pagination/counts unduplicated.
+            { model: SurprisePackage, as: 'packages', separate: true,
+              attributes: AVAILABILITY_ATTRIBUTES, where: availablePackageWhere() },
+          ],
         },
       ],
       order: [['createdAt', 'DESC']],

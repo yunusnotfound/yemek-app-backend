@@ -713,13 +713,15 @@ class _MapPageContentState extends State<_MapPageContent> {
 
   Widget _buildPackageSheet() {
     final state = context.read<MapBloc>().state;
-    final packagesLoaded = state is MapLoaded && state.packages.isNotEmpty;
+    final packagesLoading = state is MapLoaded && state.packagesLoading;
     final packages = _visiblePackages;
     return Positioned.fill(
       child: MapPackagesSheet(
         packages: packages,
-        count: packagesLoaded ? packages.length : _totalPackages,
-        isLoading: !packagesLoaded && _totalPackages > 0,
+        count: packagesLoading && packages.isEmpty
+            ? _totalPackages
+            : packages.length,
+        isLoading: packagesLoading && packages.isEmpty && _totalPackages > 0,
         onPackageTap: _openPackage,
       ),
     );

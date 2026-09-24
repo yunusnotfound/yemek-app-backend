@@ -1,6 +1,8 @@
 const axios = require('axios');
 const logger = require('./logger');
 const coalesce = require('./requestCoalescer');
+const { availablePackageWhere, hasAvailablePackages, pickupStartAt, pickupEndAt,
+  availabilityCacheTtl, AVAILABILITY_ATTRIBUTES } = require('../utils/packageAvailability');
 
 const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -125,9 +127,10 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
     cacheService.getVersion('packages:list'),
   ]);
   const cacheKey = businessVersion == null || packageVersion == null ? null
-    : `maps:nearby:v2:${businessVersion}:${packageVersion}:${userLat}:${userLng}:${maxRadius}`;
+    : `maps:nearby:v3:${businessVersion}:${packageVersion}:${userLat}:${userLng}:${maxRadius}`;
   const cached = await cacheService.get(cacheKey);
-  if (cached) return cached;
+  if (cached && cached.every((business) =>
+    business.packages.length > 0 && business.packages.every((pkg) => pickupEndAt(pkg) > new Date()))) return cached;
 
   return coalesce(cacheKey, async () => {
 
@@ -160,6 +163,7 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
           longitude: { [Op.between]: [userLng - lngDelta, userLng + lngDelta] },
         },
         sequelize.where(sequelize.literal(distanceSql), { [Op.lte]: maxRadius }),
+        hasAvailablePackages(),
       ],
     },
     include: [{ model: Category, as: 'category', attributes: ['id', 'name', 'slug'] }],
@@ -174,59 +178,34 @@ const findNearbyBusinesses = async (lat, lng, radius = 5) => {
     return nearbyBusinesses;
   }
 
-  // Her işletme için müsait (aktif, stoklu, bugünden ileri) paketleri çek.
-  // Filtre, packageController.getAll'daki "müsait paket" desenini yansıtır.
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   const ids = nearbyBusinesses.map((b) => b.id);
   const packages = await SurprisePackage.findAll({
-    attributes: ['businessId', 'pickupDate', 'pickupStart', 'pickupEnd'],
-    where: {
-      businessId: { [Op.in]: ids },
-      isActive: true,
-      isSuspended: false,
-      remainingQuantity: { [Op.gt]: 0 },
-      pickupDate: { [Op.gte]: today },
-    },
+    attributes: AVAILABILITY_ATTRIBUTES,
+    where: { ...availablePackageWhere(), businessId: { [Op.in]: ids } },
     raw: true,
   });
 
-  // "Şimdi alınabilir mi" için referans an: Europe/Istanbul.
-  const istNow = new Date();
-  const todayStr = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Istanbul',
-  }).format(istNow); // YYYY-MM-DD
-  const nowTime = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/Istanbul',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(istNow); // HH:MM:SS
-
-  // İşletme başına paket sayısı + "şimdi alınabilir" bayrağını topla.
-  const agg = {};
-  for (const p of packages) {
-    const a = agg[p.businessId] || { count: 0, availableNow: false };
-    a.count += 1;
-    // pickupDate bugünse ve şu anki saat [pickupStart, pickupEnd] aralığındaysa.
-    // TIME alanları 'HH:MM:SS' string olduğundan sözlük sırası karşılaştırması doğrudur.
-    if (
-      String(p.pickupDate) === todayStr &&
-      p.pickupStart <= nowTime &&
-      nowTime <= p.pickupEnd
-    ) {
-      a.availableNow = true;
-    }
-    agg[p.businessId] = a;
+  const now = new Date();
+  const byBusiness = new Map();
+  for (const pkg of packages) {
+    // The clock may cross a boundary between the SQL query and serialization.
+    if (!(pickupEndAt(pkg) > now)) continue;
+    const items = byBusiness.get(pkg.businessId) || [];
+    items.push(pkg);
+    byBusiness.set(pkg.businessId, items);
   }
 
-  const result = nearbyBusinesses.map((b) => ({
-    ...b,
-    packageCount: agg[b.id] ? agg[b.id].count : 0,
-    availableNow: agg[b.id] ? agg[b.id].availableNow : false,
-  }));
-  await cacheService.set(cacheKey, result, NEARBY_CACHE_TTL);
+  const result = nearbyBusinesses.filter((b) => byBusiness.has(b.id)).map((b) => {
+    const available = byBusiness.get(b.id);
+    return {
+      ...b,
+      packages: available,
+      packageCount: available.length,
+      availableNow: available.some((pkg) => pickupStartAt(pkg) <= now),
+    };
+  });
+  const ttl = availabilityCacheTtl(packages, NEARBY_CACHE_TTL);
+  if (ttl > 0) await cacheService.set(cacheKey, result, ttl);
   return result;
   });
 };

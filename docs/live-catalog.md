@@ -23,21 +23,33 @@ paket ve kupon ekleyen eski seed dosyaları kaldırılmıştır.
 İşletme panelinden eklenen kayıt yönetici onayından sonra görünür. Liste ve
 harita yalnız silinmemiş, aktif, onaylı ve askıya alınmamış işletmeleri döndürür.
 Konum ve yarıçap filtreleri geçerlidir. Paket listeleri ve harita paket sayıları
-ayrıca aktiflik, askıya alınma, kalan stok ve teslim tarihi koşullarını uygular.
-Onaylı bir işletmenin henüz paketi olmayabilir; bu işletme haritada sıfır paketle
-görünebilir.
+ayrıca aktiflik, askıya alınma, kalan stok ve teslim bitiş zamanı koşullarını
+uygular. Bitiş zamanı Türkiye saatine göre hesaplanır; bitiş saati başlangıç
+saatinden küçük veya eşitse teslim aralığı ertesi güne uzanır. Bitiş anında
+paket katalogdan kalkar. Harita yalnız en az bir uygun paketi olan işletmeleri
+gösterir; henüz teslim saati başlamamış, süresi dolmamış paketler de uygundur.
+
+Favoriler API'si kayıtlı favori ilişkisini ve işletmenin güncel uygun paketlerini
+birlikte döndürür. Mobil favori listesi uygun paketi olmayan işletmeyi gizler;
+kayıt silinmez ve yeni uygun paket yayınlandığında işletme yeniden görünür.
+Eski API sürümlerinde paket bilgisi eksikse mobil istemci işletme detayından
+doğrular. Güncel API bu bilgiyi toplu verdiğinden ek detay istekleri gerekmez.
 
 ## Güncellemeler
 
 Paneldeki işletme/paket değişiklikleri backend liste ve harita önbelleklerini
 geçersiz kılar. Müşteri uygulaması Keşfet/Ara sekmesine dönüşte ve uygulama yeniden
-ön plana geldiğinde verileri yeniler. Açık katalog sekmesi 15 saniyelik aralıklarla
+ön plana geldiğinde verileri yeniler. Favoriler de sekmeye dönüşte, uygulama
+yeniden ön plana geldiğinde ve açıkken periyodik olarak önbelleği atlayarak
+yenilenir. Açık katalog sekmesi 15 saniyelik aralıklarla
 yenilenir; uygulama arka plandayken bu yenileme durur. Uygulamanın ve güncel
 simülatör profilinin varsayılan aralığı 15 saniyedir. `CATALOG_REFRESH_SECONDS`
-ile artırılabilir; minimum süre 15 saniyedir. Canlı sunucuda son kontrolde bulunan
-100 istek/15 dakika sınırı uzun süreli harita kullanımını kısıtlayabilir; bu sıklığı
-desteklemek için hazırlanan yeni backend katalog sınırının yayımlanması gerekir.
-Bu periyodik API yenilemesidir,
+ile artırılabilir; minimum süre 15 saniyedir. Katalog okumaları kullanıcı başına
+300 istek/15 dakika sınırını paylaşır; favori yenilemesi de bu bütçeye dahildir.
+Eski API sürümlerindeki 100 istek/15 dakika genel sınırı uzun süreli harita
+kullanımını kısıtlayabilir.
+Paket ve harita önbellekleri teslim başlangıç/bitiş sınırını aşamaz; paket listesi
+önbelleği ayrıca en fazla 15 saniye tutulur. Bu periyodik API yenilemesidir,
 sunucudan anlık bildirim gönderimi değildir. Ağ isteği süresi ek gecikme oluşturabilir.
 
 ## 16 Eylül 2026 yerel veri temizliği
@@ -89,3 +101,22 @@ yerel demo işletme adları canlı listede bulunmadı. Canlı kayıtlar silinmed
 değiştirilmedi; bu işlem backend dağıtımı değildir.
 
 Yeni bağlantı/yenileme ayarlarıyla 89 Flutter testi ve statik analiz başarılı.
+
+## 24 Eylül 2026 süre tutarlılığı düzeltmesi
+
+- Paket listesi, işletme detayı, harita ve favori paket bilgisi aynı teslim bitiş
+  kuralını kullanır. Haritadaki uygun paket koşulu işletme limiti uygulanmadan
+  önce sorgulanır; paketsiz işletmeler görünür sonuçların yerini dolduramaz.
+- Favori ilişkisi kalıcıdır. Geçici olarak gizlenen kartlar sonraki sayfalardaki
+  uygun favorilere erişimi engellemez; yenileme yüklenmiş sayfaları korur.
+- Favori liste okumaları katalog okuma hız sınırına dahildir. Favori ekleme,
+  kaldırma ve tekil favori kontrolü mevcut genel hız sınırını kullanır.
+- İzole PostgreSQL/Redis üzerinde 192 backend testi başarılı. Yeni regresyonlar
+  aynı gün bitişini, gece aşan aralıkları, bitiş anında dolu önbelleği, favori
+  ilişkisinin korunmasını ve yeni paketle yeniden görünürlüğü kapsar.
+
+API yayını mevcut `main` dağıtım akışıyla yapılır; şema migrasyonu gerekmez.
+Favori kartlarının gizlenmesi güncel mobil uygulamayı da gerektirir; API favori
+ilişkisini korur. Eski sunucuyla mobil uyumluluk işletme detaylarını ayrıca okur. Sunucunun eski
+tarih filtresi önceki gün başlayıp gece devam eden paketi hiç döndürmüyorsa
+istemci onu geri getiremez; tam gece aşan aralık desteği API dağıtımını gerektirir.

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../../core/utils/package_availability.dart';
 
 class FavoriteModel extends Equatable {
   final String id;
@@ -11,6 +12,7 @@ class FavoriteModel extends Equatable {
   final double rating;
   final String? categoryName;
   final DateTime createdAt;
+  final List<Map<String, dynamic>> packages;
 
   const FavoriteModel({
     required this.id,
@@ -23,6 +25,7 @@ class FavoriteModel extends Equatable {
     required this.rating,
     this.categoryName,
     required this.createdAt,
+    this.packages = const [],
   });
 
   factory FavoriteModel.fromJson(Map<String, dynamic> json) {
@@ -43,6 +46,9 @@ class FavoriteModel extends Equatable {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
+      packages: (business['packages'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList(),
     );
   }
 
@@ -58,7 +64,11 @@ class FavoriteModel extends Equatable {
     rating,
     categoryName,
     createdAt,
+    packages,
   ];
+
+  bool hasAvailablePackage({DateTime? now}) =>
+      packages.any((package) => isPackageAvailable(package, now: now));
 
   String get fullAddress {
     if (district.isNotEmpty && city.isNotEmpty) {

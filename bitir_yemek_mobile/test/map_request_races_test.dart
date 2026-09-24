@@ -25,6 +25,7 @@ final _package = PackageModel.fromJson({
   'discountedPrice': 100,
   'quantity': 5,
   'remainingQuantity': 5,
+  'isActive': true,
   'pickupDate': '2099-01-01',
   'pickupStart': '18:00',
   'pickupEnd': '20:00',

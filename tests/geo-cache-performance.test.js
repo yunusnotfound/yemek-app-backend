@@ -80,7 +80,7 @@ test('map cache reflects reservation stock reduction and cancellation restoratio
   expect(order.status).toBe(201);
   const reserved = await getList(endpoint, user);
   expect(reserved.status).toBe(200);
-  expect(reserved.body.businesses.find((business) => business.id === pkg.businessId).packageCount).toBe(0);
+  expect(reserved.body.businesses).toEqual([]);
 
   const cancelled = await request(app).patch(`/api/orders/${order.body.order.id}/cancel`).set(authHeader(user));
   expect(cancelled.status).toBe(200);

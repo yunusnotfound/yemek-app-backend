@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
+import '../../../../core/utils/package_availability.dart';
 import '../../../../config/constants.dart';
 import '../../../home/data/models/business_model.dart';
 import '../../../home/data/models/package_model.dart';
@@ -32,9 +33,62 @@ class MapRemoteDataSource {
         return [];
       }
 
-      return businessesData
-          .map((e) => BusinessModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+      final businesses = businessesData.cast<Map<String, dynamic>>();
+      final visible = List<BusinessModel?>.filled(businesses.length, null);
+      var nextIndex = 0;
+      // Older servers do not include package metadata in /maps/nearby. Resolve
+      // those businesses with bounded concurrency rather than treating the
+      // first, paginated /packages response as the entire nearby catalog.
+      Future<void> resolveBusinesses() async {
+        while (nextIndex < businesses.length) {
+          final index = nextIndex++;
+          final business = businesses[index];
+          List<dynamic>? packageData = business['packages'] as List<dynamic>?;
+          if (packageData == null) {
+            try {
+              final detail = await _dioClient.dio.get(
+                '/businesses/${business['id']}',
+              );
+              final detailData = detail.data as Map<String, dynamic>;
+              final detailBusiness =
+                  detailData['business'] as Map<String, dynamic>?;
+              packageData = detailBusiness?['packages'] as List<dynamic>? ?? [];
+            } on DioException catch (error) {
+              if (error.response?.statusCode == 404) continue;
+              rethrow;
+            }
+          }
+          final now = DateTime.now();
+          final available = packageData
+              .cast<Map<String, dynamic>>()
+              .where((package) => isPackageAvailable(package, now: now))
+              .toList();
+          if (available.isEmpty) continue;
+          visible[index] = BusinessModel.fromJson({
+            ...business,
+            'packageCount': available.length,
+            'availableUntil': available
+                .map((package) => packagePickupEnd(package)!)
+                .reduce((a, b) => a.isAfter(b) ? a : b)
+                .toIso8601String(),
+            'availableNow': available.any((package) {
+              final day = package['pickupDate'].toString().substring(0, 10);
+              final start = DateTime.tryParse(
+                '${day}T${package['pickupStart']}+03:00',
+              );
+              return start != null && !start.isAfter(now);
+            }),
+          });
+        }
+      }
+
+      await Future.wait(
+        List.generate(
+          businesses.length < 4 ? businesses.length : 4,
+          (_) => resolveBusinesses(),
+        ),
+      );
+      return visible.whereType<BusinessModel>().toList();
     } on DioException catch (e) {
       throw _handleDioError(e);
     }
@@ -56,12 +110,9 @@ class MapRemoteDataSource {
         ..remove('packages');
 
       return pkgs
-          .map(
-            (p) => PackageModel.fromJson({
-              ...p as Map<String, dynamic>,
-              'business': businessForPkg,
-            }),
-          )
+          .cast<Map<String, dynamic>>()
+          .where(isPackageAvailable)
+          .map((p) => PackageModel.fromJson({...p, 'business': businessForPkg}))
           .toList();
     } on DioException catch (e) {
       throw _handleDioError(e);
@@ -88,9 +139,12 @@ class MapRemoteDataSource {
         },
       );
 
-      return PackagesResponse.fromJson(
-        response.data as Map<String, dynamic>,
-      ).data;
+      final data = response.data as Map<String, dynamic>;
+      return (data['data'] as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .where(isPackageAvailable)
+          .map(PackageModel.fromJson)
+          .toList();
     } on DioException catch (e) {
       throw _handleDioError(e);
     }

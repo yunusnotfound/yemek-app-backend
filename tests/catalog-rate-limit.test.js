@@ -33,6 +33,8 @@ const catalogPaths = [
   '/api/packages/',
   `/api/packages/${businessId}`,
   '/api/maps/nearby?lat=41&lng=29&radius=5',
+  '/api/favorites',
+  '/api/favorites/',
 ];
 const get = (path, token) => request(server).get(path).set('Authorization', `Bearer ${token}`);
 
@@ -74,6 +76,9 @@ test.each([
   ['post', '/api/packages'],
   ['put', `/api/packages/${businessId}`],
   ['delete', `/api/packages/${businessId}`],
+  ['post', '/api/favorites'],
+  ['delete', `/api/favorites/${businessId}`],
+  ['get', `/api/favorites/check/${businessId}`],
   ['head', '/api/packages'],
   ['get', '/api/maps/directions'],
   ['get', `/api/businesses/${businessId}/private`],

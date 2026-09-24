@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const { paginate, paginatedResponse, haversineSql } = require('../utils/helpers');
 const cacheService = require('../services/cacheService');
 const coalesce = require('../services/requestCoalescer');
+const { availablePackageWhere, pickupEndAt, availabilityCacheTtl } = require('../utils/packageAvailability');
 
 exports.getAll = async (req, res, next) => {
   try {
@@ -20,7 +21,7 @@ exports.getAll = async (req, res, next) => {
 
     // SQL filters and orders by the exact coordinate. Its cache key must use
     // the same coordinate, otherwise nearby users can receive the wrong list.
-    const cacheKeyParts = { city, district, categoryId, maxPrice, excludeExpired, page, limit };
+    const cacheKeyParts = { availabilityVersion: 2, city, district, categoryId, maxPrice, excludeExpired, page, limit };
     if (useGeoFilter) {
       cacheKeyParts.lat = userLat;
       cacheKeyParts.lng = userLng;
@@ -29,7 +30,7 @@ exports.getAll = async (req, res, next) => {
     // Sürümlü anahtar: geçersiz kılma tek INCR ile O(1) (bkz. cacheService).
     const cacheKey = await cacheService.versionedKey('packages:list', cacheKeyParts);
     const cached = req.campaign ? null : await cacheService.get(cacheKey);
-    if (cached) {
+    if (cached && (excludeExpired === 'false' || cached.data.every((pkg) => pickupEndAt(pkg) > new Date()))) {
       return res.json(cached);
     }
 
@@ -41,21 +42,13 @@ exports.getAll = async (req, res, next) => {
     if (district) businessWhere.district = district;
     if (categoryId) businessWhere.categoryId = categoryId;
 
-    const packageWhere = { isActive: true, isSuspended: false, remainingQuantity: { [Op.gt]: 0 } };
+    const packageWhere = availablePackageWhere();
+    if (excludeExpired === 'false' && !req.campaign) delete packageWhere[Op.and];
     if (maxPrice) packageWhere.discountedPrice = { [Op.lte]: maxPrice };
     if (req.campaign) {
-      packageWhere[Op.and] = [
+      packageWhere[Op.and].push(
         sequelize.where(sequelize.literal('"SurprisePackage"."discountedPrice" * LEAST("SurprisePackage"."remainingQuantity", 100)'), { [Op.gte]: Number(req.campaign.minOrderAmount) }),
-        sequelize.literal(`(("SurprisePackage"."pickupDate"::date + "SurprisePackage"."pickupEnd"::time +
-          CASE WHEN "SurprisePackage"."pickupEnd"::time <= "SurprisePackage"."pickupStart"::time
-          THEN INTERVAL '1 day' ELSE INTERVAL '0 day' END) AT TIME ZONE 'Europe/Istanbul') > NOW()`),
-      ];
-    }
-
-    if (excludeExpired !== 'false') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      packageWhere.pickupDate = { [Op.gte]: today };
+      );
     }
 
     // Bounding-box ön filtresi: idx_businesses_lat_lng'i kullanabilsin diye önce
@@ -116,7 +109,8 @@ exports.getAll = async (req, res, next) => {
     const { count, rows: packages } = await SurprisePackage.findAndCountAll(queryOptions);
 
     const responseData = paginatedResponse(packages, count, page, limit);
-    if (!req.campaign) await cacheService.set(cacheKey, responseData, 300);
+    const ttl = excludeExpired === 'false' ? 15 : availabilityCacheTtl(packages, 15);
+    if (!req.campaign && ttl > 0) await cacheService.set(cacheKey, responseData, ttl);
     return responseData;
     });
     res.json(responseData);
@@ -143,7 +137,7 @@ exports.getById = async (req, res, next) => {
       ],
     });
 
-    if (!pkg || !pkg.isActive || pkg.isSuspended) {
+    if (!pkg || !pkg.isActive || pkg.isSuspended || !(pickupEndAt(pkg) > new Date())) {
       return res.status(404).json({ message: 'Paket bulunamadı' });
     }
 

@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_concurrency/bloc_concurrency.dart';
+import '../../../../core/utils/package_availability.dart';
 import 'map_event.dart';
 import 'map_state.dart';
 import '../../domain/repositories/map_repository.dart';
@@ -7,6 +8,7 @@ import '../../../home/data/models/package_model.dart';
 
 class MapBloc extends Bloc<MapEvent, MapState> {
   final MapRepository _repository;
+  final DateTime Function() _now;
   int _directionGeneration = 0;
   int _loadGeneration = 0;
   bool _catalogLoading = false;
@@ -28,8 +30,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     );
   }
 
-  MapBloc({required MapRepository repository})
+  MapBloc({required MapRepository repository, DateTime Function()? now})
     : _repository = repository,
+      _now = now ?? DateTime.now,
       super(const MapInitial()) {
     on<LoadBusinessesForMap>(
       _onLoadBusinessesForMap,
@@ -50,7 +53,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     _refreshQueued = false;
     _lastQuery = event;
     final keepVisible = event.background && state is MapLoaded;
-    if (!keepVisible) {
+    if (keepVisible) {
+      // Expiration is already known locally and must not depend on a successful
+      // refresh. Never infer an empty business from a paginated package list.
+      _pruneExpired(emit);
+    } else {
       _directionGeneration++;
       emit(const MapLoading());
     }
@@ -71,16 +78,32 @@ class MapBloc extends Bloc<MapEvent, MapState> {
               .where((business) => business.id == selectedId)
               .firstOrNull;
           if (selectedId != null && selected == null) _directionGeneration++;
+          final visibleIds = result.businesses!
+              .map((business) => business.id)
+              .toSet();
           emit(
             current.copyWith(
               businesses: result.businesses!,
               selectedBusiness: selected,
               clearSelection: selected == null,
               clearDirections: selected == null,
+              clearPackage:
+                  current.selectedPackage != null &&
+                  !_isAvailable(current.selectedPackage!),
+              packages: current.packages
+                  .where(
+                    (package) =>
+                        visibleIds.contains(package.businessId) &&
+                        _isAvailable(package),
+                  )
+                  .toList(),
+              packagesLoading: true,
             ),
           );
         } else {
-          emit(MapLoaded(businesses: result.businesses!));
+          emit(
+            MapLoaded(businesses: result.businesses!, packagesLoading: true),
+          );
         }
 
         final pkgResult = await _repository.getNearbyPackages(
@@ -90,10 +113,22 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         );
         if (emit.isDone) return;
         final latest = state;
-        if (latest is MapLoaded &&
-            pkgResult.isSuccess &&
-            pkgResult.packages != null) {
-          emit(latest.copyWith(packages: pkgResult.packages));
+        if (latest is MapLoaded) {
+          final visibleIds = latest.businesses
+              .map((business) => business.id)
+              .toSet();
+          emit(
+            latest.copyWith(
+              packages: (pkgResult.packages ?? latest.packages)
+                  .where(
+                    (package) =>
+                        visibleIds.contains(package.businessId) &&
+                        _isAvailable(package),
+                  )
+                  .toList(),
+              packagesLoading: false,
+            ),
+          );
         }
 
         // A selected card also needs current stock after an owner edits it.
@@ -113,13 +148,16 @@ class MapBloc extends Bloc<MapEvent, MapState> {
             final package = _pickRepresentativePackage(
               selectedResult.packages!,
             );
-            emit(
-              current.copyWith(
-                selectedPackage: package,
-                clearPackage: package == null,
-                packageLoading: false,
-              ),
-            );
+            if (package == null) {
+              _removeUnavailableBusiness(current, selectedId, emit);
+            } else {
+              emit(
+                current.copyWith(
+                  selectedPackage: package,
+                  packageLoading: false,
+                ),
+              );
+            }
           }
         }
       } else if (!keepVisible) {
@@ -129,6 +167,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
       if (emit.isDone || keepVisible) return;
       emit(MapError(message: e.toString()));
     } finally {
+      if (!emit.isDone && keepVisible) _pruneExpired(emit);
       if (generation == _loadGeneration) _catalogLoading = false;
     }
   }
@@ -139,6 +178,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   ) async {
     final currentState = state;
     if (currentState is! MapLoaded) return;
+    if (!currentState.businesses.any(
+      (business) => business.id == event.business.id,
+    )) {
+      return;
+    }
     _directionGeneration++;
 
     // Kartı hemen aç; paket yüklenirken iskelet göster.
@@ -162,33 +206,90 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     }
 
     if (result.isSuccess && result.packages != null) {
-      emit(
-        latest.copyWith(
-          selectedPackage: _pickRepresentativePackage(result.packages!),
-          packageLoading: false,
-        ),
-      );
+      final package = _pickRepresentativePackage(result.packages!);
+      if (package == null) {
+        _removeUnavailableBusiness(latest, event.business.id, emit);
+      } else {
+        emit(latest.copyWith(selectedPackage: package, packageLoading: false));
+      }
     } else {
       emit(latest.copyWith(packageLoading: false));
     }
   }
 
-  /// pickupDate >= bugün olan paketlerden (pickupDate, pickupStart)'a göre
-  /// en yakın olanı seçer; yoksa null.
-  PackageModel? _pickRepresentativePackage(List<PackageModel> packages) {
-    final today = DateTime.now();
-    final todayStr =
-        '${today.year.toString().padLeft(4, '0')}-'
-        '${today.month.toString().padLeft(2, '0')}-'
-        '${today.day.toString().padLeft(2, '0')}';
+  void _removeUnavailableBusiness(
+    MapLoaded current,
+    String businessId,
+    Emitter<MapState> emit,
+  ) {
+    _directionGeneration++;
+    emit(
+      current.copyWith(
+        businesses: current.businesses
+            .where((business) => business.id != businessId)
+            .toList(),
+        packages: current.packages
+            .where(
+              (package) =>
+                  package.businessId != businessId && _isAvailable(package),
+            )
+            .toList(),
+        clearSelection: true,
+        clearDirections: true,
+      ),
+    );
+  }
 
-    final upcoming =
-        packages.where((p) => p.pickupDate.compareTo(todayStr) >= 0).toList()
-          ..sort((a, b) {
-            final dateCmp = a.pickupDate.compareTo(b.pickupDate);
-            if (dateCmp != 0) return dateCmp;
-            return a.pickupStart.compareTo(b.pickupStart);
-          });
+  void _pruneExpired(Emitter<MapState> emit) {
+    final current = state;
+    if (current is! MapLoaded) return;
+    final now = _now();
+    final businesses = current.businesses
+        .where(
+          (business) =>
+              business.availableUntil == null ||
+              business.availableUntil!.isAfter(now),
+        )
+        .toList();
+    final visibleIds = businesses.map((business) => business.id).toSet();
+    final selectionExpired =
+        current.selectedBusiness != null &&
+        (!visibleIds.contains(current.selectedBusiness!.id) ||
+            (current.selectedPackage != null &&
+                !_isAvailable(current.selectedPackage!)));
+    if (selectionExpired) _directionGeneration++;
+    emit(
+      current.copyWith(
+        businesses: businesses,
+        packages: current.packages
+            .where(
+              (package) =>
+                  visibleIds.contains(package.businessId) &&
+                  _isAvailable(package),
+            )
+            .toList(),
+        clearSelection: selectionExpired,
+        clearDirections: selectionExpired,
+      ),
+    );
+  }
+
+  bool _isAvailable(PackageModel package) => isPackageAvailable({
+    'isActive': package.isActive,
+    'remainingQuantity': package.remainingQuantity,
+    'pickupDate': package.pickupDate,
+    'pickupStart': package.pickupStart,
+    'pickupEnd': package.pickupEnd,
+  }, now: _now());
+
+  /// Choose the nearest pickup window that still has stock and has not ended.
+  PackageModel? _pickRepresentativePackage(List<PackageModel> packages) {
+    final upcoming = packages.where(_isAvailable).toList()
+      ..sort((a, b) {
+        final dateCmp = a.pickupDate.compareTo(b.pickupDate);
+        if (dateCmp != 0) return dateCmp;
+        return a.pickupStart.compareTo(b.pickupStart);
+      });
 
     return upcoming.isNotEmpty ? upcoming.first : null;
   }
@@ -209,7 +310,9 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     Emitter<MapState> emit,
   ) async {
     final currentState = state;
-    if (currentState is! MapLoaded) return;
+    if (currentState is! MapLoaded || currentState.selectedBusiness == null) {
+      return;
+    }
     final generation = ++_directionGeneration;
 
     try {

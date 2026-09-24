@@ -155,6 +155,7 @@ describe('İşletme PII sızıntısı (KRİTİK — iyzico sub-merchant alanlar�
 
   test('GET /api/maps/nearby hassas alan döndürmez', async () => {
     const business = await hassasVeriliIsletme(); // helper: lat 41.0, lng 29.0
+    await createPackage({ businessId: business.id });
     const customer = await createUser({ role: 'customer' });
 
     const res = await request(app)

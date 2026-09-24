@@ -21,6 +21,9 @@ class BusinessModel extends Equatable {
   final int packageCount;
   final bool availableNow;
 
+  /// Last known package cutoff; null when the endpoint has no availability data.
+  final DateTime? availableUntil;
+
   const BusinessModel({
     required this.id,
     required this.name,
@@ -40,6 +43,7 @@ class BusinessModel extends Equatable {
     this.distance,
     this.packageCount = 0,
     this.availableNow = false,
+    this.availableUntil,
   });
 
   @override
@@ -62,6 +66,7 @@ class BusinessModel extends Equatable {
     distance,
     packageCount,
     availableNow,
+    availableUntil,
   ];
 
   factory BusinessModel.fromJson(Map<String, dynamic> json) {
@@ -90,6 +95,9 @@ class BusinessModel extends Equatable {
       // _parseBool null'da true döndüğünden burada kullanılamaz; varsayılan false.
       availableNow:
           json['availableNow'] == true || json['availableNow'] == 'true',
+      availableUntil: DateTime.tryParse(
+        json['availableUntil']?.toString() ?? '',
+      ),
     );
   }
 

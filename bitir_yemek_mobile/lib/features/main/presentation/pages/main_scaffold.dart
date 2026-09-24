@@ -109,6 +109,8 @@ class _MainScaffoldState extends State<MainScaffold> {
       catalogContext.read<PackagesBloc>().refreshCurrent();
     } else if (_currentIndex == 1) {
       catalogContext.read<MapBloc>().refreshCurrent();
+    } else if (_currentIndex == 3) {
+      catalogContext.read<FavoritesBloc>().refreshCurrent();
     }
   }
 

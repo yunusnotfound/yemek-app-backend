@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Cookie } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
@@ -13,6 +14,7 @@ const STORAGE_KEY = "bg_cookie_consent";
  * (Tercih çerez yerine localStorage'da tutulur ki bildirimin kendisi için çerez gerekmesin.)
  */
 export function CookieConsent() {
+  const pathname = usePathname();
   const [show, setShow] = useState(false);
 
   // SSR/hydration uyumsuzluğunu önlemek için yalnızca mount sonrası karar ver.
@@ -33,7 +35,8 @@ export function CookieConsent() {
     setShow(false);
   }
 
-  if (!show) return null;
+  // The TV dashboard includes an inline essential-cookie notice in its footer.
+  if (!show || pathname === "/admin/tv") return null;
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-50 p-4 sm:p-6">

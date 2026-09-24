@@ -16,6 +16,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Spinner } from "@/components/ui/Spinner";
 
 export function LoginForm({ next }: { next?: string }) {
+  const adminLogin = next === "/admin" || next?.startsWith("/admin/");
   const [formError, setFormError] = useState<string | null>(null);
   const [needsVerify, setNeedsVerify] = useState(false);
   const [resendDone, setResendDone] = useState(false);
@@ -63,9 +64,11 @@ export function LoginForm({ next }: { next?: string }) {
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm sm:p-8">
-      <h1 className="text-2xl font-bold text-slate-900">İşletme Girişi</h1>
+      <h1 className="text-2xl font-bold text-slate-900">{adminLogin ? "Yönetici Girişi" : "İşletme Girişi"}</h1>
       <p className="mt-1.5 text-sm text-slate-600">
-        Hesabına giriş yaparak işletme paneline ulaş.
+        {next === "/admin/tv"
+          ? "TV dashboardını açmak için yönetici hesabınla giriş yap."
+          : adminLogin ? "Yönetici hesabınla panele giriş yap." : "Hesabına giriş yaparak işletme paneline ulaş."}
       </p>
 
       {needsVerify ? (

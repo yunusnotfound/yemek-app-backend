@@ -9,8 +9,11 @@ const swaggerUi = require('swagger-ui-express');
 const path = require('path');
 const routes = require('./routes');
 const errorHandler = require('./middlewares/errorHandler');
+const runtimeMetrics = require('./services/runtimeMetrics');
 
 const app = express();
+// Observe API responses before CORS, parsers and rate limiters can reject them.
+app.use(runtimeMetrics.middleware);
 
 // Match the actual ingress topology; never trust arbitrary forwarded hops.
 app.set('trust proxy', process.env.TRUST_PROXY || 'loopback, linklocal, uniquelocal');

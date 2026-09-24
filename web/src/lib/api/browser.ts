@@ -45,7 +45,9 @@ export async function proxyFetch<T>(path: string, init?: RequestInit): Promise<T
     return await request<T>(`/api/proxy${path}`, init);
   } catch (err) {
     if (err instanceof ApiError && err.status === 401 && typeof window !== "undefined") {
-      window.location.href = "/giris";
+      window.location.href = window.location.pathname === "/admin/tv"
+        ? "/giris?next=%2Fadmin%2Ftv"
+        : "/giris";
     }
     throw err;
   }

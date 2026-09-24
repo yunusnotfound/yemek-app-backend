@@ -30,7 +30,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  // Layouts cannot read the URL directly. Forward only the pathname verified
+  // here, replacing any header supplied by the browser.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.delete("x-bitir-admin-path");
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    requestHeaders.set("x-bitir-admin-path", pathname);
+  }
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

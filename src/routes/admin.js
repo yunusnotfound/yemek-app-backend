@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const adminController = require('../controllers/adminController');
 const categoryController = require('../controllers/categoryController');
+const operationsController = require('../controllers/operationsController');
 const { authenticate } = require('../middlewares/auth');
 const { authorize } = require('../middlewares/role');
 const { validate, validateQuery, validateParams } = require('../middlewares/validate');
@@ -21,6 +22,8 @@ const {
 
 // All routes require admin role
 router.use(authenticate, authorize('admin'));
+
+router.get('/operations/runtime', operationsController.getRuntimeMetrics);
 
 /**
  * @swagger

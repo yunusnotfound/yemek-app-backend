@@ -18,6 +18,7 @@ import {
   LogOut,
   Menu,
   ShieldCheck,
+  Tv,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api/browser";
 import { cn } from "@/lib/cn";
@@ -25,6 +26,7 @@ import type { ServerUser } from "@/lib/auth/server-user";
 
 const NAV = [
   { href: "/admin", label: "Genel Bakış", icon: LayoutDashboard, exact: true },
+  { href: "/admin/tv", label: "TV Dashboard", icon: Tv, exact: true },
   { href: "/admin/isletmeler", label: "İşletmeler", icon: Store },
   { href: "/admin/onaylar", label: "Onay Bekleyenler", icon: ClipboardCheck },
   { href: "/admin/kullanicilar", label: "Kullanıcılar", icon: Users },
@@ -59,6 +61,10 @@ export function AdminShell({
     await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     window.location.assign("/giris");
   }
+
+  // The server layout still requires an admin session; only the navigation
+  // chrome is omitted so the dashboard can use the whole television screen.
+  if (pathname === "/admin/tv") return <>{children}</>;
 
   const sidebar = (
     <div className="flex h-full flex-col">

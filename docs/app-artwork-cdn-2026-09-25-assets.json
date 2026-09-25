@@ -1,0 +1,386 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-25",
+  "generator": "bitir_yemek_mobile/tool/generate_artwork_previews.py",
+  "pillow_version": "12.2.0",
+  "libwebp_version": "1.6.0",
+  "cdn_root": "https://api.bitirgitsin.com/uploads/app-artwork-v1",
+  "generation": {
+    "maximum_dimensions": [
+      128,
+      128
+    ],
+    "resampling": "LANCZOS",
+    "reducing_gap": 3.0,
+    "quality": 70,
+    "alpha_quality": 100,
+    "method": 6,
+    "exact": true,
+    "lossless": false,
+    "aspect_ratio_preserved": true,
+    "originals_modified": false
+  },
+  "summary": {
+    "artwork_count": 14,
+    "original_artwork_bytes": 23462414,
+    "bundled_preview_bytes": 49092,
+    "retained_small_images_and_fonts_bytes": 245259,
+    "application_asset_bytes_before": 23707673,
+    "application_asset_bytes_after": 294351,
+    "application_asset_bytes_saved": 23413322,
+    "artwork_reduction_percent": 99.7908,
+    "note": "Asset bytes only; installed app and store download sizes require a release build."
+  },
+  "artwork": [
+    {
+      "canonical_asset": "assets/images/categories/bufe.webp",
+      "preview_asset": "assets/previews/categories/bufe.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/categories/bufe.webp",
+      "source": {
+        "bytes": 1805344,
+        "sha256": "66e09620c61db921128b2a8a7407c62d5fd6c3bd353148c4179f7c0e4ef6405c",
+        "rgba_pixel_sha256": "a69fad5a25416ca3c9623383a850ff4bf93f2c7c42893196ec78b00c7710430a",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGB",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 2890,
+        "sha256": "a524ffc9e3d0e11c4da8d9b7961682caf111fc13a2c640cf1d29aa4c88a1a935",
+        "width": 128,
+        "height": 128,
+        "mode": "RGB",
+        "alpha_matches_resized_source": null
+      }
+    },
+    {
+      "canonical_asset": "assets/images/categories/firin.webp",
+      "preview_asset": "assets/previews/categories/firin.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/categories/firin.webp",
+      "source": {
+        "bytes": 1912200,
+        "sha256": "8cbc3e73bdd5d3bb504259570551e107e6301c5f26e0edb7e48e1ce2efba9675",
+        "rgba_pixel_sha256": "4afb95df50bcf73f8251a00943b7f9644f887b943e4bcc0dcf7938b6eb78c57f",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGB",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 3158,
+        "sha256": "045d74daeddd44e7861caa341486afe08f3d0f82bea4d60cf454e146a05c42ff",
+        "width": 128,
+        "height": 128,
+        "mode": "RGB",
+        "alpha_matches_resized_source": null
+      }
+    },
+    {
+      "canonical_asset": "assets/images/categories/kafe.webp",
+      "preview_asset": "assets/previews/categories/kafe.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/categories/kafe.webp",
+      "source": {
+        "bytes": 1676370,
+        "sha256": "ba97ddbf389a11738d60cd0612dcefc7f603e8f6dd7a074607b2c265397fb9b4",
+        "rgba_pixel_sha256": "40bd0e8d1218dc6bcfdfef2b9dd8dea4ef3f4c6519a6e32a0d12f21be34f5586",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGB",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 2278,
+        "sha256": "6955e08ae5179329ee9d82b3d9709a0b228510a73134f88a3cb318c8e62f78f8",
+        "width": 128,
+        "height": 128,
+        "mode": "RGB",
+        "alpha_matches_resized_source": null
+      }
+    },
+    {
+      "canonical_asset": "assets/images/categories/kasap.webp",
+      "preview_asset": "assets/previews/categories/kasap.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/categories/kasap.webp",
+      "source": {
+        "bytes": 1888238,
+        "sha256": "d40b709a3e61d2db69b20f12165e4bb36d15f7d241f194908db0c2fa67ce8c14",
+        "rgba_pixel_sha256": "c77fc8478c9dc8a4f94d437d13356096b325ccdd36404d654932ea08bf9349d5",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGB",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 2530,
+        "sha256": "4281d0b758ce42206821bfbeee8cd3c2afc26775e6162276ce90cb9ae4f3abad",
+        "width": 128,
+        "height": 128,
+        "mode": "RGB",
+        "alpha_matches_resized_source": null
+      }
+    },
+    {
+      "canonical_asset": "assets/images/categories/manav.webp",
+      "preview_asset": "assets/previews/categories/manav.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/categories/manav.webp",
+      "source": {
+        "bytes": 2027080,
+        "sha256": "599902c747a5cb0aaddaffb651bf5133c40d77401a3679814a14800c6a1a5e1d",
+        "rgba_pixel_sha256": "c215d58c44790589ec528bee8e574ab395da7327a61a0a25b8eda10a06f4cc7c",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGB",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 3746,
+        "sha256": "7d1bb6c5804251b8d4bba538e46bd9bdb44723b516f77ad06297669500b1e190",
+        "width": 128,
+        "height": 128,
+        "mode": "RGB",
+        "alpha_matches_resized_source": null
+      }
+    },
+    {
+      "canonical_asset": "assets/images/categories/market.webp",
+      "preview_asset": "assets/previews/categories/market.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/categories/market.webp",
+      "source": {
+        "bytes": 1577188,
+        "sha256": "777ac2eb2441b5f2df3696d7601c5faa03c57c2cf00421203cd20abff8ccc7eb",
+        "rgba_pixel_sha256": "59ba43c0eb920d2758269d2658f11c610e484a0912e96da6ba32d0abd99cbc3d",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGB",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 1582,
+        "sha256": "fd7d9d3797a9cf1c7335cccd75f414b2fa89a5953735ea3b7f5b72799ed21b2f",
+        "width": 128,
+        "height": 128,
+        "mode": "RGB",
+        "alpha_matches_resized_source": null
+      }
+    },
+    {
+      "canonical_asset": "assets/images/categories/pastane.webp",
+      "preview_asset": "assets/previews/categories/pastane.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/categories/pastane.webp",
+      "source": {
+        "bytes": 1574166,
+        "sha256": "007a7b2dbf3a74bb4b6fa87ad1bd4895e59798631d38552100e76a9aa9b52878",
+        "rgba_pixel_sha256": "ce4ea790ba68e2d11e8022d508f0d67852368ff09b3e44740d004cb0e55bc40d",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGB",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 2330,
+        "sha256": "a7598275a866675e7a4f30bd5e23f0744e8946e7d208dc12c6d8e16ad525764f",
+        "width": 128,
+        "height": 128,
+        "mode": "RGB",
+        "alpha_matches_resized_source": null
+      }
+    },
+    {
+      "canonical_asset": "assets/images/categories/restoran.webp",
+      "preview_asset": "assets/previews/categories/restoran.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/categories/restoran.webp",
+      "source": {
+        "bytes": 1933540,
+        "sha256": "45d501dfc4385e9e0019cd8f7bb0f1ffcfb1f21616d7cb05131608ee9aaa1938",
+        "rgba_pixel_sha256": "2e1f2b1bbc060d99676b4576d4b6e761620e601768098bf2d5266417e8add259",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGB",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 3798,
+        "sha256": "b3aeb48ae1fc768395e6776776912ba21ddeb979282d51d3e6948c7e61cf4423",
+        "width": 128,
+        "height": 128,
+        "mode": "RGB",
+        "alpha_matches_resized_source": null
+      }
+    },
+    {
+      "canonical_asset": "assets/images/onboarding/foodbox-bakery.webp",
+      "preview_asset": "assets/previews/onboarding/foodbox-bakery.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/onboarding/foodbox-bakery.webp",
+      "source": {
+        "bytes": 1677244,
+        "sha256": "536751c4ad76eabd8279aa619391e3717321f66e0304b27a02166fedfdae9d4b",
+        "rgba_pixel_sha256": "13eb3c433ec2c8479041f636df65e124fe9dfb45acb6a000ca89d2d19a483258",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 6050,
+        "sha256": "233553c876abdb6ead4a049370e147d0f98f91a1e0d8203cbb239aef2864dd0e",
+        "width": 128,
+        "height": 128,
+        "mode": "RGBA",
+        "alpha_matches_resized_source": true
+      }
+    },
+    {
+      "canonical_asset": "assets/images/onboarding/foodbox-dessert.webp",
+      "preview_asset": "assets/previews/onboarding/foodbox-dessert.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/onboarding/foodbox-dessert.webp",
+      "source": {
+        "bytes": 1619954,
+        "sha256": "1fc035d604f78111405b61d3e7f72383e4dd61fb821525117e522b2336c06f6b",
+        "rgba_pixel_sha256": "1a623fd967e88fc90958679f2799a3ca56580118e588e21ca38c19797bcd8913",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 6472,
+        "sha256": "cfd35c50356e22421b1bda840aa2d19aaed54b6bffcfa068af1f454c6e580234",
+        "width": 128,
+        "height": 128,
+        "mode": "RGBA",
+        "alpha_matches_resized_source": true
+      }
+    },
+    {
+      "canonical_asset": "assets/images/onboarding/foodbox-meal.webp",
+      "preview_asset": "assets/previews/onboarding/foodbox-meal.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/onboarding/foodbox-meal.webp",
+      "source": {
+        "bytes": 1555362,
+        "sha256": "351a92878fad22233ea41118ba3bf9ba7976110f7e718acc173080b544991dcc",
+        "rgba_pixel_sha256": "03ddc26a4ffedb33a838e4118c62bc723ea7dd76c8ccd2e44e8b7e7adeb50639",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 6382,
+        "sha256": "f9eaa40651d30d5d11b9e71206d68cc1e6e5da696b56d98c73c3512b1d05ec66",
+        "width": 128,
+        "height": 128,
+        "mode": "RGBA",
+        "alpha_matches_resized_source": true
+      }
+    },
+    {
+      "canonical_asset": "assets/images/onboarding/kraft-texture.webp",
+      "preview_asset": "assets/previews/onboarding/kraft-texture.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/onboarding/kraft-texture.webp",
+      "source": {
+        "bytes": 2299412,
+        "sha256": "d07261fab429286166ec7029528628123aae8d2b8314192c68557a20a5bb1387",
+        "rgba_pixel_sha256": "841cd1dedbd24087e1afa30344e6802541b1833c7da068b562ec038dd6eec188",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGB",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 378,
+        "sha256": "8586e36826949218ce41ef09917e9cae434389fc64cf8f1039ea04d2a5bd87e2",
+        "width": 128,
+        "height": 128,
+        "mode": "RGB",
+        "alpha_matches_resized_source": null
+      }
+    },
+    {
+      "canonical_asset": "assets/images/onboarding/rescue-bag.webp",
+      "preview_asset": "assets/previews/onboarding/rescue-bag.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/onboarding/rescue-bag.webp",
+      "source": {
+        "bytes": 1228988,
+        "sha256": "fe789ece7832cfe646620af5fc8b1d83d360d781993cf069840922ee6e39cd28",
+        "rgba_pixel_sha256": "8a7814573a048f1e97fbcce6142411144dfd3138e57118995a14239f03487a0a",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 4426,
+        "sha256": "23216a5d8e730f37a5b9aee9b20806ae3bc23fbb6152e3b1370ea334de06bded",
+        "width": 128,
+        "height": 128,
+        "mode": "RGBA",
+        "alpha_matches_resized_source": true
+      }
+    },
+    {
+      "canonical_asset": "assets/images/onboarding/waste-bin.webp",
+      "preview_asset": "assets/previews/onboarding/waste-bin.webp",
+      "cdn_url": "https://api.bitirgitsin.com/uploads/app-artwork-v1/onboarding/waste-bin.webp",
+      "source": {
+        "bytes": 687328,
+        "sha256": "765166bb15243dd63a2f5a901c2ada877de7ec92ef0c2997a1390c297d28e987",
+        "rgba_pixel_sha256": "868661ad674eb1810ef0e3b8e3feff9cb7f9c7933f7c83debf1664041734b1e5",
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "bytes_preserved": true
+      },
+      "preview": {
+        "bytes": 3072,
+        "sha256": "a245470887b255bdb03e2b21da93a53d2004164f92b79c5b59d1e308a3dfde8f",
+        "width": 128,
+        "height": 128,
+        "mode": "RGBA",
+        "alpha_matches_resized_source": true
+      }
+    }
+  ],
+  "retained_bundled_assets": [
+    {
+      "asset": "assets/images/food_box.png",
+      "bytes": 57597,
+      "sha256": "fc6e10b8f2aa6f5dfadb03f29413a7bf1c3ea73848d5ee2e2eb9ee78c97d1b9e"
+    },
+    {
+      "asset": "assets/images/google-mark.png",
+      "bytes": 33661,
+      "sha256": "d1ce9c2af0b10a7333abc99bc706f9a6a199e5b65bf3e3009624f076b8638e6a"
+    },
+    {
+      "asset": "assets/icon/app_icon.png",
+      "bytes": 16813,
+      "sha256": "e8dfe245e663bd91aef8061e20de32917b4af580180970d81a4b8a15495609b1"
+    },
+    {
+      "asset": "assets/fonts/Korolev Thin.otf",
+      "bytes": 28036,
+      "sha256": "14f30bb9ac8b842543de6931860a92fea1d3657aaed9cc764d3cc1147bb4d9b8"
+    },
+    {
+      "asset": "assets/fonts/Korolev Light.otf",
+      "bytes": 29200,
+      "sha256": "4459e4acb42ab09f4881b756b73205674b6868e308839c631fe13592a5ccecbe"
+    },
+    {
+      "asset": "assets/fonts/Korolev Medium.otf",
+      "bytes": 26868,
+      "sha256": "0e483e998f28fc30a00123c6f259ab5feaaffd5ee002366ea9142a54a66004a0"
+    },
+    {
+      "asset": "assets/fonts/Korolev Bold.otf",
+      "bytes": 26788,
+      "sha256": "0d7342851befb6aee821914d10b31a1a4dab4f614d4ea2d4a56b18ca4fa6a28a"
+    },
+    {
+      "asset": "assets/fonts/Korolev Heavy.otf",
+      "bytes": 26296,
+      "sha256": "d4b320c877d121557e238c7ca2a326e1ed98fed2ca2bb82a16bdbb40899c84ec"
+    }
+  ]
+}

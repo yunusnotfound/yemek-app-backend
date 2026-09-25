@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../../config/theme.dart';
+import '../../../../core/utils/image_cdn.dart';
 import '../../../home/data/models/business_model.dart';
 
 /// Shared, size-bounded marker raster cache across map tab visits.
@@ -197,13 +198,19 @@ class MapMarkerIcons {
     ImageStreamListener? listener;
     try {
       final completer = Completer<ui.Image?>();
+      final imageUrl = imageCdnUrl(url, pixelWidth: _iconSize.toDouble());
       // CachedNetworkImageProvider, uygulamanın geri kalanıyla (app_cached_image)
       // aynı DISK önbelleğini kullanır. Düz NetworkImage yalnız bellekte tutuyordu,
       // yani logolar uygulama her açılışında yeniden indiriliyordu.
       stream = ResizeImage(
         // Decode at the target size. Disk-cache resizing first decodes the
         // full original, which can briefly allocate tens of MB for one logo.
-        CachedNetworkImageProvider(url),
+        CachedNetworkImageProvider(
+          imageUrl,
+          headers: imageUrl == url
+              ? null
+              : const {'Accept': 'image/webp,image/jpeg,image/png;q=0.8'},
+        ),
         width: _iconSize,
         height: _iconSize,
         policy: ResizeImagePolicy.fit,

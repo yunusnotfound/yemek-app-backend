@@ -3,7 +3,9 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import '../../../../core/utils/app_artwork.dart';
+import '../../../../core/utils/cached_image_provider.dart';
 
 /// Photographed takeaway tray with a rounded lid rotating around its rear hinge.
 /// Food is rendered at its natural proportions, never flattened onto a plane.
@@ -24,59 +26,50 @@ class HingedPackage extends StatefulWidget {
 class _HingedPackageState extends State<HingedPackage> {
   ui.Image? _cardboard;
   ui.Image? _food;
+  _ArtworkSubscription? _cardboardSubscription;
+  _ArtworkSubscription? _foodSubscription;
+  bool _started = false;
   int _foodRequest = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _loadCardboard();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    _cardboardSubscription = _ArtworkSubscription(
+      'assets/images/onboarding/kraft-texture.webp',
+      createLocalImageConfiguration(context),
+      (image) {
+        if (!mounted) {
+          image.dispose();
+          return;
+        }
+        final previous = _cardboard;
+        setState(() => _cardboard = image);
+        previous?.dispose();
+      },
+    );
     _loadFood();
   }
 
-  Future<ui.Image> _decode(String asset) async {
-    final data = await rootBundle.load(asset);
-    final codec = await ui.instantiateImageCodec(
-      data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-      targetWidth: 512,
-    );
-    try {
-      return (await codec.getNextFrame()).image;
-    } finally {
-      codec.dispose();
-    }
-  }
-
-  Future<void> _loadCardboard() async {
-    try {
-      final image = await _decode('assets/images/onboarding/kraft-texture.png');
-      if (!mounted) {
-        image.dispose();
-        return;
-      }
-      setState(() => _cardboard = image);
-    } catch (error, stack) {
-      FlutterError.reportError(
-        FlutterErrorDetails(exception: error, stack: stack),
-      );
-    }
-  }
-
-  Future<void> _loadFood() async {
+  void _loadFood() {
     final request = ++_foodRequest;
-    try {
-      final image = await _decode(widget.foodAsset);
-      if (!mounted || request != _foodRequest) {
-        image.dispose();
-        return;
-      }
-      final previous = _food;
-      setState(() => _food = image);
-      previous?.dispose();
-    } catch (error, stack) {
-      FlutterError.reportError(
-        FlutterErrorDetails(exception: error, stack: stack),
-      );
-    }
+    _foodSubscription?.dispose();
+    _food?.dispose();
+    _food = null;
+    _foodSubscription = _ArtworkSubscription(
+      widget.foodAsset,
+      createLocalImageConfiguration(context),
+      (image) {
+        if (!mounted || request != _foodRequest) {
+          image.dispose();
+          return;
+        }
+        final previous = _food;
+        setState(() => _food = image);
+        previous?.dispose();
+      },
+    );
   }
 
   @override
@@ -87,6 +80,9 @@ class _HingedPackageState extends State<HingedPackage> {
 
   @override
   void dispose() {
+    ++_foodRequest;
+    _cardboardSubscription?.dispose();
+    _foodSubscription?.dispose();
     _cardboard?.dispose();
     _food?.dispose();
     super.dispose();
@@ -101,6 +97,68 @@ class _HingedPackageState extends State<HingedPackage> {
       food: _food,
     ),
   );
+}
+
+/// The canvas owns cloned image handles; the shared cache retains its own.
+/// A late preview cannot replace a finished CDN image, and removed listeners
+/// cannot replace another food selection or update a disposed package.
+class _ArtworkSubscription {
+  final _listeners = <(ImageStream, ImageStreamListener)>[];
+  final ValueChanged<ui.Image> _onImage;
+  bool _remoteReady = false;
+  bool _disposed = false;
+
+  _ArtworkSubscription(
+    String asset,
+    ImageConfiguration configuration,
+    this._onImage,
+  ) {
+    final source = resolveAppArtwork(asset);
+    _listen(
+      ResizeImage(
+        AssetImage(source.localAsset),
+        width: source.imageUrl == null ? 512 : 128,
+      ),
+      configuration,
+      remote: false,
+    );
+    if (source.imageUrl case final url?) {
+      _listen(
+        cachedImageProvider(url, pixelWidth: 512, cacheWidth: 512),
+        configuration,
+        remote: true,
+      );
+    }
+  }
+
+  void _listen(
+    ImageProvider provider,
+    ImageConfiguration configuration, {
+    required bool remote,
+  }) {
+    final stream = provider.resolve(configuration);
+    final listener = ImageStreamListener(
+      (info, _) {
+        if (!_disposed && (remote || !_remoteReady)) {
+          if (remote) _remoteReady = true;
+          _onImage(info.image.clone());
+        }
+        info.dispose();
+      },
+      // Offline, timeouts and failed CDN requests keep the bundled preview.
+      onError: (Object error, StackTrace? stack) {},
+    );
+    _listeners.add((stream, listener));
+    stream.addListener(listener);
+  }
+
+  void dispose() {
+    _disposed = true;
+    for (final (stream, listener) in _listeners) {
+      stream.removeListener(listener);
+    }
+    _listeners.clear();
+  }
 }
 
 class _PackagePainter extends CustomPainter {

@@ -295,6 +295,10 @@ class _MapPageContentState extends State<_MapPageContent> {
       final annotation = _businessIdToAnnotation[business.id];
       if (annotation == null) return;
       annotation.image = bytes;
+      // Native annotations return the placeholder's sprite name. Reusing that
+      // name keeps the cached placeholder on iOS (and overrides image on
+      // Android). Let Mapbox register a fresh sprite for the downloaded logo.
+      annotation.iconImage = null;
       await manager.update(annotation);
     });
   }

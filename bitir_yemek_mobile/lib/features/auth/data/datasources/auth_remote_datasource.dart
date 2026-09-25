@@ -124,19 +124,39 @@ class AuthRemoteDataSource {
             'İnternet bağlantısı bulunamadı. Lütfen bağlantınızı kontrol edin.',
       );
     } else if (e.response != null) {
-      final data = e.response?.data as Map<String, dynamic>?;
-      final message = data?['message'] as String? ?? 'Bir hata oluştu';
-      final errors = data?['errors'] as List<dynamic>?;
+      final response = e.response!;
+      // An edge rate limit can return plain text/HTML instead of the API's
+      // JSON error shape. Handle its status before inspecting the body.
+      if (response.statusCode == 429) {
+        final values = response.headers['retry-after'];
+        final retryAfter = values?.length == 1 ? values!.single.trim() : '';
+        final seconds = RegExp(r'^[0-9]+$').hasMatch(retryAfter)
+            ? int.tryParse(retryAfter)
+            : null;
+        return AuthException(
+          message: seconds != null && seconds > 0
+              ? 'Çok fazla deneme yaptınız. Lütfen $seconds saniye sonra tekrar deneyin.'
+              : 'Çok fazla deneme yaptınız. Lütfen biraz bekleyip tekrar deneyin.',
+          statusCode: response.statusCode,
+        );
+      }
+
+      final data = response.data;
+      final message = data is Map ? data['message'] : null;
+      final errors = data is Map ? data['errors'] : null;
 
       return AuthException(
-        message: message,
-        errors: errors
-            ?.map(
-              (item) =>
-                  item is Map ? item['message'].toString() : item.toString(),
-            )
-            .toList(),
-        statusCode: e.response?.statusCode,
+        message: message is String && message.trim().isNotEmpty
+            ? message
+            : 'Bir hata oluştu. Lütfen tekrar deneyin.',
+        errors: errors is List
+            ? errors
+                  .map((item) => item is Map ? item['message'] : item)
+                  .whereType<String>()
+                  .where((message) => message.trim().isNotEmpty)
+                  .toList()
+            : null,
+        statusCode: response.statusCode,
       );
     }
 

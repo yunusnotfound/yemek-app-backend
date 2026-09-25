@@ -1,3 +1,7 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
 #include? "../Secrets.xcconfig"
+
+// Keep Profile/Release archives optimized after a Flutter debug run.
+// Overrides Generated.xcconfig, including an explicit --no-tree-shake-icons.
+TREE_SHAKE_ICONS = true

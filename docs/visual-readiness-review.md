@@ -10,7 +10,7 @@ Restoran, Fırın, Pastane, Market, Kafe, Manav, Kasap ve Büfe için sekiz ayr�
 
 ![Tüm kategori görselleri](previews/category-strip.png)
 
-Dosyalar: `bitir_yemek_mobile/assets/images/categories/{restoran,firin,pastane,market,kafe,manav,kasap,bufe}.png`. Üretim yöntemi ve promptlar: [category-photography.md](category-photography.md). [Büyük yazı önizlemesi](previews/category-large-text.png).
+Dosyalar: `bitir_yemek_mobile/assets/images/categories/{restoran,firin,pastane,market,kafe,manav,kasap,bufe}.webp`. Üretim yöntemi ve promptlar: [category-photography.md](category-photography.md). [Büyük yazı önizlemesi](previews/category-large-text.png).
 
 ## Genel kontrolde giderilen sorunlar
 

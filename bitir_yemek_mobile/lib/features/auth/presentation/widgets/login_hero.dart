@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_artwork_image.dart';
 
-/// A local food photograph connects sign-in to the food rescue experience.
+/// A food photograph connects sign-in to the food rescue experience.
 class LoginHero extends StatelessWidget {
   const LoginHero({super.key});
 
@@ -40,12 +41,11 @@ class LoginHero extends StatelessWidget {
                   bottom: -45,
                   child: Transform.rotate(
                     angle: -0.16,
-                    child: Image.asset(
-                      'assets/images/onboarding/foodbox-bakery.png',
+                    child: const AppArtworkImage(
+                      'assets/images/onboarding/foodbox-bakery.webp',
                       width: 205,
                       height: 205,
                       fit: BoxFit.contain,
-                      cacheWidth: 615,
                     ),
                   ),
                 ),

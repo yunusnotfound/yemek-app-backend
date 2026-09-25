@@ -84,10 +84,24 @@ flutter:
           weight: 900
   
   assets:
-    - assets/images/
-    # Alt klasörler ayrıca yazılmalı; Flutter varlıkları özyinelemeli taramaz.
-    - assets/images/categories/
-    - assets/images/onboarding/
+    # Büyük görseller CDN'den gelir; çevrimdışı açılış için küçük önizlemeler.
+    # Orijinaller tasarım/CDN kaynağı olarak diskte korunur, bundle'a eklenmez.
+    - assets/images/food_box.png
+    - assets/images/google-mark.png
+    - assets/previews/categories/bufe.webp
+    - assets/previews/categories/firin.webp
+    - assets/previews/categories/kafe.webp
+    - assets/previews/categories/kasap.webp
+    - assets/previews/categories/manav.webp
+    - assets/previews/categories/market.webp
+    - assets/previews/categories/pastane.webp
+    - assets/previews/categories/restoran.webp
+    - assets/previews/onboarding/foodbox-bakery.webp
+    - assets/previews/onboarding/foodbox-dessert.webp
+    - assets/previews/onboarding/foodbox-meal.webp
+    - assets/previews/onboarding/kraft-texture.webp
+    - assets/previews/onboarding/rescue-bag.webp
+    - assets/previews/onboarding/waste-bin.webp
     # Açılış sahnesi marka logosunu buradan okur (flutter_launcher_icons ile
     # aynı dosya; logo tek bir yerde tutulsun diye kopyalanmadı).
-    - assets/icon/
+    - assets/icon/app_icon.png

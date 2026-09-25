@@ -78,6 +78,45 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
+// Public images do not consume API/auth rate limits. Serve them before the
+// credentialed API CORS middleware so a CDN can share one response across origins.
+const uploadsDirectory = path.join(__dirname, '..', 'uploads');
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+    next();
+  },
+  cors({ origin: '*', methods: ['GET', 'HEAD'], credentials: false }),
+  express.static(uploadsDirectory, {
+    fallthrough: false,
+    index: false,
+    redirect: false,
+    setHeaders: (res, filePath) => {
+      const relativePath = path.relative(uploadsDirectory, filePath);
+      // Uploads receive a new UUID on every write; replacements have new URLs.
+      const isImmutableUpload = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpg|png|webp)$/i.test(relativePath);
+      const isVersionedCatalog = /^demo-catalog-v\d+\/[\w-]+\.(jpg|png|webp)$/i.test(relativePath);
+      const cacheControl = isImmutableUpload
+        ? 'public, max-age=31536000, immutable'
+        : `public, max-age=${isVersionedCatalog ? 604800 : 86400}`;
+      res.setHeader('Cache-Control', cacheControl);
+    },
+  }),
+  (err, req, res, next) => {
+    // Missing files and invalid ranges must not inherit a successful image TTL.
+    res.setHeader('Cache-Control', 'no-store');
+    // Static-file ENOENT messages contain the server's absolute storage path.
+    if (err.statusCode === 404) {
+      return res.status(404).json({ success: false, message: 'Görsel bulunamadı' });
+    }
+    next(err);
+  }
+);
+
 // Native uygulamalar Origin göndermez; Origin'siz istekler her zaman izinli.
 // CORS_ORIGIN, tarayıcı istemcileri için virgülle ayrılmış izin listesidir.
 const allowedOrigins = (process.env.CORS_ORIGIN || '')
@@ -225,25 +264,6 @@ app.use('/api/payments/iyzico/webhook', express.raw({ type: '*/*', limit: '50kb'
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
-
-// Yüklenen görseller farklı origin'deki web istemcisinden (<img>) yüklenebilsin diye
-// CORP'u cross-origin yap (helmet varsayılanı same-origin).
-app.use(
-  '/uploads',
-  (req, res, next) => {
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    next();
-  },
-  express.static(path.join(__dirname, '..', 'uploads'), {
-    setHeaders: (res) => {
-      // Yüklenen dosyalar asla script/HTML olarak yorumlanmasın (stored-XSS savunması).
-      // nosniff MIME tahminini kapatır; sandbox CSP'si dosyaya doğrudan gidilse bile
-      // script yürütmeyi engeller (<img> gömme etkilenmez).
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
-    },
-  })
-);
 
 app.get('/api/health', async (req, res) => {
   const { sequelize } = require('./models');

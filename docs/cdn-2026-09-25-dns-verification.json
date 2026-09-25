@@ -1,0 +1,56 @@
+{
+  "verified_at_utc": "2026-09-25T13:26:13.721318+00:00",
+  "nameserver": "amanda.ns.cloudflare.com",
+  "manual_migration_comparison": "Root agent compared all 8 original provider UI records with the imported/added Cloudflare records before retirement of the old zone. The missing Google verification CNAME was added explicitly.",
+  "old_nameserver_recheck": "After delegation changed, tr.dnsenable.com had SOA serial 2026092506 and returned a parking A record with no former API/mail/auth records. Exact post-change equality cannot be derived from that retired zone.",
+  "results": [
+    {
+      "name": "bitirgitsin.com",
+      "type": "A",
+      "present": true,
+      "semantic_check_passed": true
+    },
+    {
+      "name": "api.bitirgitsin.com",
+      "type": "A",
+      "present": true,
+      "semantic_check_passed": true
+    },
+    {
+      "name": "www.bitirgitsin.com",
+      "type": "A",
+      "present": true,
+      "semantic_check_passed": true
+    },
+    {
+      "name": "bitirgitsin.com",
+      "type": "MX",
+      "present": true,
+      "semantic_check_passed": true
+    },
+    {
+      "name": "send.bitirgitsin.com",
+      "type": "MX",
+      "present": true,
+      "semantic_check_passed": true
+    },
+    {
+      "name": "resend._domainkey.bitirgitsin.com",
+      "type": "TXT",
+      "present": true,
+      "semantic_check_passed": true
+    },
+    {
+      "name": "send.bitirgitsin.com",
+      "type": "TXT",
+      "present": true,
+      "semantic_check_passed": true
+    },
+    {
+      "name": "aghlj2e5arul.bitirgitsin.com",
+      "type": "CNAME",
+      "present": true,
+      "semantic_check_passed": true
+    }
+  ]
+}

@@ -1,0 +1,131 @@
+{
+  "measuredAt": "2026-09-25T15:22:54.236779+00:00",
+  "measurement": "Uncompressed unsigned iOS device arm64 release .app; not App Store download size",
+  "bundleIdentifier": "com.bitiryemek.bitirgitsin",
+  "version": "1.0.0",
+  "buildNumber": "2",
+  "flutterVersion": "3.41.6",
+  "dartVersion": "3.11.4",
+  "splitDebugInfoEnabled": true,
+  "appDefinitionNames": [
+    "API_BASE_URL",
+    "MAPBOX_ACCESS_TOKEN",
+    "GOOGLE_CLIENT_ID"
+  ],
+  "secretValuesPrinted": false,
+  "previousLocalReleaseBytes": 88421159,
+  "current": {
+    "appBytes": 65010649,
+    "ownAssetBytes": 294351,
+    "allFlutterAssetBytes": 589786,
+    "dartBinaryBytes": 8259600,
+    "materialIconBytes": 20680
+  },
+  "appBytesSaved": 23410510,
+  "appPercentReduction": 26.4761,
+  "bundleChecks": [
+    {
+      "canonicalAsset": "assets/images/categories/bufe.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/categories/firin.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/categories/kafe.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/categories/kasap.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/categories/manav.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/categories/market.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/categories/pastane.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/categories/restoran.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/onboarding/foodbox-bakery.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/onboarding/foodbox-dessert.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/onboarding/foodbox-meal.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/onboarding/kraft-texture.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/onboarding/rescue-bag.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    },
+    {
+      "canonicalAsset": "assets/images/onboarding/waste-bin.webp",
+      "originalUnchanged": true,
+      "originalAbsentFromBundle": true,
+      "bundledPreviewMatches": true
+    }
+  ],
+  "dependencyLockFilesUnchanged": true,
+  "artifactPath": "bitir_yemek_mobile/build/artwork-cdn-2026-09-25/Runner.app",
+  "symbols": {
+    "app.ios-arm64.symbols": {
+      "bytes": 4419536,
+      "sha256": "050afc92d747251f1a161b5a7ba95107d206cd618cdb9bb577dd03f11a5c5d5f"
+    }
+  },
+  "validation": {
+    "flutterAnalyze": "No issues found",
+    "targetedTestsPassed": 19,
+    "designAndPerformanceTestsPassed": 23,
+    "categoryCaptureTestsPassed": 4,
+    "categoryCaptureRepeatsTestsInTargetedGroup": true,
+    "totalDistinctTestsPassed": 42,
+    "independentCodeReview": "No blocking findings",
+    "gitDiffCheck": "passed"
+  },
+  "appStoreUploadPerformed": false
+}

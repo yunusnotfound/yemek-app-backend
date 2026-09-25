@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
-/// A reusable cached image widget with timeout fallback.
+import '../../core/utils/cached_image_provider.dart';
+
+/// A disk-cached image decoded at its displayed size.
 ///
-/// If the image doesn't load within [timeout], it shows the [placeholder]
-/// instead of an infinite CircularProgressIndicator.
+/// After [timeout], the loading indicator becomes [placeholder]. The download
+/// stays subscribed so a slow connection can still deliver the image later.
 class AppCachedImage extends StatefulWidget {
   final String? imageUrl;
   final double? width;
@@ -38,6 +39,10 @@ class _AppCachedImageState extends State<AppCachedImage> {
   @override
   void initState() {
     super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
     if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
       _timer = Timer(widget.timeout, () {
         if (mounted && !_loaded) {
@@ -50,17 +55,12 @@ class _AppCachedImageState extends State<AppCachedImage> {
   @override
   void didUpdateWidget(AppCachedImage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl) {
+    if (oldWidget.imageUrl != widget.imageUrl ||
+        oldWidget.timeout != widget.timeout) {
       _timer?.cancel();
       _loaded = false;
       _timedOut = false;
-      if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
-        _timer = Timer(widget.timeout, () {
-          if (mounted && !_loaded) {
-            setState(() => _timedOut = true);
-          }
-        });
-      }
+      _startTimer();
     }
   }
 
@@ -72,7 +72,7 @@ class _AppCachedImageState extends State<AppCachedImage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.imageUrl == null || widget.imageUrl!.isEmpty || _timedOut) {
+    if (widget.imageUrl == null || widget.imageUrl!.isEmpty) {
       return SizedBox(
         width: widget.width,
         height: widget.height,
@@ -80,48 +80,63 @@ class _AppCachedImageState extends State<AppCachedImage> {
       );
     }
 
-    // Görseli belleğe görüntülenen boyutta çöz (tam çözünürlük yerine) — RAM/GC
-    // baskısını azaltır. En boy oranı bozulmasın diye yalnız tek boyut sınırlanır.
-    final dpr = MediaQuery.of(context).devicePixelRatio;
-    int? memCacheWidth;
-    int? memCacheHeight;
-    if (widget.width != null) {
-      memCacheWidth = (widget.width! * dpr).round();
-    } else if (widget.height != null) {
-      memCacheHeight = (widget.height! * dpr).round();
-    }
-
-    return CachedNetworkImage(
-      imageUrl: widget.imageUrl!,
+    return SizedBox(
       width: widget.width,
       height: widget.height,
-      fit: widget.fit,
-      useOldImageOnUrlChange: true,
-      maxWidthDiskCache: 800,
-      maxHeightDiskCache: 600,
-      memCacheWidth: memCacheWidth,
-      memCacheHeight: memCacheHeight,
-      fadeInDuration: const Duration(milliseconds: 300),
-      imageBuilder: (context, imageProvider) {
-        _loaded = true;
-        _timer?.cancel();
-        return Container(
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            image: DecorationImage(image: imageProvider, fit: widget.fit),
-          ),
-        );
-      },
-      placeholder: (context, url) =>
-          widget.loadingWidget ??
-          Container(
-            color: Colors.grey[200],
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final dpr = MediaQuery.devicePixelRatioOf(context);
+          // Most callers size a parent rather than this widget. Use those
+          // constraints too, keeping a single decode dimension to preserve
+          // the source aspect ratio. Never round an infinite layout extent.
+          final width = _finiteExtent(widget.width, constraints.maxWidth);
+          final height = _finiteExtent(widget.height, constraints.maxHeight);
+          final cacheWidth = width == null
+              ? null
+              : (width * dpr).ceil().clamp(1, 2048);
+          final cacheHeight = cacheWidth != null || height == null
+              ? null
+              : (height * dpr).ceil().clamp(1, 2048);
+          return Image(
+            // Keep the compressed response in the shared disk cache. Resizing
+            // the disk file first decodes the full image and re-encodes a PNG
+            // before anything can be displayed. Resize only at decode time.
+            image: cachedImageProvider(
+              widget.imageUrl!,
+              pixelWidth: width == null ? null : width * dpr,
+              cacheWidth: cacheWidth ?? (cacheHeight == null ? 1024 : null),
+              cacheHeight: cacheHeight,
             ),
-          ),
-      errorWidget: (context, url, error) => widget.placeholder,
+            width: widget.width,
+            height: widget.height,
+            fit: widget.fit,
+            frameBuilder: (context, child, frame, synchronouslyLoaded) {
+              if (frame != null || synchronouslyLoaded) {
+                _loaded = true;
+                _timer?.cancel();
+                return child;
+              }
+              if (_timedOut) return widget.placeholder;
+              return widget.loadingWidget ??
+                  ColoredBox(
+                    color: Colors.grey.shade200,
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              _timer?.cancel();
+              return widget.placeholder;
+            },
+          );
+        },
+      ),
     );
+  }
+
+  double? _finiteExtent(double? explicit, double constrained) {
+    if (explicit != null && explicit.isFinite && explicit > 0) return explicit;
+    return constrained.isFinite && constrained > 0 ? constrained : null;
   }
 }

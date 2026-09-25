@@ -9,6 +9,9 @@ const namespace = 'bitirgitsin:demo-catalog:v1';
 const email = 'catalog-demo@bitirgitsin.invalid';
 const notice = 'TEST VERİSİ — Bu işletme ve paketler uygulama denemesi içindir. Gerçek satış veya teslimat yapılmaz.';
 const imageBase = 'https://api.bitirgitsin.com/uploads/demo-catalog-v1';
+// These are existing public upload filenames, not local Flutter asset paths.
+// The mobile sources now use lossless WebP; keep the deployed PNG URLs stable.
+// See docs/demo-catalog.md for preparing equivalent PNGs from those sources.
 const definitions = [
   { key: 'bakery', name: 'Mahalle Fırını', category: 'firin-pastane', image: 'firin-pastane.png', lat: 41.0468, lng: 28.9101,
     items: [['Fırından Sürpriz', 'Simit, poğaça ve günlük ekmek seçkisi.', 240, 80, 8], ['Kahvaltılık Kutu', 'Açma, zeytinli poğaça ve mini kruvasan seçkisi.', 300, 100, 3]] },

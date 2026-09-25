@@ -1,0 +1,237 @@
+{
+  "date": "2026-09-25",
+  "zone": "bitirgitsin.com",
+  "scope": "Bounded read-only production HTTP checks; no auth, OTP, payment POST or account mutations.",
+  "transport": {
+    "hostname": "api.bitirgitsin.com",
+    "https_certificate_validation": true,
+    "resolution": "Cloudflare public DNS address forced with curl --resolve because local DNS previously retained origin",
+    "pop": "IST"
+  },
+  "rate_limit": {
+    "configured": {
+      "requests_per_period": 20,
+      "period_seconds": 10,
+      "mitigation_timeout_seconds": 10,
+      "action": "block",
+      "characteristic": "client IP"
+    },
+    "path": "/api/auth/login",
+    "method": "GET",
+    "method_is_not_implemented": true,
+    "burst_requests": 30,
+    "burst_elapsed_seconds": 3.817,
+    "request_groups": [
+      {
+        "indices": [
+          1,
+          19
+        ],
+        "count": 19,
+        "status": 404,
+        "source": "origin through Cloudflare",
+        "body_type": "json",
+        "message": "Endpoint bulunamadı",
+        "selected_headers": {
+          "content-type": "application/json; charset=utf-8",
+          "server": "cloudflare",
+          "cf-cache-status": "DYNAMIC",
+          "ratelimit-limit": "20"
+        },
+        "first_remaining": "18",
+        "last_remaining": "0",
+        "last_elapsed_seconds": 3.027
+      },
+      {
+        "indices": [
+          20,
+          20
+        ],
+        "count": 1,
+        "status": 429,
+        "source": "origin auth rate limiter through Cloudflare",
+        "body_type": "json",
+        "message": "Çok fazla giriş denemesi, lütfen 15 dakika sonra tekrar deneyin",
+        "elapsed_seconds": 3.143,
+        "selected_headers": {
+          "content-type": "application/json; charset=utf-8",
+          "server": "cloudflare",
+          "cf-cache-status": "DYNAMIC",
+          "retry-after": "11",
+          "ratelimit-limit": "20",
+          "ratelimit-remaining": "0"
+        }
+      },
+      {
+        "indices": [
+          21,
+          30
+        ],
+        "count": 10,
+        "status": 429,
+        "source": "Cloudflare edge rate limit",
+        "body_type": "plain text; neither JSON nor HTML",
+        "body_bytes": 17,
+        "first_elapsed_seconds": 3.277,
+        "last_elapsed_seconds": 3.817,
+        "selected_headers": {
+          "content-type": "text/plain; charset=UTF-8",
+          "server": "cloudflare",
+          "retry-after": "10"
+        },
+        "absent_headers": [
+          "ratelimit-limit",
+          "ratelimit-remaining",
+          "cf-cache-status"
+        ]
+      }
+    ],
+    "recovery": {
+      "requests": 1,
+      "timestamp_utc": "2026-09-25T13:48:32Z",
+      "status": 404,
+      "body_type": "json",
+      "message": "Endpoint bulunamadı",
+      "selected_headers": {
+        "server": "cloudflare",
+        "content-type": "application/json; charset=utf-8",
+        "cf-cache-status": "DYNAMIC",
+        "ratelimit-limit": "20",
+        "ratelimit-remaining": "19",
+        "ratelimit-reset": "900"
+      },
+      "timing_note": "Checked after the 10-second mitigation interval had elapsed, not exactly at +10 seconds. The origin bucket also naturally reset; edge expiry does not reset the separate origin limiter."
+    },
+    "total_auth_gets": 31,
+    "origin_note": "One auth request was already in the origin IP bucket before the burst. Origin limit is 20 per 900 seconds; its first 429 had Retry-After 11 seconds because that existing window was near expiry.",
+    "non_auth_checks_after_burst": {
+      "timestamp_utc": "2026-09-25T13:48:06Z",
+      "health_status": 200,
+      "health_cache_status": "DYNAMIC",
+      "image_status": 200,
+      "image_cache_status": "HIT"
+    },
+    "measurement_limit": "Immediate concurrent health/image requests were made but their combined output parser failed on binary PNG decoding. Separate successful checks were recorded afterward; no additional burst was performed."
+  },
+  "waf": {
+    "configured_rule_id": "4839810e0f3546c1a641765c150c8751",
+    "checks": [
+      {
+        "path": "/.env",
+        "method": "GET",
+        "started_at_utc": "2026-09-25T13:49:27.084847+00:00",
+        "elapsed_seconds": 0.056,
+        "status": 403,
+        "body_type": "html",
+        "body_bytes": 4550,
+        "selected_headers": {
+          "content-type": "text/html; charset=UTF-8",
+          "server": "cloudflare",
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-pop": "IST"
+        },
+        "body_summary": {},
+        "curl_exit": 0
+      },
+      {
+        "path": "/.git/config",
+        "method": "GET",
+        "started_at_utc": "2026-09-25T13:49:27.085375+00:00",
+        "elapsed_seconds": 0.057,
+        "status": 403,
+        "body_type": "html",
+        "body_bytes": 4550,
+        "selected_headers": {
+          "content-type": "text/html; charset=UTF-8",
+          "server": "cloudflare",
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-pop": "IST"
+        },
+        "body_summary": {},
+        "curl_exit": 0
+      },
+      {
+        "path": "/wp-login.php",
+        "method": "GET",
+        "started_at_utc": "2026-09-25T13:49:27.085451+00:00",
+        "elapsed_seconds": 0.056,
+        "status": 403,
+        "body_type": "html",
+        "body_bytes": 4550,
+        "selected_headers": {
+          "content-type": "text/html; charset=UTF-8",
+          "server": "cloudflare",
+          "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+          "cf-pop": "IST"
+        },
+        "body_summary": {},
+        "curl_exit": 0
+      },
+      {
+        "path": "/api/health",
+        "method": "GET",
+        "started_at_utc": "2026-09-25T13:49:27.086927+00:00",
+        "elapsed_seconds": 0.122,
+        "status": 200,
+        "body_type": "json",
+        "body_bytes": 144,
+        "selected_headers": {
+          "content-type": "application/json; charset=utf-8",
+          "server": "cloudflare",
+          "cf-cache-status": "DYNAMIC",
+          "ratelimit-limit": "100",
+          "ratelimit-remaining": "95",
+          "cf-pop": "IST"
+        },
+        "body_summary": {
+          "status": "ok",
+          "database": "connected",
+          "redis": "connected"
+        },
+        "curl_exit": 0
+      },
+      {
+        "path": "/uploads/demo-catalog-v1/firin-pastane.png",
+        "method": "GET",
+        "started_at_utc": "2026-09-25T13:49:27.087203+00:00",
+        "elapsed_seconds": 0.072,
+        "status": 200,
+        "body_type": "binary",
+        "body_bytes": 116534,
+        "selected_headers": {
+          "content-type": "image/png",
+          "server": "cloudflare",
+          "cf-cache-status": "HIT",
+          "cache-control": "public, max-age=604800",
+          "cf-pop": "IST"
+        },
+        "body_summary": {},
+        "curl_exit": 0
+      }
+    ]
+  },
+  "client_review": {
+    "mobile": {
+      "result": "Plain-text or HTML edge errors are not gracefully parsed; the application catches the resulting type error and may display technical error text.",
+      "unsafe_cast": "bitir_yemek_mobile/lib/features/auth/data/datasources/auth_remote_datasource.dart:127",
+      "fallback_error_display": [
+        "bitir_yemek_mobile/lib/features/auth/data/repositories/auth_repository_impl.dart:47",
+        "bitir_yemek_mobile/lib/features/auth/data/repositories/auth_repository_impl.dart:92"
+      ],
+      "recommendation": "Handle HTTP 429 by status before parsing the body; present a Turkish retry message, optionally using a validated numeric Retry-After. Only read message/errors when response.data is a Map. Never show raw HTML/plain edge bodies."
+    },
+    "web": {
+      "result": "Non-JSON errors are caught and presented as a generic ApiError; no parser type failure. Retry-After is not surfaced.",
+      "source": "web/src/lib/api/browser.ts:20"
+    },
+    "code_changed": false,
+    "followup_mobile_fix": {
+      "status": "implemented in mobile source; not released",
+      "file": "bitir_yemek_mobile/lib/features/auth/data/datasources/auth_remote_datasource.dart",
+      "behavior": "HTTP 429 handled before body parsing; validated Retry-After seconds in Turkish retry message; non-Map/non-string fields handled safely.",
+      "validation": "21 targeted tests passed; Flutter analyze clean",
+      "test_file": "bitir_yemek_mobile/test/auth_edge_errors_test.dart"
+    }
+  },
+  "privacy": "No client IP, auth token, cookies, or full Cloudflare HTML error body recorded."
+}

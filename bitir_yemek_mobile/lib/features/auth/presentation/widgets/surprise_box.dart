@@ -27,19 +27,19 @@ class _SurpriseBoxState extends State<SurpriseBox>
   /// Kutudan çıkabilecek temsili paketler.
   static const List<_SurpriseItem> _items = [
     _SurpriseItem(
-      asset: 'assets/images/onboarding/foodbox-bakery.png',
+      asset: 'assets/images/onboarding/foodbox-bakery.webp',
       color: Color(0xFFD98E3E),
       label: 'Fırın Sepeti',
       discount: 70,
     ),
     _SurpriseItem(
-      asset: 'assets/images/onboarding/foodbox-meal.png',
+      asset: 'assets/images/onboarding/foodbox-meal.webp',
       color: Color(0xFFE0663D),
       label: 'Öğle Menüsü',
       discount: 50,
     ),
     _SurpriseItem(
-      asset: 'assets/images/onboarding/foodbox-dessert.png',
+      asset: 'assets/images/onboarding/foodbox-dessert.webp',
       color: Color(0xFFC1443B),
       label: 'Tatlı Kutusu',
       discount: 55,

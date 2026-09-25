@@ -1,8 +1,18 @@
 # Tanıtım görselleri
 
+25 Eylül 2026: aşağıdaki PNG kaynakları uygulama boyutunu azaltmak için kayıpsız WebP olarak paketlendi. Çözünürlük, şeffaflık ve RGBA pikselleri orijinallerle birebir doğrulandı; üretim istemleri değişmedi.
+
+Aynı gün kullanıcının seçtiği CDN geçişiyle aktif altı büyük onboarding
+görseli `/uploads/app-artwork-v1/onboarding/` üzerinden sunulmaya başladı.
+Uygulama paketinde yalnız `assets/previews/onboarding/` altındaki 128 piksel
+önizlemeler bulunur; offline tanıtım ve animasyonlar bunlarla çalışır.
+Orijinal WebP'ler aşağıdaki yollarda korunur. Kullanılmayan
+`surprise-package.webp` CDN'ye veya pakete eklenmedi.
+[Uygulama ve doğrulamalar](cdn-app-artwork-2026-09-25.md).
+
 ## foodbox-bakery
 
-Dosya: `bitir_yemek_mobile/assets/images/onboarding/foodbox-bakery.png`
+Dosya: `bitir_yemek_mobile/assets/images/onboarding/foodbox-bakery.webp`
 
 Yerleşik image_gen ile üretildi. Yemek ve sığ yuvarlatılmış paket tek fotoğraf olarak, doğal en-boy oranıyla gösterilir.
 
@@ -13,7 +23,7 @@ Use case: product-mockup. Asset type: photorealistic transparent cutout for an a
 
 ## foodbox-meal
 
-Dosya: `bitir_yemek_mobile/assets/images/onboarding/foodbox-meal.png`
+Dosya: `bitir_yemek_mobile/assets/images/onboarding/foodbox-meal.webp`
 
 Yerleşik image_gen ile üretildi. Yemek ve sığ yuvarlatılmış paket tek fotoğraf olarak, doğal en-boy oranıyla gösterilir.
 
@@ -24,7 +34,7 @@ Use case: product-mockup. Asset type: photorealistic transparent cutout for an a
 
 ## foodbox-dessert
 
-Dosya: `bitir_yemek_mobile/assets/images/onboarding/foodbox-dessert.png`
+Dosya: `bitir_yemek_mobile/assets/images/onboarding/foodbox-dessert.webp`
 
 Yerleşik image_gen ile üretildi. Yemek ve sığ yuvarlatılmış paket tek fotoğraf olarak, doğal en-boy oranıyla gösterilir.
 
@@ -35,7 +45,7 @@ Use case: product-mockup. Asset type: photorealistic transparent cutout for an a
 
 ## kraft-texture
 
-Dosya: `bitir_yemek_mobile/assets/images/onboarding/kraft-texture.png`
+Dosya: `bitir_yemek_mobile/assets/images/onboarding/kraft-texture.webp`
 
 Yerleşik `image_gen` ile üretildi. İkinci tanıtım ekranındaki menteşeli kutunun yüzeylerine doku olarak uygulanır; kapak ve gövde aynı malzemeyi kullanır.
 
@@ -48,7 +58,7 @@ Use case: product-mockup. Asset type: photographic material texture mapped onto 
 
 ## surprise-package
 
-Dosya: `bitir_yemek_mobile/assets/images/onboarding/surprise-package.png`
+Dosya: `bitir_yemek_mobile/assets/images/onboarding/surprise-package.webp`
 
 Üretim istemi:
 
@@ -56,7 +66,7 @@ Use case: product-mockup. Asset type: transparent cutout for an interactive mobi
 
 ## rescue-bag
 
-Dosya: `bitir_yemek_mobile/assets/images/onboarding/rescue-bag.png`
+Dosya: `bitir_yemek_mobile/assets/images/onboarding/rescue-bag.webp`
 
 Üretim istemi:
 
@@ -64,7 +74,7 @@ Use case: product-mockup. Asset type: transparent cutout for a mobile food-rescu
 
 ## waste-bin
 
-Dosya: `bitir_yemek_mobile/assets/images/onboarding/waste-bin.png`
+Dosya: `bitir_yemek_mobile/assets/images/onboarding/waste-bin.webp`
 
 Üretim istemi:
 

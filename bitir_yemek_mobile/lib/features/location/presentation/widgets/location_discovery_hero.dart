@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_artwork_image.dart';
 
 /// An illustrative neighborhood, not a preview of live businesses or distances.
 class LocationDiscoveryHero extends StatelessWidget {
@@ -69,7 +70,7 @@ class LocationDiscoveryHero extends StatelessWidget {
                           right: 12,
                           top: 28,
                           child: _FoodMarker(
-                            asset: 'foodbox-meal.png',
+                            asset: 'foodbox-meal.webp',
                             label: 'Restoranlar',
                             angle: 0.10,
                           ),
@@ -78,7 +79,7 @@ class LocationDiscoveryHero extends StatelessWidget {
                           left: 10,
                           bottom: 20,
                           child: _FoodMarker(
-                            asset: 'foodbox-bakery.png',
+                            asset: 'foodbox-bakery.webp',
                             label: 'Fırın & pastaneler',
                             angle: -0.12,
                           ),
@@ -141,12 +142,11 @@ class _FoodMarker extends StatelessWidget {
         children: [
           Transform.rotate(
             angle: angle,
-            child: Image.asset(
+            child: AppArtworkImage(
               'assets/images/onboarding/$asset',
               width: 132,
               height: 106,
               fit: BoxFit.contain,
-              cacheWidth: 396,
             ),
           ),
           Container(

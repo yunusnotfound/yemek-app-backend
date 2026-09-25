@@ -1,0 +1,224 @@
+{
+  "verified_at_utc": "20260925T132109Z",
+  "authoritative_dns": {
+    "api.bitirgitsin.com": [
+      "104.21.22.6",
+      "172.67.201.174"
+    ],
+    "bitirgitsin.com": [
+      "172.67.201.174",
+      "104.21.22.6"
+    ],
+    "www.bitirgitsin.com": [
+      "104.21.22.6",
+      "172.67.201.174"
+    ]
+  },
+  "results": [
+    {
+      "kind": "uuid_image",
+      "attempt": 1,
+      "url": "https://api.bitirgitsin.com/uploads/30885ea2-91c8-4147-a18f-bef16b93f16e.jpg?cdn_verify=20260925T132109Z",
+      "remote_ip": "104.21.22.6",
+      "status": 200,
+      "cf_cache_status": "MISS",
+      "age": null,
+      "cf_ray": "a40a54929a8f92d8-IST",
+      "cache_control": "public, max-age=31536000, immutable",
+      "server": "cloudflare",
+      "size_bytes": 14572,
+      "sha256": "89019f7e6b5e9d264a8a6251e88278dcbef5fe76470453100d1f26bf760a19d1",
+      "ttfb_seconds": 0.25791,
+      "total_seconds": 0.306399
+    },
+    {
+      "kind": "uuid_image",
+      "attempt": 2,
+      "url": "https://api.bitirgitsin.com/uploads/30885ea2-91c8-4147-a18f-bef16b93f16e.jpg?cdn_verify=20260925T132109Z",
+      "remote_ip": "104.21.22.6",
+      "status": 200,
+      "cf_cache_status": "HIT",
+      "age": "0",
+      "cf_ray": "a40a5494af70b655-IST",
+      "cache_control": "public, max-age=31536000, immutable",
+      "server": "cloudflare",
+      "size_bytes": 14572,
+      "sha256": "89019f7e6b5e9d264a8a6251e88278dcbef5fe76470453100d1f26bf760a19d1",
+      "ttfb_seconds": 0.125228,
+      "total_seconds": 0.127387
+    },
+    {
+      "kind": "catalog_image",
+      "attempt": 1,
+      "url": "https://api.bitirgitsin.com/uploads/demo-catalog-v1/firin-pastane.png?cdn_verify=20260925T132109Z",
+      "remote_ip": "104.21.22.6",
+      "status": 200,
+      "cf_cache_status": "MISS",
+      "age": null,
+      "cf_ray": "a40a54959b75b639-IST",
+      "cache_control": "public, max-age=604800",
+      "server": "cloudflare",
+      "size_bytes": 116534,
+      "sha256": "94fc52ef32d3dc36d1a0dbf482f1b0b352e6cbb6b28248db2c7f293480488efc",
+      "ttfb_seconds": 0.268478,
+      "total_seconds": 0.663219
+    },
+    {
+      "kind": "catalog_image",
+      "attempt": 2,
+      "url": "https://api.bitirgitsin.com/uploads/demo-catalog-v1/firin-pastane.png?cdn_verify=20260925T132109Z",
+      "remote_ip": "104.21.22.6",
+      "status": 200,
+      "cf_cache_status": "HIT",
+      "age": "0",
+      "cf_ray": "a40a5499ecc85488-IST",
+      "cache_control": "public, max-age=604800",
+      "server": "cloudflare",
+      "size_bytes": 116534,
+      "sha256": "94fc52ef32d3dc36d1a0dbf482f1b0b352e6cbb6b28248db2c7f293480488efc",
+      "ttfb_seconds": 0.038304,
+      "total_seconds": 0.044274
+    },
+    {
+      "kind": "missing_image",
+      "attempt": 1,
+      "url": "https://api.bitirgitsin.com/uploads/cdn-missing-verification-20260925.png?cdn_verify=20260925T132109Z",
+      "remote_ip": "104.21.22.6",
+      "status": 404,
+      "cf_cache_status": "BYPASS",
+      "age": null,
+      "cf_ray": "a40a549a4d9db65e-IST",
+      "cache_control": "no-store",
+      "server": "cloudflare",
+      "size_bytes": 122,
+      "sha256": "aaeb2bcf5937cde592131eaa16dd5723e9f19cfd6704ff8d55cc40108b4b22fc",
+      "ttfb_seconds": 0.265928,
+      "total_seconds": 0.266586
+    },
+    {
+      "kind": "missing_image",
+      "attempt": 2,
+      "url": "https://api.bitirgitsin.com/uploads/cdn-missing-verification-20260925.png?cdn_verify=20260925T132109Z",
+      "remote_ip": "104.21.22.6",
+      "status": 404,
+      "cf_cache_status": "BYPASS",
+      "age": null,
+      "cf_ray": "a40a549c1f59b66d-IST",
+      "cache_control": "no-store",
+      "server": "cloudflare",
+      "size_bytes": 122,
+      "sha256": "aaeb2bcf5937cde592131eaa16dd5723e9f19cfd6704ff8d55cc40108b4b22fc",
+      "ttfb_seconds": 0.093415,
+      "total_seconds": 0.094032
+    },
+    {
+      "kind": "health",
+      "attempt": 1,
+      "url": "https://api.bitirgitsin.com/api/health?cdn_verify=20260925T132109Z",
+      "remote_ip": "104.21.22.6",
+      "status": 200,
+      "cf_cache_status": "DYNAMIC",
+      "age": null,
+      "cf_ray": "a40a549cdfaeb66d-IST",
+      "cache_control": null,
+      "server": "cloudflare",
+      "size_bytes": 143,
+      "sha256": "ca9827f403602a9246ad3de8f39c3b14e6436c0d411b03abddb4b2c36a0fbdd8",
+      "ttfb_seconds": 0.260163,
+      "total_seconds": 0.262337,
+      "health": {
+        "status": "ok",
+        "database": "connected",
+        "redis": "connected"
+      }
+    },
+    {
+      "kind": "health",
+      "attempt": 2,
+      "url": "https://api.bitirgitsin.com/api/health?cdn_verify=20260925T132109Z",
+      "remote_ip": "104.21.22.6",
+      "status": 200,
+      "cf_cache_status": "DYNAMIC",
+      "age": null,
+      "cf_ray": "a40a549f6cf6b62f-IST",
+      "cache_control": null,
+      "server": "cloudflare",
+      "size_bytes": 143,
+      "sha256": "e8aa4a1b113712a4356f677bfce532d46ba8e91efec45256a608a7316b127ef4",
+      "ttfb_seconds": 0.221283,
+      "total_seconds": 0.222651,
+      "health": {
+        "status": "ok",
+        "database": "connected",
+        "redis": "connected"
+      }
+    },
+    {
+      "kind": "web",
+      "attempt": 1,
+      "url": "https://bitirgitsin.com/",
+      "remote_ip": "172.67.201.174",
+      "status": 200,
+      "cf_cache_status": "DYNAMIC",
+      "age": null,
+      "cf_ray": "a40a54a04ad9b645-IST",
+      "cache_control": "s-maxage=31536000",
+      "server": "cloudflare",
+      "size_bytes": 77944,
+      "sha256": "9f031d5539bef963a176a04c7c71699a275cdb2d708afe9da7bf432ed7cad322",
+      "ttfb_seconds": 0.353318,
+      "total_seconds": 0.375274
+    },
+    {
+      "kind": "www_web",
+      "attempt": 1,
+      "url": "https://www.bitirgitsin.com/",
+      "remote_ip": "104.21.22.6",
+      "status": 200,
+      "cf_cache_status": "DYNAMIC",
+      "age": null,
+      "cf_ray": "a40a54a2c8bcb67c-IST",
+      "cache_control": "s-maxage=31536000",
+      "server": "cloudflare",
+      "size_bytes": 77944,
+      "sha256": "8646597c648486942b0cafeeb506f67d0f1a77648cca1e8f9f902c6735e475b6",
+      "ttfb_seconds": 0.344368,
+      "total_seconds": 0.348798
+    }
+  ],
+  "client_ip_checks": [
+    {
+      "request": "direct_origin",
+      "rate_limit_remaining": 91,
+      "cf_cache_status": null,
+      "cf_ray": null
+    },
+    {
+      "request": "cloudflare_edge",
+      "rate_limit_remaining": 90,
+      "cf_cache_status": "DYNAMIC",
+      "cf_ray": "a40a56a0aa0fb63f-IST"
+    }
+  ],
+  "client_ip_check_note": "Origin and edge requests from the same client decreased one shared rate-limit bucket (91 to 90). A subsequent forged-header edge probe failed in curl with exit 56 / HTTP 403 and did not reach a verified application response. Direct-origin spoofed headers and isolated trusted-proxy behavior were verified separately.",
+  "image_transform": {
+    "verified_at_utc": "2026-09-25T13:25:39.454090+00:00",
+    "url": "https://api.bitirgitsin.com/cdn-cgi/image/width=640,fit=scale-down,format=webp,quality=85,onerror=redirect/uploads/demo-catalog-v1/kafe.png",
+    "status": 200,
+    "remote_ip": "104.21.22.6",
+    "content_type": "image/webp",
+    "cf_resized": "internal=ram/m q=0 n=0+0 c=37+52 v=2026.9.11 l=75036 f=true c2=12 wv=2026.9.1",
+    "cf_cache_status": "HIT",
+    "cf_ray": "a40a5b28ea1db66d-IST",
+    "bytes": 75036,
+    "original_origin_bytes": 2377092
+  },
+  "missing_image_after_followup": {
+    "verified_at_utc": "2026-09-25T13:27:35.786479+00:00",
+    "status": 404,
+    "cache_control": "no-store",
+    "cf_cache_status": "BYPASS",
+    "generic_missing_message": true,
+    "filesystem_path_present": false
+  }
+}

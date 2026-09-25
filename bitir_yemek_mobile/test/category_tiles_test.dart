@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:bitir_yemek_mobile/config/theme.dart';
+import 'package:bitir_yemek_mobile/core/utils/app_artwork.dart';
+import 'package:bitir_yemek_mobile/core/utils/cached_image_provider.dart';
 import 'package:bitir_yemek_mobile/features/home/data/models/category_model.dart';
 import 'package:bitir_yemek_mobile/features/home/presentation/widgets/category_tiles.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +10,32 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'campaign_ui_test.dart' as preview;
+
+class _OfflineImage extends ImageStreamCompleter {
+  _OfflineImage() {
+    scheduleMicrotask(() => reportError(exception: Exception('offline')));
+  }
+}
+
+// The real bundled previews are decoded; CDN requests deterministically fail.
+// No platform disk-cache plugin or internet connection is needed for this UI.
+class _OfflineCategoryCache extends ImageCache {
+  final remoteKeys = <Object>{};
+
+  @override
+  ImageStreamCompleter? putIfAbsent(
+    Object key,
+    ImageStreamCompleter Function() loader, {
+    ImageErrorListener? onError,
+  }) => remoteKeys.contains(key)
+      ? _OfflineImage()
+      : super.putIfAbsent(key, loader, onError: onError);
+}
+
+class _Binding extends AutomatedTestWidgetsFlutterBinding {
+  @override
+  ImageCache createImageCache() => _OfflineCategoryCache();
+}
 
 const categories = [
   CategoryModel(id: 0, name: 'Hepsi', slug: 'all'),
@@ -67,7 +97,10 @@ Future<GlobalKey> mount(
 
 Future<void> decodeVisiblePhotos(WidgetTester tester) async {
   final context = tester.element(find.byType(CategoryTiles));
-  final images = tester.widgetList<Image>(find.byType(Image)).toList();
+  final images = tester.widgetList<Image>(find.byType(Image)).where((image) {
+    final provider = image.image;
+    return provider is ResizeImage && provider.imageProvider is AssetImage;
+  }).toList();
   await tester.runAsync(() async {
     await Future.wait(
       images.map((image) => precacheImage(image.image, context)),
@@ -77,7 +110,21 @@ Future<void> decodeVisiblePhotos(WidgetTester tester) async {
 }
 
 void main() {
+  final binding = _Binding();
   setUpAll(() async {
+    final cache = binding.imageCache as _OfflineCategoryCache;
+    for (final category in categories.skip(1)) {
+      final artwork = resolveAppArtwork(
+        'assets/images/categories/${category.slug}.webp',
+      );
+      cache.remoteKeys.add(
+        await cachedImageProvider(
+          artwork.imageUrl!,
+          pixelWidth: 252,
+          cacheWidth: 252,
+        ).obtainKey(ImageConfiguration.empty),
+      );
+    }
     final font = FontLoader('Korolev');
     for (final weight in ['Medium', 'Bold']) {
       font.addFont(rootBundle.load('assets/fonts/Korolev $weight.otf'));
@@ -88,7 +135,7 @@ void main() {
     await icons.load();
   });
 
-  preview.visualTest('All eight API categories decode their own photograph', (
+  preview.visualTest('All eight categories show their bundled photo offline', (
     tester,
   ) async {
     final key = await mount(tester, width: 960);
@@ -96,8 +143,7 @@ void main() {
     final rendered = tester.widgetList<RawImage>(find.byType(RawImage));
     expect(rendered, hasLength(8));
     expect(rendered.every((image) => image.image != null), isTrue);
-    // 84 logical pixels at 3x use bounded thumbnails instead of full originals.
-    expect(rendered.every((image) => image.image!.width <= 252), isTrue);
+    expect(rendered.every((image) => image.image!.width <= 128), isTrue);
     expect(find.byIcon(Icons.grid_view_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
     await preview.shot(tester, key, 'kategoriler-tumu');

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_artwork_image.dart';
 
 class PackagesEmptyState extends StatelessWidget {
   final VoidCallback onRefresh;
@@ -131,12 +132,11 @@ class _EmptyBagPhoto extends StatelessWidget {
             ),
             Transform.rotate(
               angle: -0.12,
-              child: Image.asset(
-                'assets/images/onboarding/rescue-bag.png',
+              child: const AppArtworkImage(
+                'assets/images/onboarding/rescue-bag.webp',
                 height: 152,
                 width: 144,
                 fit: BoxFit.contain,
-                cacheWidth: 432,
               ),
             ),
             Positioned(

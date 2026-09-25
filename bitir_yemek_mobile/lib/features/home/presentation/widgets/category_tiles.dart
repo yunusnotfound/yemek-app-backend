@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../config/theme.dart';
+import '../../../../shared/widgets/app_artwork_image.dart';
 import '../../data/models/category_model.dart';
 
-/// Yerel fotoğraflarla gösterilen mevcut yatay kategori filtresi.
+/// Yerel önizlemelerle hemen açılan yatay kategori filtresi.
 /// Bilinmeyen kategoriler ve "Hepsi" erişilebilir bir ikonla gösterilir.
 class CategoryTiles extends StatelessWidget {
   final List<CategoryModel> categories;
@@ -32,7 +33,7 @@ class CategoryTiles extends StatelessWidget {
     // Eski birleşik kategoriyi kullanan kayıtlar da fotoğrafını korur.
     final photo = slug == 'firin-pastane' ? 'firin' : slug;
     return _photos.contains(photo)
-        ? 'assets/images/categories/$photo.png'
+        ? 'assets/images/categories/$photo.webp'
         : null;
   }
 
@@ -100,9 +101,6 @@ class _CategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final decodeSize = (_tileSize * MediaQuery.devicePixelRatioOf(context))
-        .ceil()
-        .clamp(84, 336);
     final radius = BorderRadius.circular(AppRadius.lg);
     final fallback = Icon(
       icon,
@@ -145,16 +143,12 @@ class _CategoryTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     child: imageAsset == null
                         ? Center(child: fallback)
-                        : Image.asset(
+                        : AppArtworkImage(
                             imageAsset!,
                             width: _tileSize,
                             height: _tileSize,
                             fit: BoxFit.cover,
-                            cacheWidth: decodeSize,
-                            cacheHeight: decodeSize,
-                            filterQuality: FilterQuality.medium,
-                            excludeFromSemantics: true,
-                            errorBuilder: (_, _, _) => Center(child: fallback),
+                            fallback: Center(child: fallback),
                           ),
                   ),
                 ),

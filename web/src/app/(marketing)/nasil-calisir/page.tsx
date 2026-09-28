@@ -1,5 +1,13 @@
 import type { Metadata } from "next";
-import { Store, Wallet, PackageCheck, ClipboardList, QrCode, BarChart3 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import {
+  ArrowDown,
+  ArrowRight,
+  MapPin,
+  ShoppingBag,
+  Smartphone,
+} from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
 
 export const metadata: Metadata = {
@@ -8,79 +16,204 @@ export const metadata: Metadata = {
     "Bitir Gitsin müşteriler ve işletmeler için nasıl çalışır? Sürpriz paket akışını adım adım inceleyin.",
 };
 
-const CUSTOMER = [
-  { icon: Store, title: "Keşfet", text: "Müşteriler mobil uygulamadan yakınındaki işletmelerin sürpriz paketlerini görür." },
-  { icon: Wallet, title: "Ayırt & öde", text: "Beğendiği paketi seçer, ödemesini yapar ve benzersiz bir teslim alma kodu alır." },
-  { icon: PackageCheck, title: "Teslim al", text: "Belirlenen saat aralığında işletmeye gider, kodunu gösterir ve paketini teslim alır." },
+const CUSTOMER_STEPS = [
+  {
+    icon: MapPin,
+    title: "Yakınında keşfet.",
+    text: "Uygulamada çevrendeki fırınları, restoranları ve marketleri bul. Paket açıklamasına, fiyatına ve teslim alma saatine göz at.",
+  },
+  {
+    icon: Smartphone,
+    title: "Paketini ayırt.",
+    text: "Sana uygun sürpriz paketi seç ve ödemenle siparişini tamamla. Teslim alma kodun, siparişinle birlikte uygulamada seni beklesin.",
+  },
+  {
+    icon: ShoppingBag,
+    title: "Git, al, tadını çıkar.",
+    text: "Belirtilen saat aralığında işletmeye uğra, teslim alma kodunu göster ve paketini al. İyi bir lezzete, güzel bir iyilik eşlik etsin.",
+  },
 ];
 
-const BUSINESS = [
-  { icon: ClipboardList, title: "İşletmeni kaydet", text: "Web panelinden ücretsiz hesap aç, işletme bilgilerini ve konumunu gir. Admin onayının ardından yayına alın." },
-  { icon: Wallet, title: "Paket oluştur", text: "Gün sonu kalan ürünler için adet, fiyat ve teslim alma saatleriyle sürpriz paket tanımla." },
-  { icon: QrCode, title: "Siparişleri doğrula", text: "Müşteri geldiğinde teslim alma kodunu panelden doğrula; sipariş otomatik kapanır." },
-  { icon: BarChart3, title: "Takip et & büyüt", text: "Sipariş, gelir ve değerlendirmeleri panelden izle, paketlerini optimize et." },
+const BUSINESS_STEPS = [
+  {
+    title: "İşletmeni tanıtalım.",
+    text: "Hesabını oluştur, işletme bilgilerini ve konumunu ekle. Başvurun incelenip onaylandığında paketlerini satışa sunabilirsin.",
+  },
+  {
+    title: "Fazlasını pakete dönüştür.",
+    text: "Satılmamış, tüketilmeye uygun ürünlerin için paket açıklamasını, adedini, fiyatını ve teslim alma aralığını belirle.",
+  },
+  {
+    title: "Teslim et, panelinden takip et.",
+    text: "Müşteri geldiğinde kodunu doğrula ve paketini teslim et. Siparişlerini, ödemelerini ve değerlendirmelerini tek yerden takip et.",
+  },
 ];
 
 export default function HowItWorksPage() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-      <header className="mx-auto max-w-2xl text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">
-          Nasıl çalışır?
-        </h1>
-        <p className="mt-4 text-lg text-slate-600">
-          Bitir Gitsin, işletmelerin fazla ürününü müşterilerle buluşturur.
-          Süreç hem müşteri hem işletme tarafında sade.
-        </p>
-      </header>
-
-      <section className="mt-16">
-        <h2 className="text-2xl font-bold text-slate-900">Müşteriler için</h2>
-        <div className="mt-6 grid gap-6 md:grid-cols-3">
-          {CUSTOMER.map((s, i) => (
-            <div key={s.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-lg bg-brand-100 text-brand-700">
-                  <s.icon className="h-5 w-5" />
-                </span>
-                <span className="text-sm font-semibold text-slate-400">Adım {i + 1}</span>
-              </div>
-              <h3 className="mt-4 font-bold text-slate-900">{s.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{s.text}</p>
-            </div>
-          ))}
+    <div className="bg-cream">
+      <section className="mx-auto grid max-w-6xl items-center gap-8 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[1.1fr_1fr] lg:gap-14">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-700">
+            Nasıl çalışır?
+          </p>
+          <h1 className="mt-5 font-display text-5xl font-black uppercase leading-[0.98] tracking-tight text-ink sm:text-7xl">
+            Bir paket.
+            <br />
+            <span className="text-brand-700">Üç kolay adım.</span>
+          </h1>
+          <p className="mt-7 max-w-lg text-lg leading-8 text-ink/75">
+            Yakınındaki lezzetleri keşfet, uygun fiyatla paketini ayırt ve
+            işletmeden teslim al. Yemeğin değerini birlikte koruyalım.
+          </p>
+          <ButtonLink
+            href="#musteriler"
+            variant="secondary"
+            size="lg"
+            className="mt-8"
+          >
+            Adımları keşfet <ArrowDown className="h-4 w-4" aria-hidden="true" />
+          </ButtonLink>
         </div>
-        <p className="mt-4 text-sm text-slate-500">
-          Müşteri tarafı Bitir Gitsin mobil uygulaması üzerinden çalışır.
-        </p>
-      </section>
-
-      <section className="mt-16">
-        <h2 className="text-2xl font-bold text-slate-900">İşletmeler için</h2>
-        <div className="mt-6 grid gap-6 sm:grid-cols-2">
-          {BUSINESS.map((s, i) => (
-            <div key={s.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-lg bg-brand-600 text-white">
-                  <s.icon className="h-5 w-5" />
-                </span>
-                <span className="text-sm font-semibold text-slate-400">Adım {i + 1}</span>
-              </div>
-              <h3 className="mt-4 font-bold text-slate-900">{s.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{s.text}</p>
-            </div>
-          ))}
+        <div className="relative isolate mx-auto w-full max-w-md">
+          <div className="absolute inset-x-3 bottom-6 top-10 -z-10 rounded-[50%_50%_12%_12%] bg-brand-200" />
+          <Image
+            src="/images/bakery-box.webp"
+            alt="İşletmeden teslim alınmaya hazır ekmek ve unlu mamullerden oluşan sürpriz paket"
+            width={640}
+            height={640}
+            sizes="(min-width: 640px) 448px, 90vw"
+            className="relative h-auto w-full"
+            priority
+          />
+          <p className="mx-auto w-fit -rotate-3 rounded-sm bg-ink px-5 py-3 font-display text-xl font-bold uppercase text-cream">
+            İyi yemek, güzel bir sürpriz.
+          </p>
         </div>
       </section>
 
-      <div className="mt-14 flex flex-col items-center justify-center gap-3 rounded-2xl bg-brand-50 px-6 py-10 text-center sm:flex-row">
-        <p className="text-lg font-semibold text-brand-900">
-          İşletmen için hazır mısın?
-        </p>
-        <ButtonLink href="/kayit" size="md">
-          Hemen kaydol
-        </ButtonLink>
-      </div>
+      <section
+        id="musteriler"
+        className="scroll-mt-28 border-t border-ink/10 bg-white/50"
+      >
+        <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24">
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <h2 className="max-w-xl font-display text-4xl font-black uppercase leading-none tracking-tight text-ink sm:text-5xl">
+              Bir sonraki lezzetin
+              <br />
+              çok yakınında.
+            </h2>
+            <p className="max-w-sm leading-7 text-ink/70">
+              Keşiften teslim almaya kadar siparişini Bitir Gitsin mobil
+              uygulamasından yönetirsin.
+            </p>
+          </div>
+          <ol className="mt-12 grid gap-10 md:grid-cols-3 md:gap-8">
+            {CUSTOMER_STEPS.map(({ icon: Icon, title, text }, index) => (
+              <li key={title} className="border-t border-ink/20 pt-5">
+                <div className="flex items-center justify-between">
+                  <span className="font-display text-6xl font-black text-brand-600">
+                    0{index + 1}
+                  </span>
+                  <Icon
+                    className="h-8 w-8 text-ink"
+                    strokeWidth={1.4}
+                    aria-hidden="true"
+                  />
+                </div>
+                <h3 className="mt-6 font-display text-2xl font-bold uppercase text-ink">
+                  {title}
+                </h3>
+                <p className="mt-3 leading-7 text-ink/75">{text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      <section className="bg-ink text-cream">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 sm:px-8 sm:py-24 md:grid-cols-2 md:gap-16">
+          <div className="overflow-hidden rounded-t-[40%] rounded-b-2xl">
+            <Image
+              src="/images/bakery.webp"
+              alt="Sürpriz paketlerde değerlendirilebilecek fırın ürünleri"
+              width={720}
+              height={720}
+              sizes="(min-width: 768px) 500px, 90vw"
+              className="aspect-square h-auto w-full object-cover"
+            />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-300">
+              Adı üstünde: sürpriz
+            </p>
+            <h2 className="mt-5 font-display text-4xl font-black uppercase leading-none tracking-tight sm:text-5xl">
+              İçinde ne var?
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-cream/80">
+              Bir fırından yeni favorin, bir restorandan günün lezzeti. Paketin
+              içeriği, işletmenin o gün elinde kalan ürünlere göre değişir.
+            </p>
+            <p className="mt-5 leading-7 text-cream/70">
+              Seçim yapmadan önce paket açıklamasını incele. İçerik, alerjen ve
+              saklama bilgileri için işletmeyle iletişime geç. Paketini
+              belirtilen saatlerde işletmeden kendin teslim alırsın.
+            </p>
+            <Link
+              href="/iptal-teslimat-iade"
+              className="mt-7 inline-flex min-h-11 items-center gap-3 font-semibold text-brand-200 underline underline-offset-4 hover:text-white"
+            >
+              Teslimat, iptal ve iade koşulları{" "}
+              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-sand">
+        <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 sm:px-8 sm:py-24 lg:grid-cols-[0.85fr_1.15fr] lg:gap-20">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-700">
+              İşletmeler için
+            </p>
+            <h2 className="mt-5 font-display text-4xl font-black uppercase leading-none tracking-tight text-ink sm:text-5xl">
+              Senin emeğin.
+              <br />
+              Yeni bir sofra.
+            </h2>
+            <p className="mt-6 max-w-md leading-8 text-ink/75">
+              Günün sonunda kalan lezzetleri, onları bekleyen insanlarla
+              buluştur. Paketlerini ve siparişlerini web panelinden yönet.
+            </p>
+            <ButtonLink
+              href="/isletmeler-icin"
+              variant="secondary"
+              className="mt-8"
+            >
+              İşletmen için keşfet{" "}
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </ButtonLink>
+          </div>
+          <ol>
+            {BUSINESS_STEPS.map((step, index) => (
+              <li
+                key={step.title}
+                className="flex gap-5 border-t border-ink/20 py-7 first:pt-5"
+              >
+                <span className="font-display text-3xl font-black text-brand-700">
+                  0{index + 1}
+                </span>
+                <div>
+                  <h3 className="font-display text-2xl font-bold uppercase text-ink">
+                    {step.title}
+                  </h3>
+                  <p className="mt-3 leading-7 text-ink/75">{step.text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
     </div>
   );
 }

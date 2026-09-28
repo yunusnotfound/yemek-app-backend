@@ -1,221 +1,363 @@
+import Link from "next/link";
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUpRight,
+  Check,
+  Heart,
   Leaf,
-  PackageCheck,
-  Wallet,
+  MapPin,
+  Plus,
+  ShieldCheck,
   Store,
-  Clock,
-  QrCode,
-  BarChart3,
-  ShoppingBag,
+  Wallet,
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/Button";
-
-const CATEGORIES = [
-  "FIRIN", "RESTORAN", "MARKET", "KAFE", "PASTANE", "DÖNER",
-  "PİZZA", "TATLI", "MANAV", "ŞARKÜTERİ", "KAHVALTI", "SUSHI",
-];
-
-const STEPS = [
-  { icon: Store, title: "Keşfet", text: "Müşteriler yakınındaki işletmelerin gün sonu sürpriz paketlerini uygulamadan görür." },
-  { icon: Wallet, title: "Ayırt", text: "Beğendiği paketi uygun fiyata ayırır, ödemesini yapar ve teslim alma kodunu alır." },
-  { icon: PackageCheck, title: "Teslim Al", text: "Belirtilen saat aralığında işletmeye uğrar, kodunu gösterir, lezzetini kurtarır." },
-];
+import { HowItWorks } from "@/components/site/HowItWorks";
+import { PaymentMethods } from "@/components/site/PaymentMethods";
+import { SITE } from "@/lib/config";
+import styles from "@/components/site/Marketing.module.css";
 
 const BENEFITS = [
-  { icon: Wallet, title: "Kaybı gelire çevir", text: "Satılmayan ürünleri çöpe atmak yerine indirimli paketlerle değerlendir." },
-  { icon: Store, title: "Yeni müşteriler", text: "Bölgendeki yeni müşterilerle tanış, sadık bir kitle oluştur." },
-  { icon: Clock, title: "Dakikalar içinde kurulum", text: "İşletmeni kaydet, paketini oluştur, satışa başla. Teknik bilgi gerekmez." },
-  { icon: QrCode, title: "Kolay teslimat", text: "Müşterinin teslim alma kodunu panelden doğrula, siparişi kapat." },
-  { icon: BarChart3, title: "Gerçek zamanlı panel", text: "Sipariş, gelir ve değerlendirmeleri tek ekrandan takip et." },
-  { icon: Leaf, title: "Sürdürülebilirlik", text: "Gıda israfını azaltarak markanı çevreci değerlerle güçlendir." },
+  {
+    icon: Wallet,
+    title: "Bütçene iyi gelir.",
+    text: "Sevdiğin lezzetlere, gün sonuna özel daha uygun fiyatlarla ulaş.",
+  },
+  {
+    icon: MapPin,
+    title: "Mahallene iyi gelir.",
+    text: "Yakınındaki fırınları, kafeleri ve restoranları yeniden keşfet.",
+  },
+  {
+    icon: Leaf,
+    title: "Gezegene iyi gelir.",
+    text: "Hâlâ tüketilebilir güzel yemeklerin israf olmasını önlemeye katkı sağla.",
+  },
 ];
 
-const display = "font-display font-black uppercase tracking-tight";
+const CATEGORIES = [
+  {
+    title: "Fırından gelen mutluluk",
+    type: "FIRIN & PASTANE",
+    image: "bakery.webp",
+    alt: "Tahta sunum üzerinde simit, ekmek ve poğaça",
+  },
+  {
+    title: "Günün lezzetli sürprizi",
+    type: "RESTORAN & KAFE",
+    image: "restaurant.webp",
+    alt: "Restoran lezzetlerinden oluşan bir yemek tabağı",
+  },
+  {
+    title: "İyilikle dolu bir sepet",
+    type: "MARKET & MANAV",
+    image: "produce.webp",
+    alt: "Çeşitli mevsim meyveleri ve sebzeleri",
+  },
+];
+
+const FAQ = [
+  {
+    q: "Sürpriz paketin içinde ne var?",
+    a: "Paket içeriği, işletmenin o gün elinde kalan ve tüketime uygun ürünlerine göre değişir. Ürün türü, fiyatı ve teslim alma saatleri için uygulamadaki paket açıklamasını inceleyebilirsin. Alerjin veya özel bir beslenme ihtiyacın varsa sipariş vermeden önce işletmeden bilgi almalısın.",
+  },
+  {
+    q: "Paketim adresime teslim edilir mi?",
+    a: "Paketini, siparişte belirtilen saat aralığında doğrudan işletmeden teslim alırsın. Bitir Gitsin’de kurye veya adrese teslim hizmeti bulunmaz. Teslim alma kodunu işletmede göstermen yeterli.",
+    href: "/iptal-teslimat-iade#teslimat",
+    label: "Teslim alma koşulları",
+  },
+  {
+    q: "Siparişimi iptal edebilir miyim?",
+    a: "Teslim alınmamış, iptale uygun siparişini uygulamadaki sipariş detayından iptal edebilirsin. Ödeme yaptıysan iptal işlemiyle birlikte iade süreci başlatılır. Bankana yansıma süresi ödeme kuruluşuna ve bankana göre değişebilir.",
+    href: "/iptal-teslimat-iade#iptal",
+    label: "İptal ve iade koşulları",
+  },
+  {
+    q: "Paketimle ilgili bir sorun yaşarsam ne yapmalıyım?",
+    a: `Sipariş numaran ve yaşadığın sorunun açıklamasıyla ${SITE.email} adresinden bize ulaşabilirsin. Varsa fotoğrafları da ekleyebilirsin. Eksik, bozuk veya siparişe uygun olmayan ürünlere ilişkin yasal hakların saklıdır.`,
+    href: "/iptal-teslimat-iade#iade",
+    label: "İade ve destek süreci",
+  },
+];
 
 export default function HomePage() {
   return (
     <>
-      {/* ── Hero ───────────────────────────────────────────────────────── */}
-      {/* -mt-16: şeffaf (sticky) navbar'ın arkasına uzanır */}
-      <section className="relative isolate -mt-16 overflow-hidden bg-brand-700 text-white">
-        {/* Lifestyle görsel — web/public/hero.jpg (kendi fotoğrafınla değiştir) */}
-        <img
-          src="/hero.jpg"
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover object-center"
-        />
-        {/* Turuncu tonlama + metin okunabilirliği için degradeler */}
-        <div className="absolute inset-0 bg-brand-600/40 mix-blend-multiply" />
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-700/55 via-brand-700/10 to-brand-800/85" />
-
-        <div className="relative mx-auto flex min-h-[80vh] max-w-6xl flex-col items-center justify-end px-4 pb-20 pt-28 text-center sm:px-6">
-          <h1 className={`text-5xl leading-[0.9] text-cream drop-shadow-md sm:text-6xl md:text-7xl ${display}`}>
-            İsrafı azalt,
-            <br />
-            lezzeti kurtar.
-          </h1>
-          <div className="mt-9 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row">
-            <ButtonLink href="#" variant="light" size="lg" className="w-full sm:w-auto">
-              Uygulamayı indir
-            </ButtonLink>
-            <ButtonLink href="/isletmeler-icin" variant="outlineLight" size="lg" className="w-full sm:w-auto">
-              İşletmeler için
-            </ButtonLink>
+      <section className={styles.hero} aria-labelledby="hero-title">
+        <div className={styles.heroInner}>
+          <div className={styles.heroCopy}>
+            <p className={styles.eyebrow}>
+              <span className={styles.smallDot} /> İYİ YEMEK. İYİ FİYAT. İYİ BİR
+              GELECEK.
+            </p>
+            <h1 id="hero-title" className={styles.heroTitle}>
+              İSRAFI AZALT.
+              <br />
+              LEZZETİ
+              <br />
+              <span className={styles.heroUnderline}>KURTAR.</span>
+            </h1>
+            <p className={styles.heroDescription}>
+              Mahallendeki güzel lezzetlere bir şans daha ver. Gün sonu sürpriz
+              paketlerini keşfet; hem bütçene hem gezegene iyi gelsin.
+            </p>
+            <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:flex-wrap [&>a]:shrink-0">
+              <ButtonLink href="#nasil-calisir" variant="secondary" size="lg">
+                Nasıl çalışır? <ArrowDown className="h-4 w-4" />
+              </ButtonLink>
+              <ButtonLink
+                href="/isletmeler-icin"
+                variant="outline"
+                size="lg"
+                className="border-ink/40"
+              >
+                İşletmeler için <ArrowUpRight className="h-4 w-4" />
+              </ButtonLink>
+            </div>
+            <p className={styles.heroNote}>
+              <Leaf className="h-4 w-4" aria-hidden="true" /> Küçük bir seçim,
+              güzel bir değişim.
+            </p>
+          </div>
+          <div className={styles.heroVisual}>
+            <div className={styles.heroPhoto}>
+              <img
+                src="/images/surprise-bag.webp"
+                width="1536"
+                height="1024"
+                fetchPriority="high"
+                alt="Ekmek, simit, kruvasan ve sebzelerle dolu bir sürpriz paket"
+              />
+            </div>
+            <div className={styles.rescueStamp} aria-hidden="true">
+              <span>BİR PAKET</span>
+              <Heart size={33} strokeWidth={1.7} />
+              <span>BİR İYİLİK</span>
+            </div>
+            <div className={styles.heroLabel}>
+              <span className={styles.labelIcon}>
+                <Leaf size={22} />
+              </span>
+              <span>
+                <strong>Fazlası var. İsrafı yok.</strong>
+                <small>Bugünün lezzeti, senin sürprizin.</small>
+              </span>
+            </div>
+            <span className={styles.visualCaption}>
+              Sürpriz paket içeriği işletmeye ve güne göre değişir.
+            </span>
           </div>
         </div>
       </section>
 
-      {/* ── Misyon ─────────────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28">
-        <p className="text-2xl font-medium leading-snug text-ink sm:text-3xl md:text-4xl">
-          Bitir Gitsin, gün sonunda kalan kaliteli lezzetleri uygun fiyatlı sürpriz
-          paketlerle{" "}
-          <span className="relative whitespace-nowrap text-brand-600">
-            kurtaran
-            <svg className="absolute -bottom-1 left-0 w-full" height="6" viewBox="0 0 200 6" preserveAspectRatio="none" aria-hidden>
-              <path d="M0 3 Q 50 6 100 3 T 200 3" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
-            </svg>
-          </span>{" "}
-          bir gıda israfını önleme platformudur.
-        </p>
-        <p className="mx-auto mt-6 max-w-2xl text-base text-ink/60">
-          İşletmenin kaybını gelire, müşterinin bütçesini lezzete çevirir; her
-          kurtarılan paket çöpe gitmeyen gıda demektir.
-        </p>
-      </section>
-
-      {/* ── Neden Bitir Gitsin ──────────────────────────────────────────── */}
-      <section className="bg-cream pb-20 sm:pb-28">
-        <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
-          <p className="font-display text-base font-bold uppercase tracking-[0.25em] text-ink">
-            Neden
-          </p>
-          <h2 className={`mt-1 text-5xl text-brand-600 sm:text-6xl ${display}`}>
-            Bitir Gitsin?
-          </h2>
-
-          <div className="mt-14 grid items-center gap-x-6 gap-y-12 md:grid-cols-[1fr_auto_1fr]">
-            {/* Sol değerler */}
-            <div className="flex flex-col gap-y-12 md:gap-y-28 md:py-6 md:text-right">
-              <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
-                Yarım fiyatına lezzet
-              </p>
-              <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
-                İsrafı azaltarak gezegene katkı
-              </p>
+      <div
+        className={styles.ticker}
+        aria-label="Fırın, restoran, kafe, market, pastane ve manavlardan sürpriz paketler"
+      >
+        <div className={styles.tickerTrack} aria-hidden="true">
+          {[0, 1].map((copy) => (
+            <div key={copy}>
+              {["FIRIN", "RESTORAN", "KAFE", "MARKET", "PASTANE", "MANAV"].map(
+                (item) => (
+                  <span key={item}>
+                    {item}
+                    <span className={styles.tickerStar}>✳</span>
+                  </span>
+                ),
+              )}
             </div>
-
-            {/* Merkez: sürpriz paket */}
-            <div className="relative mx-auto grid h-60 w-60 place-items-center sm:h-72 sm:w-72">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 shadow-xl" />
-              <ShoppingBag className="relative h-28 w-28 text-cream" strokeWidth={1.5} />
-            </div>
-
-            {/* Sağ değerler */}
-            <div className="flex flex-col gap-y-12 md:gap-y-28 md:py-6 md:text-left">
-              <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
-                Yakınındaki lezzetleri kurtar
-              </p>
-              <p className="font-display text-lg font-bold uppercase leading-tight text-ink">
-                Yeni işletmeler keşfet
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Kategori şeridi ────────────────────────────────────────────── */}
-      <div className="overflow-hidden border-y-2 border-ink bg-ink py-3.5 text-cream">
-        <div className="flex w-max animate-marquee">
-          {[0, 1].map((dup) => (
-            <ul key={dup} className="flex shrink-0 items-center" aria-hidden={dup === 1}>
-              {CATEGORIES.map((c) => (
-                <li key={c} className="flex items-center">
-                  <span className={`px-6 text-lg ${display} text-cream`}>{c}</span>
-                  <Leaf className="h-3.5 w-3.5 text-brand-400" />
-                </li>
-              ))}
-            </ul>
           ))}
         </div>
       </div>
 
-      {/* ── Nasıl çalışır (koyu bölüm) ─────────────────────────────────── */}
-      <section className="bg-ink text-cream">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
-          <div className="mx-auto max-w-2xl text-center">
-            <span className="text-sm font-bold uppercase tracking-widest text-gold-400">
-              Nasıl çalışır
-            </span>
-            <h2 className={`mt-3 text-4xl sm:text-5xl ${display}`}>
-              Üç adımda lezzet kurtar
-            </h2>
-          </div>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {STEPS.map((s, i) => (
-              <div key={s.title} className="relative rounded-3xl bg-white/5 p-8 ring-1 ring-white/10">
-                <span className={`absolute right-7 top-6 text-6xl text-white/10 ${display}`}>
-                  {i + 1}
-                </span>
-                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-brand-600 text-white">
-                  <s.icon className="h-7 w-7" />
-                </span>
-                <h3 className={`mt-6 text-2xl ${display}`}>{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-cream/70">{s.text}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-8 text-center text-sm text-cream/50">
-            Müşteri tarafı Bitir Gitsin mobil uygulaması üzerinden çalışır.
-          </p>
-        </div>
-      </section>
-
-      {/* ── İşletmeler için ────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
-        <div className="mx-auto max-w-2xl text-center">
-          <span className="text-sm font-bold uppercase tracking-widest text-brand-600">
-            İşletmeler için
-          </span>
-          <h2 className={`mt-3 text-4xl text-ink sm:text-5xl ${display}`}>
-            Satamadığın ürün, kayıp olmasın
-          </h2>
-          <p className="mt-4 text-ink/60">
-            İşletme paneliyle paketlerini yönet, siparişleri takip et, geliri artır.
-          </p>
-        </div>
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {BENEFITS.map((b) => (
-            <div key={b.title} className="rounded-3xl border border-ink/10 bg-white p-7 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-brand-100 text-brand-700">
-                <b.icon className="h-6 w-6" />
+      <section className={`${styles.section} ${styles.mission}`}>
+        <p className={`${styles.eyebrow} text-brand-700`}>
+          HER PAKETİN BİR HİKÂYESİ VAR
+        </p>
+        <h2 className={styles.sectionTitle}>
+          GÜZEL YEMEĞİN YERİ
+          <br />
+          <span className="text-brand-600">ÇÖP DEĞİL.</span>
+        </h2>
+        <p className={styles.intro}>
+          Bir fırının son simidi, bir kafenin son dilimi… Gün bitti diye lezzet
+          bitmez. Bitir Gitsin, işletmelerin gün sonunda kalan kaliteli
+          ürünlerini uygun fiyatlı sürpriz paketlerle seninle buluşturur.
+        </p>
+        <div className={styles.benefits}>
+          {BENEFITS.map(({ icon: Icon, title, text }) => (
+            <div key={title} className={styles.benefit}>
+              <span className={styles.benefitIcon}>
+                <Icon size={27} strokeWidth={1.5} />
               </span>
-              <h3 className="mt-5 text-lg font-bold text-ink">{b.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink/60">{b.text}</p>
+              <h3>{title}</h3>
+              <p>{text}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── Büyük CTA ──────────────────────────────────────────────────── */}
-      <section className="px-4 pb-24 sm:px-6">
-        <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand-500 to-brand-700 px-8 py-16 text-center shadow-xl sm:px-16">
-          <ShoppingBag className="pointer-events-none absolute -right-8 -bottom-10 h-56 w-56 text-white/10" />
-          <h2 className={`relative text-4xl text-white sm:text-5xl ${display}`}>
-            İşletmeni bugün kaydet
-          </h2>
-          <p className="relative mx-auto mt-4 max-w-xl text-white/90">
-            Kurulum ücreti yok, aylık sabit ücret yok. Sadece sat, kazan ve israfı azalt.
-          </p>
-          <div className="relative mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <ButtonLink href="/kayit" variant="light" size="lg" className="w-full sm:w-auto">
-              Ücretsiz başla <ArrowRight className="h-5 w-5" />
-            </ButtonLink>
-            <ButtonLink href="/isletmeler-icin" variant="outlineLight" size="lg" className="w-full sm:w-auto">
-              Detayları gör
-            </ButtonLink>
+      <HowItWorks />
+
+      <section className={styles.section}>
+        <div className={styles.sectionHeading}>
+          <div>
+            <p className={`${styles.eyebrow} text-brand-700`}>
+              HER GÜN BAŞKA BİR SÜRPRİZ
+            </p>
+            <h2 className={styles.sectionTitle}>CANIN NE ÇEKERSE.</h2>
           </div>
+          <p className={styles.sectionAside}>
+            Mahallendeki lezzetlerin tadını çıkar.
+            <br />
+            Yeni favorin, bir sürpriz pakette olabilir.
+          </p>
+        </div>
+        <div className={styles.categoryGrid}>
+          {CATEGORIES.map((category) => (
+            <article key={category.type} className={styles.categoryCard}>
+              <div className={styles.categoryImage}>
+                <img
+                  src={`/images/${category.image}`}
+                  alt={category.alt}
+                  width="720"
+                  height="720"
+                  loading="lazy"
+                />
+              </div>
+              <div className={styles.categoryBody}>
+                <p className={styles.eyebrow}>{category.type}</p>
+                <h3>{category.title}</h3>
+              </div>
+            </article>
+          ))}
+        </div>
+        <p className="mt-5 text-center text-xs text-muted-ink">
+          Görseller temsilidir. Paketleri ve güncel içerik bilgilerini mobil
+          uygulamada inceleyebilirsin.
+        </p>
+      </section>
+
+      <section className={styles.businessSection}>
+        <div className={styles.businessInner}>
+          <div className={styles.businessVisual}>
+            <span className={styles.businessCircle} />
+            <img
+              src="/images/bakery-box.webp"
+              alt="Kruvasan, simit ve ekmekten oluşan fırın sürpriz paketi"
+              width="640"
+              height="640"
+              loading="lazy"
+            />
+            <span className={styles.businessTag}>
+              <Store size={20} /> Yerel işletmeler, büyük değişim.
+            </span>
+          </div>
+          <div>
+            <p className={`${styles.eyebrow} text-brand-700`}>
+              İŞLETMELER İÇİN BİTİR GİTSİN
+            </p>
+            <h2 className={styles.sectionTitle}>
+              EMEĞİN DEĞERLİ.
+              <br />
+              İSRAF OLMASIN.
+            </h2>
+            <p className={styles.bodyCopy}>
+              Özenle hazırladığın ürünleri gün sonunda sürpriz paketlere
+              dönüştür. Yeni müşterilerle tanış, ek gelir elde et, gıda israfını
+              birlikte azaltalım.
+            </p>
+            <ul className={styles.businessList}>
+              {[
+                "Fazla ürünlerini kazanca dönüştür",
+                "Paketlerini ve siparişlerini tek panelden yönet",
+                "Teslim alma koduyla kolayca teslim et",
+              ].map((text) => (
+                <li key={text}>
+                  <Check size={18} />
+                  {text}
+                </li>
+              ))}
+            </ul>
+            <ButtonLink href="/kayit" variant="secondary" size="lg">
+              İşletmeni kaydet <ArrowRight size={18} />
+            </ButtonLink>
+            <Link href="/isletmeler-icin" className={styles.textLink}>
+              İşletmeler için tüm avantajlar <ArrowUpRight size={16} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.section}>
+        <div className={styles.faqGrid}>
+          <div>
+            <p className={`${styles.eyebrow} text-brand-700`}>
+              AKLINDA SORU KALMASIN
+            </p>
+            <h2 className={styles.sectionTitle}>
+              MERAK
+              <br />
+              ETTİKLERİN.
+            </h2>
+            <p className={styles.bodyCopy}>
+              İlk sürpriz paketinden önce
+              <br />
+              bilmen gerekenler burada.
+            </p>
+            <Link href={`mailto:${SITE.email}`} className={styles.textLink}>
+              Bize ulaş <ArrowUpRight size={16} />
+            </Link>
+          </div>
+          <div>
+            {FAQ.map((item) => (
+              <details key={item.q} className={styles.faqItem}>
+                <summary>
+                  {item.q}
+                  <Plus size={20} aria-hidden="true" />
+                </summary>
+                <div>
+                  <p>{item.a}</p>
+                  {item.href && (
+                    <Link href={item.href} className={styles.textLink}>
+                      {item.label} <ArrowRight size={15} />
+                    </Link>
+                  )}
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section
+        className={styles.paymentSection}
+        aria-labelledby="payment-heading"
+      >
+        <div className={styles.paymentInner}>
+          <div className="flex items-start gap-4">
+            <ShieldCheck
+              className="mt-1 h-8 w-8 shrink-0 text-brand-700"
+              strokeWidth={1.5}
+            />
+            <div>
+              <h2 id="payment-heading" className="text-lg font-bold">
+                Ödemen güvenle, aklın lezzette.
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted-ink">
+                Ödemeler iyzico altyapısı üzerinden gerçekleştirilir.
+              </p>
+              <Link
+                href="/iptal-teslimat-iade"
+                className="mt-3 inline-flex items-center gap-2 text-xs font-semibold underline underline-offset-4"
+              >
+                İptal, teslimat ve iade koşulları <ArrowUpRight size={14} />
+              </Link>
+            </div>
+          </div>
+          <PaymentMethods />
         </div>
       </section>
     </>

@@ -1,121 +1,143 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { ArrowUpRight, Menu, X } from "lucide-react";
 import { Logo } from "@/components/site/Logo";
 import { ButtonLink } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
 const NAV_LINKS = [
-  { href: "/nasil-calisir", label: "Nasıl Çalışır" },
-  { href: "/isletmeler-icin", label: "İşletmeler İçin" },
-  { href: "/hakkimizda", label: "Hakkımızda" },
+  { href: "/nasil-calisir", label: "Nasıl çalışır?" },
+  { href: "/isletmeler-icin", label: "İşletmeler için" },
+  { href: "/hakkimizda", label: "Biz kimiz?" },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  // Şeffaf yalnızca ana sayfanın en üstünde (koyu hero üzerinde); menü açıkken
-  // veya kaydırınca ya da diğer sayfalarda katı krem.
-  const isHome = pathname === "/";
-  const transparent = isHome && !scrolled && !open;
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  const trigger = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-50 transition-colors duration-300",
-        transparent
-          ? "bg-transparent"
-          : "border-b border-ink/10 bg-cream/90 backdrop-blur",
-      )}
-    >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Logo tone={transparent ? "light" : "dark"} />
-
-        <nav className="hidden items-center gap-8 md:flex">
-          {NAV_LINKS.map((l) => (
+    <header className="sticky top-0 z-40 border-b border-ink/10 bg-cream/95 backdrop-blur-md">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-ink focus:px-4 focus:py-3 focus:text-cream"
+      >
+        İçeriğe geç
+      </a>
+      <div className="mx-auto flex h-20 max-w-[1328px] items-center justify-between gap-6 px-6 lg:px-12">
+        <Logo />
+        <nav
+          aria-label="Ana menü"
+          className="hidden items-center gap-7 lg:flex"
+        >
+          {NAV_LINKS.map((link) => (
             <Link
-              key={l.href}
-              href={l.href}
+              key={link.href}
+              href={link.href}
+              aria-current={pathname === link.href ? "page" : undefined}
               className={cn(
-                "text-sm font-semibold transition-colors",
-                transparent
-                  ? "text-white/90 hover:text-white"
-                  : "text-ink/70 hover:text-brand-700",
+                "text-xs font-bold transition-colors hover:text-brand-700",
+                pathname === link.href ? "text-brand-700" : "text-ink/80",
               )}
             >
-              {l.label}
+              {link.label}
             </Link>
           ))}
         </nav>
-
-        <div className="hidden items-center gap-2 md:flex">
-          <ButtonLink
+        <div className="hidden items-center gap-5 lg:flex">
+          <Link
             href="/giris"
-            variant="ghost"
-            size="sm"
-            className={transparent ? "!text-white hover:!bg-white/10" : ""}
+            className="text-xs font-semibold hover:text-brand-700"
           >
-            Giriş Yap
-          </ButtonLink>
-          <ButtonLink href="/kayit" size="sm">
-            İşletme Kaydı
+            İşletme girişi
+          </Link>
+          <ButtonLink
+            href="/kayit"
+            variant="secondary"
+            size="sm"
+            className="min-h-11 text-xs"
+          >
+            İşletmeni kaydet <ArrowUpRight size={16} />
           </ButtonLink>
         </div>
-
         <button
+          ref={trigger}
           type="button"
-          onClick={() => setOpen((v) => !v)}
-          className={cn(
-            "inline-flex h-10 w-10 items-center justify-center rounded-lg md:hidden",
-            transparent ? "text-white hover:bg-white/10" : "text-ink hover:bg-ink/5",
-          )}
-          aria-label="Menü"
+          onClick={() => setOpen((value) => !value)}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 text-ink hover:bg-ink/5 lg:hidden"
+          aria-label={open ? "Menüyü kapat" : "Menüyü aç"}
           aria-expanded={open}
+          aria-controls="mobile-menu"
         >
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {open ? <X size={23} /> : <Menu size={23} />}
         </button>
       </div>
-
-      {open ? (
-        <div className="border-t border-ink/10 bg-cream md:hidden">
-          <nav className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-3">
-            {NAV_LINKS.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-2.5 text-sm font-semibold text-ink/80 hover:bg-ink/5"
-              >
-                {l.label}
-              </Link>
-            ))}
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <ButtonLink href="/giris" variant="outline" size="sm" onClick={() => setOpen(false)}>
-                Giriş Yap
-              </ButtonLink>
-              <ButtonLink href="/kayit" size="sm" onClick={() => setOpen(false)}>
-                İşletme Kaydı
-              </ButtonLink>
-            </div>
-          </nav>
+      <nav
+        id="mobile-menu"
+        aria-label="Mobil menü"
+        hidden={!open}
+        className="absolute inset-x-0 top-full max-h-[calc(100dvh-5rem)] overflow-y-auto border-b border-ink/15 bg-cream px-6 py-6 shadow-surface lg:hidden"
+      >
+        <div className="mx-auto flex max-w-6xl flex-col gap-2">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={() => setOpen(false)}
+              aria-current={pathname === link.href ? "page" : undefined}
+              className={cn(
+                "rounded-lg px-3 py-3 text-sm font-semibold hover:bg-ink/5",
+                pathname === link.href && "text-brand-700",
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <Link
+            href="/iptal-teslimat-iade"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-3 text-sm font-semibold hover:bg-ink/5"
+          >
+            İptal, teslimat ve iade
+          </Link>
+          <div className="mt-3 flex flex-wrap gap-3 border-t border-ink/10 pt-5">
+            <ButtonLink
+              href="/giris"
+              variant="outline"
+              size="sm"
+              onClick={() => setOpen(false)}
+            >
+              İşletme girişi
+            </ButtonLink>
+            <ButtonLink
+              href="/kayit"
+              variant="secondary"
+              size="sm"
+              onClick={() => setOpen(false)}
+            >
+              İşletmeni kaydet <ArrowUpRight size={16} />
+            </ButtonLink>
+          </div>
         </div>
-      ) : null}
+      </nav>
     </header>
   );
 }
